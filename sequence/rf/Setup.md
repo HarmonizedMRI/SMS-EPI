@@ -12,6 +12,7 @@ Requires the
 packages.
 
 
+Get the code:
 ```
 $ cd ~/github/
 $ git clone git@github.com:pulseq/pulseq.git
@@ -19,18 +20,19 @@ $ git clone git@github.com:toppeMRI/toppe.git
 % git clone git@github.com:toppeMRI/PulseGEq.git
 ```
 
+Set Matlab paths:
 ```
-  >> addpath ~/github/pulseq/matlab/            % +mr package
-  >> addpath ~/github/toppe/                    % +toppe package
-  >> addpath ~/github/PulseGEq/                 % +pulsegeq package
+>> addpath ~/github/pulseq/matlab/            % +mr package
+>> addpath ~/github/toppe/                    % +toppe package
+>> addpath ~/github/PulseGEq/                 % +pulsegeq package
 ```
 
 
 ## GET THE CODE
 
 ```
-  $ cd ~/github/
-  $ git clone git@github.com:harmonizedMRI/SMS-EPI.git
+$ cd ~/github/
+$ git clone git@github.com:harmonizedMRI/SMS-EPI.git
 ```
 
 
