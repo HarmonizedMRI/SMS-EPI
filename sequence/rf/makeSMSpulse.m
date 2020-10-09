@@ -19,12 +19,11 @@ function [rf, g] = makeSMSpulse(flip, slThick, tbw, dur, nSlices, sliceSep, vara
 % Outputs
 %   rf    [nt 1]   Complex RF waveform (Gauss). Raster/dwell/sample time is 4us.
 %   g     [nt 1]   Slice-select gradient (Gauss/cm)
-%
-% Example:
-% >> [rf,g] = makeSMSpulse(70, 0.5, 6, 4, 5, 4, 'doSim', true, 'writeModFile', true);
-% >> sys = toppe.systemspecs('maxSlew', 15, 'slewUnit', 'Gauss/cm/ms', ...
-% >>           'maxRf', 0.25, 'rfUnit', 'Gauss');
-% >> [rf,g] = makeSMSpulse(70, 0.5, 6, 4, 5, 4, 'system', sys);
+
+if strcmp(flip, 'test')
+	sub_test();
+	return;
+end
 
 % parse inputs
 arg.doSim        = false;
@@ -97,3 +96,14 @@ if arg.writeModFile
 end
 
 return
+
+function sub_test
+flip = 90;       % degrees
+slThick = 0.5;   % cm
+sliceSep = 4;    % cm
+tbw = 6;
+dur = 4;         % msec
+mb = 5;          % multiband factor (number of slices)
+makeSMSpulse(flip, slThick, tbw, dur, mb, sliceSep, ...
+	'doSim', true);
+return;
