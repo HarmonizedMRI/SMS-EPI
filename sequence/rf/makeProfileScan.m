@@ -1,4 +1,3 @@
-function seq = makeProfileScan
 % Create SMS pulse, and matched Pulseq and TOPPE scans for imaging the slice profile (2D MIP)
 %
 % Outputs:
