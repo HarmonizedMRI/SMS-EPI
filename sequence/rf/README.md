@@ -2,20 +2,27 @@
 
 ## Dependencies and setup 
 
-See [Setup](Setup.md)
+See [Setup.md](Setup.md)
 
 
 ## Test the code
 
 ```
-  >> cd SMS-EPI/sequence/rf/
-  >> makeSMSpulse('test');
+>> cd SMS-EPI/sequence/rf/
+>> makeSMSpulse('test');
 ```
 
-## Create Pulseq + TOPPE scans for imaging the slice profile
+## Create Pulseq and TOPPE scans for imaging the slice profile
 
 ```
 >> makeProfileScan;
 ```
+Creates `SMSprofile.seq` and `SMSprofile.tgz`.
+
+GE users:
+Untar `SMSprofile.tgz` in /usr/g/bin/ and scan with the `toppev3` interpreter.
+
+Siemens users:
+Place `SMSprofile.seq` on scanner and execute scan.
 
 
