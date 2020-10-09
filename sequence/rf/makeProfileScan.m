@@ -8,9 +8,9 @@
 % >> makeProfileScan;
 
 % Set paths to Pulseq and TOPPE libraries
-addpath ~/github/pulseq/matlab/       % +mr package
-addpath ~/gitlab/fMRI/toppe/          % +toppe package
-addpath ~/github/toppeMRI/PulseGEq/   % +pulsegeq package (Pulseq <--> TOPPE conversion)
+%addpath ~/github/pulseq/matlab/         % +mr package
+%addpath ~/github/toppeMRI/toppe/        % +toppe package
+%addpath ~/github/toppeMRI/PulseGEq/     % +pulsegeq package (Pulseq <--> TOPPE conversion)
 
 % Excitation pulse parameters
 ex.flip = 90;        % degrees
