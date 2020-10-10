@@ -27,7 +27,7 @@ nz = 1;                  % MIP
 fov = 20;                % fov (cm) 
 oprbw = 125/4;           % Acquisition bandwidth (kHz)
 nCycleSpoil = 2;         % readout spoiler gradient area (cycles across voxel dimension)
-TR = 40;                 % msec. Slow down scan to reduce T1 weighting.
+TR = 1000;                 % msec. Slow down scan to reduce T1 weighting.
 nDisdaq = 5;             % discarded TRs at beginning to reach steady state
 
 % Set hardware limits used for waveform DESIGN 
@@ -62,6 +62,7 @@ seq = mr.Sequence(siemens.system);
 
 % Design rf waveform
 [ex.rf, ex.g] = makeSMSpulse(ex.flip, ex.slThick, ex.tbw, ex.dur, ex.nSlices, ex.sliceSep, ...
+	'doSim', true, ...
 	'system', limits.design);
 
 % Design readout gradients
@@ -182,7 +183,7 @@ system('tar czf SMSprofile.tgz modules.txt scanloop.txt tipdown.mod readout.mod'
 nModsPerTR = 2;    % number of TOPPE modules per TR
 nTR = ny/2;        % number of TRs to display
 nStart = nModsPerTR * floor(nDisdaq+ny/2-nTR/2);
-toppe.plotseq(nStart, nStart + nTR*nModsPerTR);
+figure; toppe.plotseq(nStart, nStart + nTR*nModsPerTR);
 tStart = nStart/nModsPerTR*TR*1e-3;    % sec
 tStop = tStart + nTR*TR*1e-3;          % sec
 seq.plot('timeRange', [tStart tStop]);
