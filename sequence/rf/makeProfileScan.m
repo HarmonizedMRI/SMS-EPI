@@ -121,7 +121,13 @@ acq.preDelay = nPre*ge.system.raster;            % sec
 acq.flat = nPlateau*ge.system.raster;            % duration of flat portion of readout (sec)
 siemens.acq.N = 2*round(acq.flat/siemens.system.gradRasterTime/2);   % number of readout samples (Siemens)
 siemens.acq.dur = siemens.acq.N*siemens.system.gradRasterTime;
-adc = mr.makeAdc(siemens.acq.N, 'Duration', siemens.acq.dur, 'Delay', acq.preDelay, 'system', siemens.system);
+pulseq.adc = mr.makeAdc(siemens.acq.N, 'Duration', siemens.acq.dur, 'Delay', acq.preDelay, 'system', siemens.system);
+
+% Create other Pulseq objects that don't need updating in scan loop (except phase)
+pulseq.acq.gz = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system); 
+pulseq.ex.g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system);
+pulseq.ex.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, ...
+	'system', siemens.system, 'delay', siemens.ex.rfdelay);
 
 % Scan loop
 rfphs = 0;              % radians
@@ -142,15 +148,11 @@ for iz = 1:nz
 		a_gz = (iy > 0) * ((iz-1+0.5)-nz/2)/(nz/2);
 
 		% rf excitation (TOPPE)
-	  	toppe.write2loop('tipdown.mod', ...
-			'RFamplitude', 1.0, ...
-			'RFphase', rfphs);
+	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, 'RFphase', rfphs);
 
 		% rf excitation (Pulseq)
-		rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'PhaseOffset', rfphs, ...
-			'system', siemens.system, 'delay', siemens.ex.rfdelay);
-		g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system);
-		seq.addBlock(rf, g);
+		pulseq.ex.rf.phaseOffset = rfphs;
+		seq.addBlock(pulseq.ex.rf, pulseq.ex.g);
 
 	 	% readout (TOPPE)
 		toppe.write2loop('readout.mod', ...
@@ -163,9 +165,8 @@ for iz = 1:nz
 		% readout (Pulseq)
 		gx = mr.makeArbitraryGrad('x', a_gz*siemens.acq.gz, siemens.system); 
 		gy = mr.makeArbitraryGrad('y', a_gy*siemens.acq.gy, siemens.system); 
-		gz = mr.makeArbitraryGrad('z',      siemens.acq.gx, siemens.system); 
-		adc.phaseOffset = rfphs;   % radians
-		seq.addBlock(gx, gy, gz, adc); 
+		pulseq.adc.phaseOffset = rfphs;   % radians
+		seq.addBlock(gx, gy, pulseq.acq.gz, pulseq.adc); 
 		seq.addBlock(mr.makeDelay(siemens.delay));  % adding delay event to readout block does not produce desired TR. Is this the intended Pulseq behavior?
 
 		% update rf phase (RF spoiling)
