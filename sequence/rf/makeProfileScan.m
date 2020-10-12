@@ -80,7 +80,8 @@ I = find(abs(ex.rf) == 0);
 iStart = find(diff(I)>1) + 1;
 iStop = I(iStart+1);
 siemens.ex.rf = pulsegeq.rf2pulseq(ex.rf(iStart:iStop), ge.system.raster, seq);  % Gauss -> Hz; 4us -> 1us.
-siemens.ex.rfdelay = iStart * ge.system.raster;   % sec
+siemens.ex.rfdelay = iStart * ge.system.raster; 
+siemens.ex.gdelay = max(0, siemens.system.rfDeadTime - siemens.ex.rfdelay);
 siemens.ex.g  = pulsegeq.g2pulseq(ex.g, ge.system.raster, seq);    % Gauss/cm -> Hz/m; 4us -> 10us
 siemens.acq.gx = pulsegeq.g2pulseq(acq.gx, ge.system.raster, seq); % readout gradient
 siemens.acq.gy = pulsegeq.g2pulseq(acq.gy, ge.system.raster, seq); % phase-encode gradient
@@ -109,7 +110,7 @@ tr_min = toppe.getTRtime(1,2)*1e3;       % msec
 ge.delay = TR - tr_min;                  % msec
 
 tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'system', siemens.system, 'delay', siemens.ex.rfdelay);
-tmp.readout = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system); 
+tmp.readout = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system);
 tr_min = mr.calcDuration(tmp.rf) + mr.calcDuration(tmp.readout);   % sec
 siemens.delay = TR*1e-3 - tr_min;       % sec
 
@@ -125,9 +126,9 @@ pulseq.adc = mr.makeAdc(siemens.acq.N, 'Duration', siemens.acq.dur, 'Delay', acq
 
 % Create other Pulseq objects that don't need updating in scan loop (except phase)
 pulseq.acq.gz = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system); 
-pulseq.ex.g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system);
 pulseq.ex.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, ...
 	'system', siemens.system, 'delay', siemens.ex.rfdelay);
+pulseq.ex.g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system, 'delay', siemens.ex.gdelay);
 
 % Scan loop
 rfphs = 0;              % radians
