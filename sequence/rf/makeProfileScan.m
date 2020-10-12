@@ -27,7 +27,7 @@ nz = 1;                  % MIP
 fov = 20;                % fov (cm) 
 oprbw = 125/4;           % Acquisition bandwidth (kHz)
 nCycleSpoil = 2;         % readout spoiler gradient area (cycles across voxel dimension)
-TR = 1000;                 % msec. Slow down scan to reduce T1 weighting.
+TR = 40;                 % msec. Slow down scan to reduce T1 weighting.
 nDisdaq = 5;             % discarded TRs at beginning to reach steady state
 
 % Set hardware limits used for waveform DESIGN 
@@ -62,7 +62,6 @@ seq = mr.Sequence(siemens.system);
 
 % Design rf waveform
 [ex.rf, ex.g] = makeSMSpulse(ex.flip, ex.slThick, ex.tbw, ex.dur, ex.nSlices, ex.sliceSep, ...
-	'doSim', true, ...
 	'system', limits.design);
 
 % Design readout gradients
@@ -76,7 +75,12 @@ dzDummy = 1e3;   % z voxel size. Just needs to be large enough so the trapezoid 
 	'oprbw', oprbw);
 
 % Create waveforms suitable for Pulseq by converting units and interpolating
-siemens.ex.rf = pulsegeq.rf2pulseq(ex.rf, ge.system.raster, seq);  % Gauss -> Hz; 4us -> 1us.
+% discard zeros at beginning and end of rf waveform
+I = find(abs(ex.rf) == 0);
+iStart = find(diff(I)>1) + 1;
+iStop = I(iStart+1);
+siemens.ex.rf = pulsegeq.rf2pulseq(ex.rf(iStart:iStop), ge.system.raster, seq);  % Gauss -> Hz; 4us -> 1us.
+siemens.ex.rfdelay = iStart * ge.system.raster;   % sec
 siemens.ex.g  = pulsegeq.g2pulseq(ex.g, ge.system.raster, seq);    % Gauss/cm -> Hz/m; 4us -> 10us
 siemens.acq.gx = pulsegeq.g2pulseq(acq.gx, ge.system.raster, seq); % readout gradient
 siemens.acq.gy = pulsegeq.g2pulseq(acq.gy, ge.system.raster, seq); % phase-encode gradient
@@ -104,7 +108,7 @@ toppe.write2loop('finish');
 tr_min = toppe.getTRtime(1,2)*1e3;       % msec
 ge.delay = TR - tr_min;                  % msec
 
-tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'system', siemens.system);
+tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'system', siemens.system, 'delay', siemens.ex.rfdelay);
 tmp.readout = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system); 
 tr_min = mr.calcDuration(tmp.rf) + mr.calcDuration(tmp.readout);   % sec
 siemens.delay = TR*1e-3 - tr_min;       % sec
@@ -143,7 +147,8 @@ for iz = 1:nz
 			'RFphase', rfphs);
 
 		% rf excitation (Pulseq)
-		rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'PhaseOffset', rfphs, 'system', siemens.system);
+		rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'PhaseOffset', rfphs, ...
+			'system', siemens.system, 'delay', siemens.ex.rfdelay);
 		g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system);
 		seq.addBlock(rf, g);
 
@@ -183,7 +188,7 @@ system('tar czf SMSprofile.tgz modules.txt scanloop.txt tipdown.mod readout.mod'
 nModsPerTR = 2;    % number of TOPPE modules per TR
 nTR = ny/2;        % number of TRs to display
 nStart = nModsPerTR * floor(nDisdaq+ny/2-nTR/2);
-figure; toppe.plotseq(nStart, nStart + nTR*nModsPerTR);
+toppe.plotseq(nStart, nStart + nTR*nModsPerTR);
 tStart = nStart/nModsPerTR*TR*1e-3;    % sec
 tStop = tStart + nTR*TR*1e-3;          % sec
 seq.plot('timeRange', [tStart tStop]);
