@@ -104,7 +104,7 @@ toppe.write2loop('finish');
 tr_min = toppe.getTRtime(1,2)*1e3;       % msec
 ge.delay = TR - tr_min;                  % msec
 
-tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi);
+tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'system', siemens.system);
 tmp.readout = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system); 
 tr_min = mr.calcDuration(tmp.rf) + mr.calcDuration(tmp.readout);   % sec
 siemens.delay = TR*1e-3 - tr_min;       % sec
@@ -143,7 +143,7 @@ for iz = 1:nz
 			'RFphase', rfphs);
 
 		% rf excitation (Pulseq)
-		rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'PhaseOffset', rfphs);
+		rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'PhaseOffset', rfphs, 'system', siemens.system);
 		g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system);
 		seq.addBlock(rf, g);
 
