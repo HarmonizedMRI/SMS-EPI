@@ -11,6 +11,10 @@
 %addpath ~/github/pulseq/matlab/         % +mr package
 %addpath ~/github/toppeMRI/toppe/        % +toppe package
 %addpath ~/github/toppeMRI/PulseGEq/     % +pulsegeq package (Pulseq <--> TOPPE conversion)
+% paths for MZ
+%addpath ~/pulseq_home/github/pulseq/matlab/
+%addpath ~/pulseq_home/github/toppe/
+%addpath ~/pulseq_home/github/PulseGEq/
 
 % Excitation pulse parameters
 ex.flip = 90;        % degrees
@@ -176,6 +180,17 @@ for iz = 1:nz
 	end
 end
 toppe.write2loop('finish');
+
+% check whether the timing of the sequence is correct
+[ok, error_report]=seq.checkTiming;
+
+if (ok)
+    fprintf('Timing check passed successfully\n');
+else
+    fprintf('Timing check failed! Error listing follows:\n');
+    fprintf([error_report{:}]);
+    fprintf('\n');
+end
 
 % Write to Pulseq file
 seq.setDefinition('FOV', [fov fov ex.slThick]*1e-2);   % m
