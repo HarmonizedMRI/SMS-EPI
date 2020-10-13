@@ -81,11 +81,11 @@ dzDummy = 1e3;   % z voxel size. Just needs to be large enough so the trapezoid 
 % Create waveforms suitable for Pulseq by converting units and interpolating
 % discard zeros at beginning and end of rf waveform
 I = find(abs(ex.rf) == 0);
-iStart = find(diff(I)>1) + 1; % start of flat portion of gradient
+iStart = find(diff(I)>1) + 1;
 iStop = I(iStart+1);
 siemens.ex.rf = pulsegeq.rf2pulseq(ex.rf(iStart:iStop), ge.system.raster, seq);  % Gauss -> Hz; 4us -> 1us.
-siemens.ex.rfdelay = max(siemens.system.rfDeadTime, roundToRaster(iStart*ge.system.raster, siemens.system.gradRasterTime));
-siemens.ex.gdelay = siemens.ex.rfdelay; % max(0, siemens.system.rfDeadTime - siemens.ex.rfdelay);
+siemens.ex.rfdelay = roundToRaster(iStart * ge.system.raster, siemens.system.gradRasterTime);
+siemens.ex.gdelay = max(0, siemens.system.rfDeadTime - siemens.ex.rfdelay);
 siemens.ex.g  = pulsegeq.g2pulseq(ex.g, ge.system.raster, seq);    % Gauss/cm -> Hz/m; 4us -> 10us
 siemens.acq.gx = pulsegeq.g2pulseq(acq.gx, ge.system.raster, seq); % readout gradient
 siemens.acq.gy = pulsegeq.g2pulseq(acq.gy, ge.system.raster, seq); % phase-encode gradient
