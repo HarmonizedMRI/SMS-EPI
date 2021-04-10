@@ -25,7 +25,7 @@ ex.dur = 2;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 ex.spacing = 0.5;    % center-to-center slice separation (cm)
 nslices = 20;
-scandur = 5;         % minutes
+scandur = 1;         % minutes
 fov = 22.4;          % cm
 nx = 64; ny = 64;    % matrix size
 espmin = 0.512;      % minimum echo spacing allow by scanner (ms) (on GE, see /usr/g/bin/epiesp.dat)
@@ -57,11 +57,13 @@ kmax = 1/(2*res);      % cycles/cm
 area = kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
 
 % x/y prephaser
-gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3); % raster time in msec (sorry)
+% reduce slew to reduce PNS
+gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt(2), system.ge.raster*1e3); % raster time in msec (sorry)
+gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
-% Allow ramp sampling, and violate Nyquist slightly near kmax.
 % Reduce maxGrad until desired echo spacing is reached.
+% Allow ramp sampling, and violate Nyquist slightly near kmax.
 for s = 1:-0.02:0.1
 	mxg = s*system.ge.maxGrad;
 	gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
@@ -69,6 +71,7 @@ for s = 1:-0.02:0.1
 		break;
 	end
 end
+gx1 = gx1(1:(end-1));  % remove 0 at end
 
 % y blip
 gyblip = toppe.utils.trapwave2(area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
@@ -88,9 +91,11 @@ for iecho = 2:(ny-1)
 	gx = [gx gx1*(-1)^(iecho+1)];
 	gy = [gy gyn];
 end
-gx = [gx gx1*(-1)^(iecho+2)];
-gy = [gy gylast];
-toppe.writemod('gx', gx(:), 'gy', gy(:), ...
+gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
+gy = [gy gylast 0];
+gx = toppe.utils.makeGElength(gx(:));
+gy = toppe.utils.makeGElength(gy(:));
+toppe.writemod('gx', gx, 'gy', gy, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod');
 
@@ -114,8 +119,10 @@ toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2);       % sec
 nframes = 2*ceil(scandur*60/(trseq*nslices)/2); % force to be even
 
+
 %% Create scanloop.txt
 
+% rf spoiling isn't really needed since T2 << TR but why not
 rfphs = 0;              % radians
 rf_spoil_seed_cnt = 0;
 rf_spoil_seed = 117;
@@ -126,7 +133,9 @@ for ifr = 1:nframes
 		dabmode = 'on';
 
 		% rf excitation
-	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, 'RFphase', rfphs);
+	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
+			'RFphase', rfphs, ...
+			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );
 
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
