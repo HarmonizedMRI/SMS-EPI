@@ -17,43 +17,68 @@
 %addpath ~/pulseq_home/github/toppe/
 %addpath ~/pulseq_home/github/PulseGEq/
 
-% Set hardware limits
+gamma = 4.2576e3;   % Hz/Gauss
+
+%% Set hardware limits
 % NB! maxGrad must be equal to physical hardware limit since used to scale gradients.
 % maxSlew can be less than physical limit (for reducing PNS)
-ge.system = toppe.systemspecs('maxSlew', 10, 'slewUnit', 'Gauss/cm/ms', ...
+system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 	'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...  
 	'maxRf', 0.25, 'rfUnit', 'Gauss');
 
-siemens.system = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
+system.siemens = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
     'MaxSlew', 150, 'SlewUnit', 'T/m/s', ...
 	 'rfRingdownTime', 20e-6, 'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
 
-% Slice selective excitation
+%% Slice selective excitation (use TOPPE wrapper around John Pauly's SLR toolbox)
 ex.flip = 90;        % degrees
 ex.thick = 0.4;      % slice thickness (cm)
 ex.spacing = 0.5;    % center-to-center slice separation (cm)
 ex.tbw = 6;          % time-bandwidth product
-ex.dur = 4;          % msec
-
-nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added at beginning of waveform in makeslr()
-[ex.rf, ex.g] = toppe.utils.rf.makeslr(ex.flip, ex.slThick, ex.tbw, ex.dur, nSpoilCycles, ...
+ex.dur = 2;          % msec
+nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
+[ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.slThick, ex.tbw, ex.dur, nSpoilCycles, ...
 	'type', 'ex', ...   % 90 excitation. 'st' = small-tip
 	'ftype', 'ls', ...  
 	'ofname', 'tipdown.mod', ...
-	'system', ge.system);
+	'sliceOffset', ex.spacing, ...  % for calculating ex.freq
+	'system', system.ge);
 
-toppe.plotmod('all');
+%% EPI readout (use TOPPE toolbox to create trapezoids)
+fov=22.4;                % cm
+nx=64; ny=64;            % matrix size
+res = fov/nx;            % spatial resolution (cm)
+kmax = 1/(2*res);        % cycles/cm
+kmaxadjust = 1.1*kmax;   % adjust until echo spacing doesn't violate the scanner's 'forbidden' spacing range
+area = kmaxadjust/gamma;       % G/cm * sec (area of each readout trapezoid)
+
+% x/y prephaser
+gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3); % raster time in msec (sorry)
+
+% readout trapezoid
+gx1 = toppe.utils.trapwave2(2*area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+
+% y blip. Zero-pad to make same length as gx1 (overlap, slightly violating Nyquist).
+gyblip = toppe.utils.trapwave2(area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+gy1 = [zeros(1,length(gx1)-length(gyblip)) gyblip];
+
+% put it all together
+gx = -gpre;
+gy = -gpre;
+for iecho = 1:ny
+	gx = [gx gx1*(-1)^(iecho+1)];
+	gy = [gy gyblip];
+end
+
+
+return
+
+% Phase blip in shortest possible time
+blip_dur = ceil(2*sqrt(deltak/system.siemens.maxSlew)/10e-6/2)*10e-6*2; % we round-up the duration to 2x the gradient raster time
+% the split code below fails if this really makes a trpezoid instead of a triangle...
+gy = mr.makeTrapezoid('y',system.siemens,'Area',deltak,'Duration',blip_dur);
+
 return;
-
-% Acquisition parameters
-nx = 64;
-ny = 64;
-nz = 1;                  % MIP
-fov = 20;                % fov (cm) 
-oprbw = 125/4;           % Acquisition bandwidth (kHz)
-nCycleSpoil = 2;         % readout spoiler gradient area (cycles across voxel dimension)
-TR = 40;                 % msec. Slow down scan to reduce T1 weighting.
-nDisdaq = 5;             % discarded TRs at beginning to reach steady state
 
 % Create modules.txt (do it here since this file is used for intermediate steps below)
 % Entries are tab-separated
