@@ -33,7 +33,7 @@ tr = 500;                 % (ms) sequence tr
 fov = 22.4;          % cm
 nx = 64; ny = 64;    % matrix size
 
-espmin = 0.512;      % (ms) minimum echo spacing allow by scanner (on GE, see /usr/g/bin/epiesp.dat)
+espmin = 0.52;      % (ms) minimum echo spacing allow by scanner (on GE, see /usr/g/bin/epiesp.dat)
 
 gamma = 4.2576e3;   % Hz/Gauss
 
