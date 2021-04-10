@@ -37,38 +37,54 @@ ex.spacing = 0.5;    % center-to-center slice separation (cm)
 ex.tbw = 6;          % time-bandwidth product
 ex.dur = 2;          % msec
 nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
-[ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.slThick, ex.tbw, ex.dur, nSpoilCycles, ...
+[ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, nSpoilCycles, ...
 	'type', 'ex', ...   % 90 excitation. 'st' = small-tip
 	'ftype', 'ls', ...  
 	'ofname', 'tipdown.mod', ...
 	'sliceOffset', ex.spacing, ...  % for calculating ex.freq
 	'system', system.ge);
 
-%% EPI readout (use TOPPE toolbox to create trapezoids)
-fov=22.4;                % cm
-nx=64; ny=64;            % matrix size
-res = fov/nx;            % spatial resolution (cm)
-kmax = 1/(2*res);        % cycles/cm
-kmaxadjust = 1.1*kmax;   % adjust until echo spacing doesn't violate the scanner's 'forbidden' spacing range
-area = kmaxadjust/gamma;       % G/cm * sec (area of each readout trapezoid)
+%% EPI readout
+fov=22.4;              % cm
+nx=64; ny=64;          % matrix size
+res = fov/nx;          % spatial resolution (cm)
+kmax = 1/(2*res);      % cycles/cm
+area = kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
+esp = 0.512;           % desired echo spacing (ms). Chosen so that 'forbidden' EPI spacings are not violated.
 
 % x/y prephaser
 gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3); % raster time in msec (sorry)
 
 % readout trapezoid
-gx1 = toppe.utils.trapwave2(2*area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+% reduce maxGrad until desired echo spacing is reached (allow ramp sampling)
+for s = 1:-0.02:0.1
+	mxg = s*system.ge.maxGrad;
+	gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
+	if length(gx1)*system.ge.raster*1e3 > esp
+		break;
+	end
+end
 
-% y blip. Zero-pad to make same length as gx1 (overlap, slightly violating Nyquist).
+% y blip
 gyblip = toppe.utils.trapwave2(area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
-gy1 = [zeros(1,length(gx1)-length(gyblip)) gyblip];
+
+% gy waveform for 1st and other echoes
+imax = find(gyblip == max(gyblip));
+gyblipstart = gyblip(1:imax(1));  % first half of blip
+gyblipend= gyblip(imax(2):end);
+gy1 = [zeros(1,length(gx1)-length(gyblipend)) gyblipstart]; % first echo
+gyn = [gyblipend zeros(1,length(gx1)-length(gyblipend)-length(gyblipstart)) gyblipstart]; % other echoes
 
 % put it all together
-gx = -gpre;
-gy = -gpre;
-for iecho = 1:ny
+gx = [-gpre gx1];
+gy = [-gpre gy1];
+for iecho = 2:ny
 	gx = [gx gx1*(-1)^(iecho+1)];
-	gy = [gy gyblip];
+	gy = [gy gy1];
 end
+
+% reshape
+g = [gx(:) gy(:)];
 
 
 return
@@ -97,13 +113,11 @@ fclose(fid);
 
 % Design rf waveform
 nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added at beginning of waveform in makeslr()
-[ex.rf, ex.g] = toppe.utils.rf.makeslr(ex.flip, ex.slThick, ex.tbw, ex.dur, nSpoilCycles, ...
+[ex.rf, ex.g] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, nSpoilCycles, ...
 	'type', 'ex', ...   % 90 excitation. 'st' = small-tip
 	'ftype', 'ls', ...  
 	'system', arg.system, ...
 	'writeModFile', false);
-[ex.rf, ex.g] = makeSMSpulse(ex.flip, ex.slThick, ex.tbw, ex.dur, ex.nSlices, ex.sliceSep, ...
-	'system', limits.design);
 
 % Design readout gradients
 % Remember: makegre() creates y phase-encodes based on isotropic in-plane resolution,
@@ -230,7 +244,7 @@ else
 end
 
 % Write to Pulseq file
-seq.setDefinition('FOV', [fov fov ex.slThick]*1e-2);   % m
+seq.setDefinition('FOV', [fov fov ex.thick]*1e-2);   % m
 seq.setDefinition('Name', '2D MIP of SMS slice profile');
 seq.write('SMSprofile.seq');
 % parsemr('SMSprofile.seq');
