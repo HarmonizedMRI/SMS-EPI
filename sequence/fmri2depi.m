@@ -18,7 +18,7 @@
 ex.flip = 45;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.thick = 0.4;      % slice thickness (cm)
-ex.spacing = 0.6;    % center-to-center slice separation (cm)
+ex.spacing = 1.0;    % center-to-center slice separation (cm)
 ex.tbw = 8;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
@@ -31,6 +31,7 @@ delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE.
 tr = 500;                 % (ms) sequence tr
 
 fov = 22.4;          % cm
+fov = 26;            % cm
 nx = 64; ny = 64;    % matrix size
 
 espmin = 0.52;      % (ms) minimum echo spacing allow by scanner (on GE, see /usr/g/bin/epiesp.dat)
@@ -127,7 +128,7 @@ toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
 toppe.write2loop('readout.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
-delay.postreadout = tr - trseq;  % (ms) delay after readout
+delay.postreadout = max(0, tr-trseq);  % (ms) delay after readout
 
 
 %% Create scanloop.txt
