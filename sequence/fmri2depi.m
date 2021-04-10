@@ -175,6 +175,8 @@ for ifr = 1:nframes
 end
 toppe.write2loop('finish');
 
+return;
+
 % simulate and plot slice profile
 fovsim = 2;          % cm
 m0 = [0 0 1];        % initial magnetization
