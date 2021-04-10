@@ -20,8 +20,8 @@
 %% Sequence parameters
 ex.flip = 90;        % flip angle (degrees)
 ex.thick = 0.4;      % slice thickness (cm)
-ex.tbw = 6;          % time-bandwidth product
-ex.dur = 2;          % msec
+ex.tbw = 8;          % time-bandwidth product
+ex.dur = 3;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 ex.spacing = 0.5;    % center-to-center slice separation (cm)
 nslices = 20;
@@ -29,6 +29,7 @@ scandur = 1;         % minutes
 fov = 22.4;          % cm
 nx = 64; ny = 64;    % matrix size
 espmin = 0.512;      % minimum echo spacing allow by scanner (ms) (on GE, see /usr/g/bin/epiesp.dat)
+delay = 10;          % (ms) delay after RF pulse. Determines TE. 
 
 gamma = 4.2576e3;   % Hz/Gauss
 
@@ -49,6 +50,7 @@ system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 	'ftype', 'ls', ...  
 	'ofname', 'tipdown.mod', ...
 	'sliceOffset', ex.spacing, ...  % for calculating ex.freq
+	'spoilDerate', 0.4, ...  % reduce slew by this much during spoiler/rewinder
 	'system', system.ge);
 
 %% EPI readout
@@ -113,7 +115,7 @@ fclose(fid);
 
 % determine sequence TR and number of frames
 toppe.write2loop('setup', 'version', 3);
-toppe.write2loop('tipdown.mod');
+toppe.write2loop('tipdown.mod', 'textra', delay);
 toppe.write2loop('readout.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2);       % sec
@@ -135,7 +137,8 @@ for ifr = 1:nframes
 		% rf excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
-			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );
+			'textra', delay, ...
+			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (for selecting slice)
 
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
