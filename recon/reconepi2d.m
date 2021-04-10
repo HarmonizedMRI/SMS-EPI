@@ -9,7 +9,7 @@ fmri2depi;   % create gpre, gx1, gx. nx = ny = 64; fov = 26; etc
 
 % get data for one echo
 coil = 1;
-slice = 1;
+slice = 3;
 frame = 1;
 echo = 2;   % EPI echo (not dabecho)
 istart = length(gpre) + (echo-1)*length(gx1) + 1;
@@ -20,33 +20,12 @@ dat = dat(istart:istop, coil, slice, 1, frame);
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = kx(istart:istop);
 
-% readout gradient trapezoid (with ramp sampling)
-% addpath ../sequence/; fmri2depi;
-% save gx1 gx1
-%load gx1
-
-% calculate kspace
-%[kx,~] = toppe.utils.g2k([gx1(:) gx1(:)]);  % kx = cycles/cm
-%kx = kx - max(kx)/2;
-
-% System matrix
-%nx = 64;
-%fov = 22;  % cm
-xinit = zeros(nx,1);
-nufft_args = {[nx],[6],[2*nx],[nx/2],'minmax:kb'};
-mask = true(nx,1);
-A = Gmri([fov(1)*kx(:)],mask,'nufft',nufft_args);
-
-% Density compensation function
-dcf = gx1(:)/max(gx1);  % simply the gradient (kspace velocity)
-
-% recon (1d)
-x = A' * (dat(:) .* dcf(:));   % reconstruct (perform inufft along x)
+x = reconecho(dat, kx, nx, fov, gx1);
 
 subplot(121); plot(abs(x)); title('reconstructed');
 subplot(122); plot(angle(x)); title('angle');
 
-return;
+return
 
 % Test 
 xtrue = zeros(nx,1);
