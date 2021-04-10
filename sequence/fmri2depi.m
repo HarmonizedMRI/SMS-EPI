@@ -15,25 +15,31 @@
 %addpath ~/pulseq_home/github/PulseGEq/
 
 %% Sequence parameters
-ex.flip = 90;        % flip angle (degrees)
+ex.flip = 45;        % flip angle (degrees)
+ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.thick = 0.4;      % slice thickness (cm)
+ex.spacing = 0.6;    % center-to-center slice separation (cm)
 ex.tbw = 8;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
-ex.spacing = 0.5;    % center-to-center slice separation (cm)
 
 nslices = 20;
 SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
-scandur = 30;        % seconds
+scandur = 3*60;           % seconds
+delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
+tr = 500;                 % (ms) sequence tr
 
 fov = 22.4;          % cm
 nx = 64; ny = 64;    % matrix size
-espmin = 0.512;      % minimum echo spacing allow by scanner (ms) (on GE, see /usr/g/bin/epiesp.dat)
 
-delay = 10;          % (ms) delay after RF pulse. Determines TE. 
+espmin = 0.512;      % (ms) minimum echo spacing allow by scanner (on GE, see /usr/g/bin/epiesp.dat)
 
 gamma = 4.2576e3;   % Hz/Gauss
+
+% number of frames
+trvol = tr*nslices;  % ms
+nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
 
 %% Set hardware limits
 % NB! maxGrad must be equal to physical hardware limit since used to scale gradients.
@@ -48,7 +54,7 @@ system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 
 %% Slice selective excitation (use TOPPE wrapper around John Pauly's SLR toolbox)
 [ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, ex.nSpoilCycles, ...
-	'type', 'ex', ...   % 90 excitation. 'st' = small-tip
+	'type', ex.type, ...   % 90 excitation. 'st' = small-tip
 	'ftype', 'ls', ...  
 	'ofname', 'tipdown.mod', ...
 	'sliceOffset', ex.spacing, ...  % for calculating ex.freq
@@ -115,13 +121,13 @@ fid = fopen('modules.txt', 'wt');
 fprintf(fid, modFileText);
 fclose(fid);
 
-% determine sequence TR and number of frames
+%% Calculate delay to achieve desired TR
 toppe.write2loop('setup', 'version', 3);
-toppe.write2loop('tipdown.mod', 'textra', delay);
+toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
 toppe.write2loop('readout.mod');
 toppe.write2loop('finish');
-trseq = toppe.getTRtime(1,2);       % sec
-nframes = 2*ceil(scandur/(trseq*nslices)/2); % force to be even
+trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
+delay.postreadout = tr - trseq;  % (ms) delay after readout
 
 
 %% Create scanloop.txt
@@ -133,17 +139,23 @@ rf_spoil_seed = 117;
 
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
-	% turn off gy for odd/even echo calibration (first and 2nd-to-last frame)
-	gyamp = 1.0 - any(ifr == [1 nframes-1]);
+	% EPI calibration data:
+	% frame(s)       gy    gx
+	% 1, nframes-3   off   positive
+	% 2, nframes-2   off   negative
+	% 3, nframes-1   on    positive
+	% 4, nframes     on    negative
+	% turn off gy for odd/even echo calibration frames [1 2 end-1 end]
+	gyamp = 1.0 - any(ifr == [1 nframes-3 2 nframes-2]);
 
 	% flip gx for 2D odd/even echo calibration (2nd and last frame)
-	gxamp = (-1)^any(ifr == [2 nframes]);
+	gxamp = (-1)^any(ifr == [2 nframes-2 4 nframes]);
 
 	for isl = SLICES
 		% excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
-			'textra', delay, ...
+			'textra', delay.postrf, ...
 			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
 
 	 	% readout
@@ -152,6 +164,7 @@ for ifr = 1:nframes
 			'Gamplitude', [gxamp gyamp 0]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
+			'textra', delay.postreadout, ...
 			'dabmode', 'on');
 
 		% update rf phase (RF spoiling)
@@ -161,19 +174,16 @@ for ifr = 1:nframes
 end
 toppe.write2loop('finish');
 
+% simulate and plot slice profile
+fovsim = 2;          % cm
+m0 = [0 0 1];        % initial magnetization
+z = linspace(-fovsim/2, fovsim/2, 500);   % spatial locations (cm)
+T1 = 1000;           % ms
+T2 = 100;            % ms
+dt = 4e-3;           % ms
+figure;
+[m] = toppe.utils.rf.slicesim([0 0 1], ex.rf, ex.g, dt, z, T1, T2, true);
+subplot(132); title('simulated slice profile');
+
 return;
 
-
-% Display (part of) sequences
-nModsPerTR = 2;    % number of TOPPE modules per TR
-nTR = ny/2;        % number of TRs to display
-nStart = nModsPerTR * floor(nDisdaq+ny/2-nTR/2);
-toppe.plotseq(nStart, nStart + nTR*nModsPerTR);
-tStart = nStart/nModsPerTR*TR*1e-3;    % sec
-tStop = tStart + nTR*TR*1e-3;          % sec
-seq.plot('timeRange', [tStart tStop]);
-
-% Display TOPPE sequence in loop/movie mode
-fprintf('Displaying sequence...');
-%figure; toppe.playseq(nModsPerTR, 'drawpause', false);  
-fprintf('done\n');
