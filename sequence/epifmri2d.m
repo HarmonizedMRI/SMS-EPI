@@ -21,14 +21,19 @@
 ex.flip = 90;        % flip angle (degrees)
 ex.thick = 0.4;      % slice thickness (cm)
 ex.tbw = 8;          % time-bandwidth product
-ex.dur = 3;          % msec
+ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 ex.spacing = 0.5;    % center-to-center slice separation (cm)
+
 nslices = 20;
-scandur = 1;         % minutes
+SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
+
+scandur = 30;        % seconds
+
 fov = 22.4;          % cm
 nx = 64; ny = 64;    % matrix size
 espmin = 0.512;      % minimum echo spacing allow by scanner (ms) (on GE, see /usr/g/bin/epiesp.dat)
+
 delay = 10;          % (ms) delay after RF pulse. Determines TE. 
 
 gamma = 4.2576e3;   % Hz/Gauss
@@ -119,7 +124,7 @@ toppe.write2loop('tipdown.mod', 'textra', delay);
 toppe.write2loop('readout.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2);       % sec
-nframes = 2*ceil(scandur*60/(trseq*nslices)/2); % force to be even
+nframes = 2*ceil(scandur/(trseq*nslices)/2); % force to be even
 
 
 %% Create scanloop.txt
@@ -131,22 +136,23 @@ rf_spoil_seed = 117;
 
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
-	for isl = 1:nslices         
-		dabmode = 'on';
+	% turn off gy for odd/even echo calibration (first and last frame)
+	gyamp = 1.0 - any(ifr == [1 nframes]);
 
-		% rf excitation
+	for isl = SLICES
+		% excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
 			'textra', delay, ...
-			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (for selecting slice)
+			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
 
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
 		toppe.write2loop('readout.mod', ...
-			'Gamplitude', [1 1 1]', ...
+			'Gamplitude', [1 gyamp 1]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
-			'dabmode', dabmode);
+			'dabmode', 'on');
 
 		% update rf phase (RF spoiling)
 		rfphs = rfphs + (rf_spoil_seed/180 * pi)*rf_spoil_seed_cnt ;  % radians
@@ -156,6 +162,7 @@ end
 toppe.write2loop('finish');
 
 return;
+
 
 % Write TOPPE files to a tar file
 system('tar czf SMSprofile.tgz modules.txt scanloop.txt tipdown.mod readout.mod');
