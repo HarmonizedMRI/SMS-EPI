@@ -1,12 +1,9 @@
 % Create 2D EPI fMRI scan in TOPPE (and later in Pulseq)
 %
-% Later: create cross-vendor (GE and Siemens) SMS EPI fMRI scan 
+% Output:
+%   TOPPE scan files:  modules.txt, scanloop.txt, tipdown.mod, and readout.mod
 %
-% Outputs:
-%  Pulseq scan file        smsepifmri.seq (for Siemens)
-%  TOPPE scan files        smsepifmri.tgz (for GE)
-%
-% Usage:
+% TODO: create the corresponding Pulseq file
 
 % Set paths to Pulseq and TOPPE libraries
 %addpath ~/github/pulseq/matlab/         % +mr package
@@ -136,8 +133,11 @@ rf_spoil_seed = 117;
 
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
-	% turn off gy for odd/even echo calibration (first and last frame)
-	gyamp = 1.0 - any(ifr == [1 nframes]);
+	% turn off gy for odd/even echo calibration (first and 2nd-to-last frame)
+	gyamp = 1.0 - any(ifr == [1 nframes-1]);
+
+	% flip gx for 2D odd/even echo calibration (2nd and last frame)
+	gxamp = (-1)^any(ifr == [2 nframes]);
 
 	for isl = SLICES
 		% excitation
@@ -149,7 +149,7 @@ for ifr = 1:nframes
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
 		toppe.write2loop('readout.mod', ...
-			'Gamplitude', [1 gyamp 1]', ...
+			'Gamplitude', [gxamp gyamp 0]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
 			'dabmode', 'on');
@@ -163,9 +163,6 @@ toppe.write2loop('finish');
 
 return;
 
-
-% Write TOPPE files to a tar file
-system('tar czf SMSprofile.tgz modules.txt scanloop.txt tipdown.mod readout.mod');
 
 % Display (part of) sequences
 nModsPerTR = 2;    % number of TOPPE modules per TR
