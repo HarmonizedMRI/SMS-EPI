@@ -18,8 +18,10 @@
 %addpath ~/pulseq_home/github/PulseGEq/
 
 % Set hardware limits
-ge.system = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
-	'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...  % NB! Must be equal to physical hardware limit since used to scale gradients
+% NB! maxGrad must be equal to physical hardware limit since used to scale gradients.
+% maxSlew can be less than physical limit (for reducing PNS)
+ge.system = toppe.systemspecs('maxSlew', 10, 'slewUnit', 'Gauss/cm/ms', ...
+	'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...  
 	'maxRf', 0.25, 'rfUnit', 'Gauss');
 
 siemens.system = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
@@ -40,7 +42,8 @@ nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added
 	'ofname', 'tipdown.mod', ...
 	'system', ge.system);
 
-	return;
+toppe.plotmod('all');
+return;
 
 % Acquisition parameters
 nx = 64;
