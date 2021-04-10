@@ -1,5 +1,8 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
+pfile = '
+[dat, rdb_hdr] = loadpfile(pfile);
+
 % readout gradient trapezoid (with ramp sampling)
 % addpath ../sequence/; fmri2depi;
 % save gx1 gx1
