@@ -17,16 +17,16 @@
 %% Sequence parameters
 ex.flip = 45;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
-ex.thick = 0.4;      % slice thickness (cm)
+ex.thick = 0.3;      % slice thickness (cm)
 ex.spacing = 1.0;    % center-to-center slice separation (cm)
 ex.tbw = 8;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 
-nslices = 20;
+nslices = 7; %20;
 SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
-scandur = 3*60;           % seconds
+scandur = 1*60;           % seconds
 delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
 tr = 500;                 % (ms) sequence tr
 
@@ -57,10 +57,13 @@ system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 [ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, ex.nSpoilCycles, ...
 	'type', ex.type, ...   % 90 excitation. 'st' = small-tip
 	'ftype', 'ls', ...  
-	'ofname', 'tipdown.mod', ...
+	'writeModFile', false, ...
 	'sliceOffset', ex.spacing, ...  % for calculating ex.freq
 	'spoilDerate', 0.4, ...  % reduce slew by this much during spoiler/rewinder
 	'system', system.ge);
+ex.rf = toppe.utils.makeGElength(ex.rf);
+ex.g = toppe.utils.makeGElength(ex.g);
+toppe.writemod('rf', ex.rf, 'gx', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
 
 %% EPI readout
 res = fov/nx;          % spatial resolution (cm)
@@ -174,6 +177,8 @@ for ifr = 1:nframes
 	end
 end
 toppe.write2loop('finish');
+
+tar('epi.tar', {'*.txt', '*.mod', '*.m'});
 
 return;
 
