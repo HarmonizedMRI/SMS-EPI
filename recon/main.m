@@ -15,13 +15,13 @@ load scanparamsP32256.mat  % gpre gx1 gx nx ny fov kx ex
 coil = 1;  % body coil 
 
 frame = 1; % gy off
-datp = dat(:,coil,2,1,frame);  % slice at x = -2 cm (ex.spacing = 1cm)
-datn = dat(:,coil,6,1,frame);  % slice at x = +2 cm
+datn = dat(:,coil,2,1,frame);  % slice at x = -2 cm (ex.spacing = 1cm)
+datp = dat(:,coil,6,1,frame);  % slice at x = +2 cm
 frame = 5; % gx and gy off
-datpref = dat(:,coil,2,1,frame); % slice at x = -2 cm
-datnref = dat(:,coil,6,1,frame);
+datnref = dat(:,coil,2,1,frame); % slice at x = -2 cm
+datpref = dat(:,coil,6,1,frame);
 dp = datp./datpref;             % remove B0 field (off resonance) phase
-dn = datn./datnref;             % remove B0 field (off resonance) phase
+dn = datn./datnref;
 b0 = (angle(dp.*dn));
 
 
@@ -32,8 +32,9 @@ pfile = 'P31232.7';  % fixed gyblip (factor 2) 4/10/21 commit 64b3fd0ef73bb04095
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
 dat = flipdim(dat,1); % yikes
 
-% demodulate by observed B0 eddy current
-dat = bsxfun(@times, exp(-1i*b0(:)), dat);
+% Demodulate by observed B0 eddy current, which are mostly linear.
+% This should help correct for image-domain spatial shift.
+%dat = bsxfun(@times, exp(-1i*b0(:)), dat);
 
 % get sequence 
 if 0
@@ -61,6 +62,9 @@ for echo = 1:ny   % EPI echo (not dabecho)
 	d2d(:,echo) = dat(istart:istop, coil, slice, 1, frame);  
 	kx2d(:,echo) = kx(istart:istop);
 end
+
+% apply odd/even dc phase offset
+d2d(:,2:2:end) = bsxfun(@times, exp(1i*0.15), d2d(:,2:2:end));
 
 x = reconepi(d2d, kx2d, nx, fov, gx1(:));
 im(abs(x));
