@@ -5,7 +5,7 @@ function x = reconecho(dat, kx, nx, fov, gx)
 % kx:  [nt 1]  (cycles/cm)
 % nx   int
 % fov  cm
-% gx   [nt 1]  readout gradient (typically a trapezoid) for one echo in EPI train
+% gx   [nt 1]  (a.u.) readout gradient (typically a trapezoid) for one echo in EPI train
 
 % System matrix
 xinit = zeros(nx,1);
@@ -17,7 +17,7 @@ A = Gmri([fov(1)*kx(:)],mask,'nufft',nufft_args);
 dcf = gx(:)/max(gx);  % simply the gradient (kspace velocity)
 
 % recon (1d)
-x = A' * (dat(:) .* dcf(:));   % reconstruct (perform inufft along x)
+x = A' * (dat(:) .* dcf(:));
 
 return;
 
