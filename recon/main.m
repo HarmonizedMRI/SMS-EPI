@@ -1,22 +1,29 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
 %% Load eddy current calibration scan
-% P32256.7  4/11/2021 commit 
-% Excite 7 vertical slices along x. Analyze frames [1 2 nframes-3 nframes] (gy off)
+% P32256.7  4/11/2021 commit 926a5a0134c32ca01405a9a058f152b85e85e456
+% Excite 7 vertical slices along x. 
 % See ../sequence/fmri2depi
 % 
 pfile = '../sequence/caldata/P32256.7';  
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
 dat = flipdim(dat,1); % yikes
 
-load scanparamsP31744.mat  % gpre gx1 gx nx ny fov kx. Slice separaton = 1 cm.
+load scanparamsP32256.mat  % gpre gx1 gx nx ny fov kx ex
 
 coil = 1;
-frame = 1;
 slice = 2;
-datp = dat(:,coil,3,1,frame);
-datn = dat(:,coil,5,1,frame);
-b0 = unwrap(angle(datp.*datn));
+
+% gy off
+frame = 1;
+datp = dat(:,coil,2,1,frame);  % slice at x = -2 cm (ex.spacing = 1cm)
+datn = dat(:,coil,6,1,frame);  % slice at x = +2 cm
+frame = 5;
+datpref = dat(:,coil,2,1,frame); % slice at x = -2 cm with gx off (as well as gy)
+datnref = dat(:,coil,6,1,frame);
+dp = datp./datpref;             % remove B0 field (off resonance) phase
+dn = datn./datnref;             % remove B0 field (off resonance) phase
+b0 = unwrap(angle(dp.*dn));
 
 return;
 
