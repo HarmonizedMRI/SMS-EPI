@@ -7,10 +7,15 @@ pfile = 'P31232.7';  % fixed gyblip (factor 2) 4/10/21 commit 64b3fd0ef73bb04095
 dat = flipdim(dat,1); % yikes
 
 % get sequence 
+if 0
 addpath ../sequence/
 fmri2depi;   % gpre, gx1, gx. nx = ny = 64; fov = 26; etc
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = [kx; zeros(length(gx)-length(kx),1)];
+save scanparamsP31232.mat gpre gx1 gx nx ny fov kx
+else
+load scanparamsP31232.mat
+end
 
 % apply temporal shift (odd/even linear phase correction)
 nt = length(kx);
