@@ -1,5 +1,26 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
+%% Load eddy current calibration scan
+% P32256.7  4/11/2021 commit 
+% Excite 7 vertical slices along x. Analyze frames [1 2 nframes-3 nframes] (gy off)
+% See ../sequence/fmri2depi
+% 
+pfile = '../sequence/caldata/P32256.7';  
+[dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
+dat = flipdim(dat,1); % yikes
+
+load scanparamsP31744.mat  % gpre gx1 gx nx ny fov kx. Slice separaton = 1 cm.
+
+coil = 1;
+frame = 1;
+slice = 2;
+datp = dat(:,coil,3,1,frame);
+datn = dat(:,coil,5,1,frame);
+b0 = unwrap(angle(datp.*datn));
+
+return;
+
+%% Load 2D EPI data and reconstruct
 % load data
 pfile = 'P30720.7';  % 4/10/21 commit 69bb5e49ac2b19c19dccc0ffb27e52eb42d187ec (develop branch)
 pfile = 'P31232.7';  % fixed gyblip (factor 2) 4/10/21 commit 64b3fd0ef73bb040957781d400d60487696bb758 (develop branch)

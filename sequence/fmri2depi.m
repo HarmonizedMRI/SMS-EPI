@@ -14,6 +14,8 @@
 %addpath ~/pulseq_home/github/toppe/
 %addpath ~/pulseq_home/github/PulseGEq/
 
+isCalScan = true;    % measured kspace and B0 eddy current using Duyn's method 
+
 %% Sequence parameters
 ex.flip = 45;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
@@ -63,7 +65,11 @@ system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 	'system', system.ge);
 ex.rf = toppe.utils.makeGElength(ex.rf);
 ex.g = toppe.utils.makeGElength(ex.g);
-toppe.writemod('rf', ex.rf, 'gx', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
+if isCalScan 
+	toppe.writemod('rf', ex.rf, 'gx', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
+else
+	toppe.writemod('rf', ex.rf, 'gz', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
+end
 
 %% EPI readout
 res = fov/nx;          % spatial resolution (cm)
@@ -143,17 +149,21 @@ rf_spoil_seed = 117;
 
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
-	% EPI calibration data:
+	% Calibration data:
 	% frame(s)       gy    gx
-	% 1, nframes-3   off   positive
-	% 2, nframes-2   off   negative
-	% 3, nframes-1   on    positive
-	% 4, nframes     on    negative
-	% turn off gy for odd/even echo calibration frames [1 2 end-1 end]
-	gyamp = 1.0 - any(ifr == [1 nframes-3 2 nframes-2]);
+	% 1, nframes-4   off   positive
+	% 2, nframes-3   off   negative
+	% 3, nframes-2   on    positive
+	% 4, nframes-1   on    negative
+	% 5, nframes     off   off
 
-	% flip gx for 2D odd/even echo calibration (2nd and last frame)
-	gxamp = (-1)^any(ifr == [2 nframes-2 4 nframes]);
+	% turn off gy for odd/even echo calibration frames
+	gyamp = 1.0 - any(ifr == [1 nframes-4 2 nframes-3 5 nframes]);
+
+	% flip gx for odd/even echo calibration
+	% turn off for frames [5 nframes]
+	gxamp = (-1)^any(ifr == [2 nframes-3 4 nframes-1]);
+	gxamp = gxamp*(1.0 - any(ifr == [5 nframes]));
 
 	for isl = SLICES
 		% excitation
