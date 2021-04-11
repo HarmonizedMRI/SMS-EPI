@@ -14,23 +14,31 @@
 %addpath ~/pulseq_home/github/toppe/
 %addpath ~/pulseq_home/github/PulseGEq/
 
-isCalScan = true;    % measured kspace and B0 eddy current using Duyn's method 
+isCalScan = false;    % measured kspace and B0 eddy current using Duyn's method 
 
 %% Sequence parameters
 ex.flip = 45;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
-ex.thick = 0.3;      % slice thickness (cm)
-ex.spacing = 1.0;    % center-to-center slice separation (cm)
 ex.tbw = 8;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 
-nslices = 7; %20;
+if isCalScan
+	ex.thick = 0.3;    % slice thickness (cm)
+	ex.spacing = 10;   % center-to-center slice separation (cm)
+	nslices = 7;
+	scandur = 30;      % seconds
+	tr = 500;          % (ms) sequence tr
+else
+	ex.thick = 0.4;    % slice thickness (cm)
+	ex.spacing = 0.6;  % center-to-center slice separation (cm)
+	nslices = 20;
+	scandur = 3*60;    % seconds
+	tr = 0;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
+end
 SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
-scandur = 1*60;           % seconds
 delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
-tr = 500;                 % (ms) sequence tr
 
 fov = 22.4;          % cm
 fov = 26;            % cm
@@ -39,10 +47,6 @@ nx = 64; ny = 64;    % matrix size
 espmin = 0.52;      % (ms) minimum echo spacing allow by scanner (on GE, see /usr/g/bin/epiesp.dat)
 
 gamma = 4.2576e3;   % Hz/Gauss
-
-% number of frames
-trvol = tr*nslices;  % ms
-nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
 
 %% Set hardware limits
 % NB! maxGrad must be equal to physical hardware limit since used to scale gradients.
@@ -66,6 +70,7 @@ system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 ex.rf = toppe.utils.makeGElength(ex.rf);
 ex.g = toppe.utils.makeGElength(ex.g);
 if isCalScan 
+	% excite slice along x (readout direction) so we can measure eddy currents
 	toppe.writemod('rf', ex.rf, 'gx', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
 else
 	toppe.writemod('rf', ex.rf, 'gz', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
@@ -137,7 +142,16 @@ toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
 toppe.write2loop('readout.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
-delay.postreadout = max(0, tr-trseq);  % (ms) delay after readout
+if tr < trseq
+	tr = trseq;
+	fprintf('Using minimum tr (%.1f ms)\n', round(trseq));
+end
+	
+delay.postreadout = tr-trseq;  % (ms) delay after readout
+
+% number of frames
+trvol = tr*nslices;  % ms
+nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
 
 
 %% Create scanloop.txt
