@@ -14,7 +14,7 @@
 %addpath ~/pulseq_home/github/toppe/
 %addpath ~/pulseq_home/github/PulseGEq/
 
-isCalScan = false;    % measured kspace and B0 eddy current using Duyn's method 
+isCalScan = false;    % measure kspace and B0 eddy current using Duyn's method 
 
 %% Sequence parameters
 ex.flip = 45;        % flip angle (degrees)
@@ -22,6 +22,8 @@ ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.tbw = 8;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
+
+delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
 
 if isCalScan
 	ex.thick = 0.3;    % slice thickness (cm)
@@ -32,13 +34,12 @@ if isCalScan
 else
 	ex.thick = 0.4;    % slice thickness (cm)
 	ex.spacing = 0.6;  % center-to-center slice separation (cm)
-	nslices = 20;
-	scandur = 3*60;    % seconds
+	nslices = 30;
+	scandur = 8*60;    % seconds
 	tr = 0;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
-SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
-delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
+SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
 fov = 22.4;          % cm
 fov = 26;            % cm
