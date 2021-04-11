@@ -19,7 +19,6 @@ kx = interp1(1:nt, kx, (1:nt)-0.2);
 % Get data for desired frame/slice and reshape,
 % and odd/even echo calibration data.
 frame = 10;
-refframe = 1;   
 slice = 3;
 coil = 1;
 for echo = 1:ny   % EPI echo (not dabecho)
@@ -39,12 +38,20 @@ end
 %te = 4e-6 * length(gx1);  % sec
 %f = angle(x(:,end)./x(:,1))/(2*pi*te*(ny-1));  % B0 field map, Hz
 %th = angle(xrefpos./xrefneg)/2;
-for echo = 1:2:ny   % EPI echo (not dabecho)
+for echo = 1:1:ny   % EPI echo (not dabecho)
 	th = angle(xrefpos(:,echo)./xrefneg(:,echo));
-	mask = abs(xrefpos(:,echo)) > 0.2*max(abs(xrefpos(:,echo)));
-	b0 = mean(th(mask));
-	d2d(:,echo) = exp(-1i*b0)*d2d(:,echo);
+	mask = abs(xrefpos(:,echo)) > 0.25*max(abs(xrefpos(:,echo)));
+	b0(echo) = mean(th(mask));
+	d2d(:,echo) = exp((-1)^(echo)*1i*b0(echo))*d2d(:,echo);
 end
+for echo = 2:2:ny   % EPI echo (not dabecho)
+	%th = angle(xrefpos(:,echo)./xrefneg(:,echo));
+	%mask = abs(xrefpos(:,echo)) > 0.2*max(abs(xrefpos(:,echo)));
+	%b0(echo) = mean(th(mask));
+	%d2d(:,echo) = exp(1i*b0(echo))*d2d(:,echo);
+end
+%b0 = mean(b0(1:2:end));
+%d2d = exp(-1i*b0)*d2d;
 
 % recon 2d image
 x = reconepi(d2d, kx2d, nx, fov, gx1(:));
