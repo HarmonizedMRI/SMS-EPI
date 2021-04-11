@@ -1,9 +1,8 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
-
 % load data
 pfile = 'P30720.7';  % 4/10/21 commit 69bb5e49ac2b19c19dccc0ffb27e52eb42d187ec (develop branch)
-pfile = 'P31232.7'  % fixed gyblip (factor 2) 4/10/21 commit 64b3fd0ef73bb040957781d400d60487696bb758 (develop branch)
+pfile = 'P31232.7';  % fixed gyblip (factor 2) 4/10/21 commit 64b3fd0ef73bb040957781d400d60487696bb758 (develop branch)
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
 dat = flipdim(dat,1); % yikes
 
@@ -15,15 +14,18 @@ kx = [kx; zeros(length(gx)-length(kx),1)];
 
 % get data for desired frame/slice and reshape
 frame = 10;
+refframe = 1;   % y gradient off. Use for odd/even echo calibration
 slice = 3;
+coil = 1;
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
 	istop = istart + length(gx1) - 1;
 	d2d(:,echo) = dat(istart:istop, coil, slice, 1, frame); 
 	kx2d(:,echo) = kx(istart:istop);
+	dref(:,echo) = dat(istart:istop, coil, slice, 1, refframe); 
 end
 
-% odd/even phase correction
+% odd/even phase correction (from data in the same scan, for now)
 
 % recon 2d image
 x = reconepi(d2d, kx2d, nx, fov, gx1(:));
