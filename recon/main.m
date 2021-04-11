@@ -1,31 +1,29 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
-%% Load eddy current calibration scan
+%% Get B0 eddy current
 % P32256.7  4/11/2021 commit 926a5a0134c32ca01405a9a058f152b85e85e456
-% Excite 7 vertical slices along x. 
+% Body coil
+% Excites 7 vertical slices along x, centered around x=0
 % See ../sequence/fmri2depi
-% 
+ 
 pfile = '../sequence/caldata/P32256.7';  
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
 dat = flipdim(dat,1); % yikes
 
 load scanparamsP32256.mat  % gpre gx1 gx nx ny fov kx ex
 
-coil = 1;
-slice = 2;
+coil = 1;  % body coil 
 
-% gy off
-frame = 1;
+frame = 1; % gy off
 datp = dat(:,coil,2,1,frame);  % slice at x = -2 cm (ex.spacing = 1cm)
 datn = dat(:,coil,6,1,frame);  % slice at x = +2 cm
-frame = 5;
-datpref = dat(:,coil,2,1,frame); % slice at x = -2 cm with gx off (as well as gy)
+frame = 5; % gx and gy off
+datpref = dat(:,coil,2,1,frame); % slice at x = -2 cm
 datnref = dat(:,coil,6,1,frame);
 dp = datp./datpref;             % remove B0 field (off resonance) phase
 dn = datn./datnref;             % remove B0 field (off resonance) phase
-b0 = unwrap(angle(dp.*dn));
+b0 = (angle(dp.*dn));
 
-return;
 
 %% Load 2D EPI data and reconstruct
 % load data
@@ -33,6 +31,9 @@ pfile = 'P30720.7';  % 4/10/21 commit 69bb5e49ac2b19c19dccc0ffb27e52eb42d187ec (
 pfile = 'P31232.7';  % fixed gyblip (factor 2) 4/10/21 commit 64b3fd0ef73bb040957781d400d60487696bb758 (develop branch)
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
 dat = flipdim(dat,1); % yikes
+
+% demodulate by observed B0 eddy current
+dat = bsxfun(@times, exp(-1i*b0(:)), dat);
 
 % get sequence 
 if 0
@@ -54,6 +55,18 @@ kx = interp1(1:nt, kx, (1:nt)-0.2);
 frame = 10;
 slice = 3;
 coil = 1;
+for echo = 1:ny   % EPI echo (not dabecho)
+	istart = length(gpre) + (echo-1)*length(gx1) + 1;
+	istop = istart + length(gx1) - 1;
+	d2d(:,echo) = dat(istart:istop, coil, slice, 1, frame);  
+	kx2d(:,echo) = kx(istart:istop);
+end
+
+x = reconepi(d2d, kx2d, nx, fov, gx1(:));
+im(abs(x));
+
+return;
+
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
 	istop = istart + length(gx1) - 1;
