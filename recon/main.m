@@ -12,23 +12,43 @@ fmri2depi;   % gpre, gx1, gx. nx = ny = 64; fov = 26; etc
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = [kx; zeros(length(gx)-length(kx),1)];
 
-% get data for desired frame/slice and reshape
+% apply temporal shift (odd/even linear phase correction)
+nt = length(kx);
+kx = interp1(1:nt, kx, (1:nt)-0.2);
+
+% Get data for desired frame/slice and reshape,
+% and odd/even echo calibration data.
 frame = 10;
-refframe = 1;   % y gradient off. Use for odd/even echo calibration
+refframe = 1;   
 slice = 3;
 coil = 1;
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
 	istop = istart + length(gx1) - 1;
-	d2d(:,echo) = dat(istart:istop, coil, slice, 1, frame); 
+	d2d(:,echo) = dat(istart:istop, coil, slice, 1, frame);  
 	kx2d(:,echo) = kx(istart:istop);
-	dref(:,echo) = dat(istart:istop, coil, slice, 1, refframe); 
+
+	drefpos = dat(istart:istop, coil, slice, 1, 1);  % y gradient off 
+	drefneg = dat(istart:istop, coil, slice, 1, 2);  % y gradient off, gx negated
+	xrefpos(:,echo) = reconecho(drefpos, kx2d(:,echo), nx, fov, gx1(:));  % 1d echo profile
+	xrefneg(:,echo) = reconecho(drefneg, kx2d(:,echo), nx, fov, gx1(:));
 end
 
-% odd/even phase correction (from data in the same scan, for now)
+% odd/even constant phase offset correction 
+% linear fit to pos/neg phase difference, then apply corresponding kspace shift
+%te = 4e-6 * length(gx1);  % sec
+%f = angle(x(:,end)./x(:,1))/(2*pi*te*(ny-1));  % B0 field map, Hz
+%th = angle(xrefpos./xrefneg)/2;
+for echo = 1:2:ny   % EPI echo (not dabecho)
+	th = angle(xrefpos(:,echo)./xrefneg(:,echo));
+	mask = abs(xrefpos(:,echo)) > 0.2*max(abs(xrefpos(:,echo)));
+	b0 = mean(th(mask));
+	d2d(:,echo) = exp(-1i*b0)*d2d(:,echo);
+end
 
 % recon 2d image
 x = reconepi(d2d, kx2d, nx, fov, gx1(:));
+im(abs(x));
 
 return;
 
