@@ -1,5 +1,14 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
+%% EPI correction parameters
+delay = 0.16;  % fraction of 4us sample
+th0 = 0.2;   % odd/even dc phase offset
+
+% frame and slice to reconstruct
+rec.frame = 12;
+rec.slice = 6;
+rec.coil  = 1;
+
 %% Get B0 eddy current
 % P32256.7  4/11/2021 commit 926a5a0134c32ca01405a9a058f152b85e85e456
 % Body coil
@@ -49,22 +58,19 @@ end
 
 % apply temporal shift (odd/even linear phase correction)
 nt = length(kx);
-kx = interp1(1:nt, kx, (1:nt)-0.2);
+kx = interp1(1:nt, kx, (1:nt)-delay);
 
 % Get data for desired frame/slice and reshape,
 % and odd/even echo calibration data.
-frame = 10;
-slice = 3;
-coil = 1;
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
 	istop = istart + length(gx1) - 1;
-	d2d(:,echo) = dat(istart:istop, coil, slice, 1, frame);  
+	d2d(:,echo) = dat(istart:istop, rec.coil, rec.slice, 1, rec.frame);  
 	kx2d(:,echo) = kx(istart:istop);
 end
 
 % apply odd/even dc phase offset
-d2d(:,2:2:end) = bsxfun(@times, exp(1i*0.15), d2d(:,2:2:end));
+d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
 
 x = reconepi(d2d, kx2d, nx, fov, gx1(:));
 im(abs(x));
