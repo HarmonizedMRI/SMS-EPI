@@ -7,27 +7,47 @@ pfile = 'P30720.7';
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
 dat = flipdim(dat,1); % yikes
 
-% get readout
+% get sequence 
 addpath ../sequence/
-fmri2depi;   % create gpre, gx1, gx. nx = ny = 64; fov = 26; etc
+fmri2depi;   % gpre, gx1, gx. nx = ny = 64; fov = 26; etc
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = [kx; zeros(length(gx)-length(kx),1)];
 
-% get data for all echoes in first frame (for which gy is off)
+% get data for all echoes 
 coil = 1;
-slice = 3;
-frame = 1;
+%frame = 1;  % y gradient off. See ../sequence/fmri2depi.m
+%frame = 2;  % y gradient off, x gradient negated
 
-for echo = 1:ny   % EPI echo (not dabecho)
-	istart = length(gpre) + (echo-1)*length(gx1) + 1;
-	istop = istart + length(gx1) - 1;
-	dat1 = dat(istart:istop, coil, slice, 1, frame); 
-	kx1 = kx(istart:istop);
-	x(:,echo) = reconecho(dat1, kx1, nx, fov, gx1);
+% reconstruct
+if false
+for frame = 1:2
+	for slice = 1:10
+		for echo = 1:ny   % EPI echo (not dabecho)
+			istart = length(gpre) + (echo-1)*length(gx1) + 1;
+			istop = istart + length(gx1) - 1;
+			dat1 = dat(istart:istop, coil, slice, 1, frame); 
+			kx1 = kx(istart:istop);
+			x(:,echo,slice,frame) = reconecho(dat1, kx1, nx, fov, gx1);
+		end
+
+		%figure;
+		%subplot(121); im(abs(x(:,:,slice))); title(sprintf('mag (slice %d)', slice));
+		%subplot(122); im(angle(x(:,1:2:end,slice)./x(:,2:2:end,slice)), [-pi/3 pi/3]); colorbar;  % paired phase difference
+	end
 end
-
-subplot(121); im(abs(x)); title('mag');
-subplot(122); im(angle(x(:,1:2:end)./x(:,2:2:end)), [-pi/3 pi/3]); colorbar;  % paired phase difference
+save x x
+else
+load x
+end
+	
+% plot
+for echo = [1 31]
+	for slice = [1 9]
+		figure; 
+		plot(squeeze(angle(x(:,echo,slice,1)./x(:,echo,slice,2))));
+		title(sprintf('echo %d, slice %d', echo, slice));
+	end
+end
 
 return
 
