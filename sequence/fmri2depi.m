@@ -85,7 +85,7 @@ end
 gx1 = gx1(1:(end-1));  % remove 0 at end
 
 % y blip
-gyblip = toppe.utils.trapwave2(area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+gyblip = toppe.utils.trapwave2(2*area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
 
 % gy waveform for 1st/last and other echoes
 imax = find(gyblip == max(gyblip));
