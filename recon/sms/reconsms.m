@@ -1,12 +1,16 @@
 % toy example
+
+% object
 dim = [64 64 4];
+fov = [24 24 4];   % cm
 n = dim(1);
 nz = dim(3);
-clear x
-for iz = 1:nz
-	x(:,:,iz) = phantom(n) * (-1)^(iz+1) * iz/nz;
+clear xtrue
+for iz = 2:(nz-1)
+	xtrue(:,:,iz) = phantom(n) * (-1)^(iz+1) * iz/nz;
 end
-fov = [24 24 4];   % cm
+xtrue(n/4:3*n/4,n/4:3*n/4,1) = 1;
+xtrue(n/4:3*n/4,n/4:3*n/4,iz+1) = 0.5;
 
 % kspace sampling pattern
 deltak = 1./fov;     % cycles/cm
@@ -15,16 +19,25 @@ kyrange = (-dim(2)/2:(dim(2)/2-1))*deltak(2);
 kzrange = (-dim(3)/2:(dim(3)/2-1))*deltak(3);
 [kx, ky, kz] = ndgrid(kxrange, kyrange, kzrange);
 
+% sensitivity maps
+nc = 4;
+[x y z] = meshgrid(linspace(-1,1,dim(1)), linspace(-1,1,dim(2)), linspace(-1,1,dim(3))); 
+sens(:,:,:,1) = exp(x).*exp(y).*exp(z);
+sens(:,:,:,2) = exp(-x).*exp(y).*exp(z);
+sens(:,:,:,3) = exp(-x).*exp(y).*exp(-z);
+sens(:,:,:,4) = exp(x).*exp(-y).*exp(z);
+
 % system matrix
-arg.dim = dim(1:2);
-arg.mask = true(dim(1:2));
-A = getA([kx(:) ky(:)], arg);
+arg.dim = dim;
+arg.k = [kx(:) ky(:) kz(:)];
+arg.nc = nc;
+arg.sens = sens;
+A = getA(arg);
 
 % 'acquired' data
-x = m(:,:,1);
-y = A*x;
-xhat = A'*y;
-im(cat(1,x,xhat));
+ytrue = A*xtrue;
+xhat = A'*ytrue;
+im(cat(1,xtrue,xhat));
 
 return;
 

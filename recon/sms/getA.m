@@ -5,23 +5,26 @@ function A = getA(arg)
 % arg.dim   [nx ny nz]   size of image 
 % arg.k     [nt nd], nt = number of acquired samples, nd = number of dimensions
 % arg.nc    number of receive coils
+% arg.sens  [[arg.dim] arg.nc]  coil sensitivity maps (complex)
 
 A = fatrix2('arg', arg, 'odim', [arg.dim arg.nc], ...
+	'imask', true(arg.dim), ...
 	'forw', @A_forw, 'back', @A_back);
 
 return
 
-% x  arg.dim            image
+% x  arg.dim              image
 % y  [[arg.dim] arg.nc]   coil data 
 function y = A_forw(arg, x)
-	% dd
-	%x = reshape(x, dim);
-	y = fftshift(fftn(fftshift(x)));
-	%y = y(:);
+	for ic = 1:arg.nc
+		y(:,:,:,ic) = fftshift(fftn(fftshift(arg.sens(:,:,:,ic).*x)));
+	end
 return
 
 function x = A_back(arg, y)
-	%y = reshape(y, dim);
-	x = fftshift(ifftn(fftshift(y)));
-	%x = x(:);
+	x = zeros(arg.dim);
+	for ic = 1:arg.nc
+		xtmp = fftshift(ifftn(fftshift(y(:,:,:,ic))));
+		x = x + abs(xtmp).^2;
+	end
 return;
