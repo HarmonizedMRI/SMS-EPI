@@ -11,6 +11,9 @@ for iz = 2:(nz-1)
 end
 xtrue(n/4:3*n/4,n/4:3*n/4,1) = 1;
 xtrue(n/4:3*n/4,n/4:3*n/4,iz+1) = 0.5;
+for iz = 1:nz
+	xtrue(:,:,iz) = imrotate(xtrue(:,:,iz), 90*(iz-1));
+end
 
 % sensitivity maps
 % 4 rings of 8 coils (like the Nova 32ch head coil)
