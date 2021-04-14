@@ -1,16 +1,20 @@
-function [x,res] = cgnr_jfn(A,b,x_i,nitmax)
+function [x,res] = cgnr_jfn(A,b,x_i,nitmax,tol)
 % function [x,res] = cgnr_jfn(A,b,x_i,nitmax)
 %
 % Solve Ax = b for rectangular A, using CG on normal equations.
 % A must support A*x and A'*y operations.
 
-b = A'*b;
+if ~exist('tol', 'var')
+	tol = 1e-6;
+end
+
+b = A'*b;   % zero-filled image
 
 r_i = b - AtransAx(A,x_i);
 d_i = r_i;
 
 it = 0;
-while norm(r_i)/norm(b) > 1e-7 & it < nitmax 
+while norm(r_i)/norm(b) > tol & it < nitmax 
 	alpha_i = r_i'*r_i/(d_i'*AtransAx(A,d_i));
 	x_ii = x_i + alpha_i*d_i;
 	r_ii = r_i - alpha_i*AtransAx(A,d_i);

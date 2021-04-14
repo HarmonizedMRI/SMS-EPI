@@ -12,23 +12,29 @@ end
 xtrue(n/4:3*n/4,n/4:3*n/4,1) = 1;
 xtrue(n/4:3*n/4,n/4:3*n/4,iz+1) = 0.5;
 
-% kspace sampling pattern
-deltak = 1./fov;     % cycles/cm
-kxrange = (-imsize(1)/2:(imsize(1)/2-1))*deltak(1);
-kyrange = (-imsize(2)/2:(imsize(2)/2-1))*deltak(2);
-kzrange = (-imsize(3)/2:(imsize(3)/2-1))*deltak(3);
-[kx, ky, kz] = ndgrid(kxrange, kyrange, kzrange);
-
 % sensitivity maps
-nc = 4;
+% 4 rings of 8 coils (like the Nova 32ch head coil)
+nRings = 4;
+nCoilsPerRing = 8;
+nc = nRings*nCoilsPerRing;
 [x y z] = meshgrid(linspace(-1,1,imsize(1)), linspace(-1,1,imsize(2)), linspace(-1,1,imsize(3))); 
-x = x/1;
-y = y/1;
-z = z/4;
-sens(:,:,:,1) = exp(x).*exp(y).*exp(z);
-sens(:,:,:,2) = exp(-x).*exp(y).*exp(z);
-sens(:,:,:,3) = exp(-x).*exp(y).*exp(-z);
-sens(:,:,:,4) = exp(x).*exp(-y).*exp(z);
+for ir = 1:nRings
+	zc = (-nRings/2 + ir - 0.5);
+	for ic = 1:nCoilsPerRing
+		p0 = sqrt(2)*exp(1i*2*pi*ic/nCoilsPerRing);
+		xc = real(p0); yc = imag(p0);
+		r = sqrt((x-xc).^2 + (y-yc).^2 + (z-zc).^2);
+		sens(:,:,:,(ir-1)*nCoilsPerRing+ic) = exp(-r.^2 + 1i*pi*(r-0.5)); % add some phase too
+	end
+end
+if 0
+for ic = 1:nc
+	figure; subplot(121); im(sens(:,:,:,ic), [0 1]);
+	subplot(122); im(angle(sens(:,:,:,ic)), [0 1]);
+	colormap jet;
+end
+return;
+end
 
 % 3D cartesian multi-coil system matrix
 % Later: add B0 field map
@@ -37,7 +43,9 @@ arg.imsize = imsize;
 arg.imask = true(imsize);
 arg.sens = sens;
 arg.kmask = true(imsize);
-arg.kmask(:,1:2:end,:) = 0;
+
+arg.kmask(:,1:2:end,:) = 0;  % undersampling pattern
+arg.kmask(:,:,1:2:end) = 0;  % undersampling pattern
 
 arg.nc = size(arg.sens,4);
 arg.nt = sum(arg.kmask(:));    % number of acquired samples (per coil)
@@ -52,7 +60,7 @@ end
 
 % 'acquired' data
 yfull = A*xtrue(:);
-SNR = 10;
+SNR = 4;
 yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
 
 y = yfull;
@@ -85,8 +93,10 @@ kappa = arg.imask;
 
 W = Gdiag(ones(size(A,1),1));   % weighting matrix
 xinit = zeros(imsize);
-%[xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 100);
-[xhat,res] = cgnr_jfn(A, y, xinit(:), 100);
+%tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 100); toc;
+nitmax = 200;
+tol = 1e-5;
+tic; [xhat,res] = cgnr_jfn(A, y, xinit(:), nitmax, tol); toc;
 xhat = reshape(xhat, [arg.imsize]);
 im(xhat); colormap jet; 
 %xcp = A'*y;
