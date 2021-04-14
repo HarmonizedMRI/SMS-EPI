@@ -19,10 +19,9 @@ nCoilsPerRing = 8;
 nc = nRings*nCoilsPerRing;
 [x y z] = meshgrid(linspace(-1,1,imsize(1)), linspace(-1,1,imsize(2)), linspace(-1,1,imsize(3))); 
 for ir = 1:nRings
-	zc = (-nRings/2 + ir - 0.5);
 	for ic = 1:nCoilsPerRing
 		p0 = sqrt(2)*exp(1i*2*pi*ic/nCoilsPerRing);
-		xc = real(p0); yc = imag(p0);
+		xc = real(p0); yc = imag(p0); zc = (-nRings/2 + ir - 0.5);  % coil location
 		r = sqrt((x-xc).^2 + (y-yc).^2 + (z-zc).^2);
 		sens(:,:,:,(ir-1)*nCoilsPerRing+ic) = exp(-r.^2 + 1i*pi*(r-0.5)); % add some phase too
 	end
@@ -36,16 +35,19 @@ end
 return;
 end
 
+% blipped CAIPI undersampling pattern
+mb = size(xtrue,3);
+arg.kmask = false(imsize);
+for iz = 1:mb
+	arg.kmask(:,iz:mb:end,iz) = true;
+end
+
 % 3D cartesian multi-coil system matrix
 % Later: add B0 field map
 %k = [kx(:) ky(:) kz(:)];
 arg.imsize = imsize;
 arg.imask = true(imsize);
 arg.sens = sens;
-arg.kmask = true(imsize);
-
-arg.kmask(:,1:2:end,:) = 0;  % undersampling pattern
-arg.kmask(:,:,1:2:end) = 0;  % undersampling pattern
 
 arg.nc = size(arg.sens,4);
 arg.nt = sum(arg.kmask(:));    % number of acquired samples (per coil)
@@ -60,7 +62,7 @@ end
 
 % 'acquired' data
 yfull = A*xtrue(:);
-SNR = 4;
+SNR = 20;
 yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
 
 y = yfull;
@@ -105,70 +107,4 @@ im(xhat); colormap jet;
 
 return
 
-
-J = 6; K = 2*dim;
-nufft_args = {[dim], [6 6 4], 2*dim, dim/2,'minmax:kb'};
-% trick: the system matrix is just the transpose of a SENSE image recon matrix!
-A = Gmri_SENSE(k, true(dim), 'fov', fov, 'basis', {'dirac'}, ...
-	'nufft', nufft_args, 'sens', sens);
-
-% 'acquired' data
-yfull = A*xtrue(:);
-SNR = 2;
-%yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
-
-% reconstruct
-xhat = A'*yfull(:);
-%im(cat(1,xtrue,xhat));
-%xinit = zeros(dim);
-%[x, info] = qpwls_pcg1(xinit(:), A, diag_sp(ones(size(A,1),1)), yfull(:), lambda*C2, 'niter', 30);
-
-return;
-
-% 'acquired' data
-nufft_args = {[n,n,nz],[6,6],[2*n,2*n,2*nz],[n/2,n/2,nz/2],'minmax:kb'};
-nufft_args = {dim, [6,6], 2*dim, dim/2, 'minmax:kb'};
-mask = true(dim); % Mask for support
-
-nufft_args = {[n,n],[6,6],[2*n,2*n],[n/2,n/2],'minmax:kb'};
-mask = true(n,n);
-L = 6;
-A = Gmri([fov(1)*kx(:) fov(2)*ky(:)],mask,'nufft',nufft_args);
-%A = Gmri([fov(1)*kx(:) fov(2)*ky(:) fov(3)*kz(:)], mask, 'nufft', nufft_args);
-
-return;
-
-A = Gmri([fov(1)*kx(:) fov(2)*ky(:) fov(3)*kz(:)], mask, ...
-	'L', L, 'nufft', nufft_args);
-
-return;
-
-% Initialize system matrix for each z location
-for iz = 1:nz
-	if ~isempty(arg.zmap)    % do nufft with fieldmap correction
-		if isempty(arg.ti)
-			error('You must provide ti (sample times) as well as zmap');
-		end
-
-		% Initialize a Gmri object for every slice location
-		% This isn't the best implementation because Gmri has a function to
-		% update zmap on the fly.
-		A{iz} = Gmri([fov(1)*kx(:) fov(2)*ky(:)], mask, ...
-            'ti', arg.ti, 'zmap', 1i*2*pi*arg.zmap(:,:,iz), 'L', L, 'nufft', nufft_args);
-	end
-end
-
-
-% field-map params
-tt = 0:dt:(Nt-1)*dt;tt = tt-(Nt-1)*dt;L = 4;fmap = []; % Hz
-% nufft params
-J = 6;K = 2*dim;
-nufft_args = {[dim dim],[J J],[K K],[dim dim]/2,'minmax:kb'};
-gambar = 4257; % gamma/2pi in Hz/g
-gam = gambar*2*pi; % gamma in radians/g
-% trick: the system matrix is just the transpose of a SENSE image recon matrix!
-Gsml = Gmri_SENSE(k,true(dim),'fov',[FOV FOV],'basis',{'dirac'}, ...
-	'nufft',nufft_args,'exact',0, ...
-	'sens',conj(reshape(sens,[dim*dim Nc]))*(-1i*gam*dt), ...
-	'ti',-tt,'L',L,'zmap',2*pi*1i*fmap)';
 
