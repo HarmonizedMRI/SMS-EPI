@@ -1,7 +1,7 @@
 % toy example
 
 % object
-dim = [64 64 4];
+dim = [64 64 6];
 fov = [24 24 4];   % cm
 n = dim(1);
 nz = dim(3);
@@ -31,20 +31,22 @@ sens(:,:,:,3) = exp(-x).*exp(y).*exp(-z);
 sens(:,:,:,4) = exp(x).*exp(-y).*exp(z);
 
 % system matrix
-arg.dim = dim;
-arg.k = [kx(:) ky(:) kz(:)];
-arg.nc = nc;
-arg.sens = sens;
-A = getA(arg);
+k = [kx(:) ky(:) kz(:)];
+%A = getA(arg);
+J = 6; K = 2*dim;
+nufft_args = {[dim], [6 6 4], 2*dim, dim/2,'minmax:kb'};
+% trick: the system matrix is just the transpose of a SENSE image recon matrix!
+A = Gmri_SENSE(k, true(dim), 'fov', fov, 'basis', {'dirac'}, ...
+	'nufft', nufft_args, 'sens', sens);
 
 % 'acquired' data
-yfull = A*xtrue;
+yfull = A*xtrue(:);
 SNR = 2;
-yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
+%yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
 
 % reconstruct
-xhat = A'*yfull;
-im(cat(1,xtrue,xhat));
+xhat = A'*yfull(:);
+%im(cat(1,xtrue,xhat));
 %xinit = zeros(dim);
 %[x, info] = qpwls_pcg1(xinit(:), A, diag_sp(ones(size(A,1),1)), yfull(:), lambda*C2, 'niter', 30);
 
