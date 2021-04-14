@@ -77,8 +77,9 @@ kappa = arg.imask;
 %[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
 
 W = Gdiag(ones(size(A,1),1));   % weighting matrix
+C = 0; %Gdiag(zeros(arg.np,1));
 xinit = zeros(imsize);
-%tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 100); toc;
+%tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, C, 'niter', 100); toc;
 tol = 1e-4; nitmax = 200;
 tic; [xhat,res] = cgnr_jfn(A, y, xinit(:), nitmax, tol); toc;
 xhat = reshape(xhat, [arg.imsize]);
