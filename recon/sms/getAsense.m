@@ -1,5 +1,5 @@
-function A = getA(arg)
-% function A = getA(arg)
+function A = getAsense(arg)
+% function A = getAsense(arg)
 %
 % Undersampled 3D Cartesian system matrix
 %
@@ -9,32 +9,33 @@ function A = getA(arg)
 % arg.sens     [nx ny nz nc]  
 
 arg.nc = size(arg.sens,4);
+arg.nt = sum(arg.kmask(:));    % number of acquired samples (per coil)
+arg.np = prod(arg.imsize);     % number of spatial positions (voxels)
 
 A = fatrix2('arg', arg, ...
-	'mask', arg.imask, ... 
-	'odim', [arg.imsize arg.nc], ...      % size of A*x
+	'mask', true(arg.np,1), ...
+	'odim', [arg.nt*arg.nc], ...      % size of A*x
 	'forw', @A_forw, 'back', @A_back);
 
 return
 
-% x  [prod(arg.imsize) 1] 
-% y  [arg.nc*sum(arg.kmask(:)) 1]
+% x  [arg.np 1] 
+% y  [arg.nc*arg.nt 1]
 function y = A_forw(arg, x)
 	x = reshape(x, arg.imsize);
-	y = zeros([arg.imsize arg.nc]);
+	y = zeros(arg.nt*arg.nc,1);
 	for ic = 1:arg.nc
-		y(:,:,:,ic) = fftshift(fftn(fftshift(arg.sens(:,:,:,ic).*x)));
+		tmp = fftshift(fftn(fftshift(arg.sens(:,:,:,ic).*x)));
+		y(((ic-1)*arg.nt+1):(ic*arg.nt)) = tmp(arg.kmask);
 	end
-	y = reshape(y, arg.nc*sum(arg.kmask(:)), []);
-	%y = y(arg.kmask);
 return
 
 function x = A_back(arg, y)
-	%y = embed(y, arg.kmask);
 	x = zeros(arg.imsize);
 	for ic = 1:arg.nc
-		tmp = conj(arg.sens(:,:,:,ic)).*fftshift(ifftn(fftshift(y(:,:,:,ic))));
+		tmp = embed(y(((ic-1)*arg.nt+1):(ic*arg.nt)), arg.kmask);
+		tmp = conj(arg.sens(:,:,:,ic)).*fftshift(ifftn(fftshift(tmp)));
 		x = x + tmp;
 	end
-	x = reshape(x, prod(arg.imsize), []); 
+	x = reshape(x, arg.np, []); 
 return;

@@ -35,8 +35,13 @@ sens(:,:,:,4) = exp(x).*exp(-y).*exp(z);
 %k = [kx(:) ky(:) kz(:)];
 arg.imsize = imsize;
 arg.imask = true(imsize);
-arg.kmask = true(imsize);
 arg.sens = sens;
+arg.kmask = true(imsize);
+arg.kmask(:,1:2:end,:) = 0;
+
+arg.nc = size(arg.sens,4);
+arg.nt = sum(arg.kmask(:));    % number of acquired samples (per coil)
+arg.np = prod(arg.imsize);     % number of spatial positions (voxels)
 
 if 0
 	A0 = getA(arg);
@@ -47,24 +52,44 @@ end
 
 % 'acquired' data
 yfull = A*xtrue(:);
-SNR = 4;
+SNR = 40;
 yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
 
 y = yfull;
 
 if 0   % check coil data
-y = reshape(y, [arg.imsize nc]);
 for ic = 1:nc
-	x = fftshift(ifftn(fftshift(y(:,:,:,ic))));
+	tmp = y(((ic-1)*arg.nt+1):(ic*arg.nt));
+	tmp = embed(tmp, arg.kmask);
+	x = fftshift(ifftn(fftshift(tmp)));
 	figure; im(cat(1, xtrue.*sens(:,:,:,ic), x))
 end
 return;
 end
 
-% reconstruct
+if 0
+% check A_back 
 xhat = A'*y(:);
 xhat = reshape(xhat, [arg.imsize]);
 im(cat(1, xtrue(:,:,:,1), xhat/3)); colormap jet;
+return
+end
+
+% reconstruct
+type = 'leak';
+nbrs = 4;
+chat = 0;
+dist_power = 1;
+kappa = arg.imask;
+%[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
+
+W = diag_sp(ones(size(A,1),1));   % weighting matrix
+xinit = zeros(imsize);
+%[xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 20);
+[xhat,res] = cgnr_jfn(A, y, xinit(:), 100);
+xhat = reshape(xhat, [arg.imsize]);
+im(xhat); colormap jet; 
+%figure; im(cat(1, xtrue(:,:,:,1), xhat)); colormap jet; 
 
 return
 
