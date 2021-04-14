@@ -52,7 +52,7 @@ end
 
 % 'acquired' data
 yfull = A*xtrue(:);
-SNR = 40;
+SNR = 10;
 yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
 
 y = yfull;
@@ -83,13 +83,15 @@ dist_power = 1;
 kappa = arg.imask;
 %[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
 
-W = diag_sp(ones(size(A,1),1));   % weighting matrix
+W = Gdiag(ones(size(A,1),1));   % weighting matrix
 xinit = zeros(imsize);
-%[xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 20);
+%[xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 100);
 [xhat,res] = cgnr_jfn(A, y, xinit(:), 100);
 xhat = reshape(xhat, [arg.imsize]);
 im(xhat); colormap jet; 
-%figure; im(cat(1, xtrue(:,:,:,1), xhat)); colormap jet; 
+%xcp = A'*y;
+%xcp = reshape(xcp, [arg.imsize]);
+%figure; im(cat(1, xcp/4, xhat)); colormap jet; 
 
 return
 
