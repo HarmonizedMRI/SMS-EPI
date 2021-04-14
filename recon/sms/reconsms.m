@@ -1,10 +1,10 @@
 % toy example
 
 % object
-dim = [64 64 6];
+imsize = [64 64 6];
 fov = [24 24 4];   % cm
-n = dim(1);
-nz = dim(3);
+n = imsize(1);
+nz = imsize(3);
 clear xtrue
 for iz = 2:(nz-1)
 	xtrue(:,:,iz) = phantom(n) * (-1)^(iz+1) * iz/nz;
@@ -14,25 +14,61 @@ xtrue(n/4:3*n/4,n/4:3*n/4,iz+1) = 0.5;
 
 % kspace sampling pattern
 deltak = 1./fov;     % cycles/cm
-kxrange = (-dim(1)/2:(dim(1)/2-1))*deltak(1);
-kyrange = (-dim(2)/2:(dim(2)/2-1))*deltak(2);
-kzrange = (-dim(3)/2:(dim(3)/2-1))*deltak(3);
+kxrange = (-imsize(1)/2:(imsize(1)/2-1))*deltak(1);
+kyrange = (-imsize(2)/2:(imsize(2)/2-1))*deltak(2);
+kzrange = (-imsize(3)/2:(imsize(3)/2-1))*deltak(3);
 [kx, ky, kz] = ndgrid(kxrange, kyrange, kzrange);
 
 % sensitivity maps
 nc = 4;
-[x y z] = meshgrid(linspace(-1,1,dim(1)), linspace(-1,1,dim(2)), linspace(-1,1,dim(3))); 
-x = x/3;
-y = y/3;
-z = z/3;
+[x y z] = meshgrid(linspace(-1,1,imsize(1)), linspace(-1,1,imsize(2)), linspace(-1,1,imsize(3))); 
+x = x/1;
+y = y/1;
+z = z/4;
 sens(:,:,:,1) = exp(x).*exp(y).*exp(z);
 sens(:,:,:,2) = exp(-x).*exp(y).*exp(z);
 sens(:,:,:,3) = exp(-x).*exp(y).*exp(-z);
 sens(:,:,:,4) = exp(x).*exp(-y).*exp(z);
 
-% system matrix
-k = [kx(:) ky(:) kz(:)];
-%A = getA(arg);
+% 3D cartesian multi-coil system matrix
+% Later: add B0 field map
+%k = [kx(:) ky(:) kz(:)];
+arg.imsize = imsize;
+arg.imask = true(imsize);
+arg.kmask = true(imsize);
+arg.sens = sens;
+
+if 0
+	A0 = getA(arg);
+	A = Asense(A0, sens);  % need to learn how to use this
+else
+	A = getAsense(arg);    % explicitly implements forw and back using sens maps
+end
+
+% 'acquired' data
+yfull = A*xtrue(:);
+SNR = 4;
+yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
+
+y = yfull;
+
+if 0   % check coil data
+y = reshape(y, [arg.imsize nc]);
+for ic = 1:nc
+	x = fftshift(ifftn(fftshift(y(:,:,:,ic))));
+	figure; im(cat(1, xtrue.*sens(:,:,:,ic), x))
+end
+return;
+end
+
+% reconstruct
+xhat = A'*y(:);
+xhat = reshape(xhat, [arg.imsize]);
+im(cat(1, xtrue(:,:,:,1), xhat/3)); colormap jet;
+
+return
+
+
 J = 6; K = 2*dim;
 nufft_args = {[dim], [6 6 4], 2*dim, dim/2,'minmax:kb'};
 % trick: the system matrix is just the transpose of a SENSE image recon matrix!
