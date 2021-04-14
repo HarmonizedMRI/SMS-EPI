@@ -22,6 +22,9 @@ kzrange = (-dim(3)/2:(dim(3)/2-1))*deltak(3);
 % sensitivity maps
 nc = 4;
 [x y z] = meshgrid(linspace(-1,1,dim(1)), linspace(-1,1,dim(2)), linspace(-1,1,dim(3))); 
+x = x/3;
+y = y/3;
+z = z/3;
 sens(:,:,:,1) = exp(x).*exp(y).*exp(z);
 sens(:,:,:,2) = exp(-x).*exp(y).*exp(z);
 sens(:,:,:,3) = exp(-x).*exp(y).*exp(-z);
@@ -35,9 +38,15 @@ arg.sens = sens;
 A = getA(arg);
 
 % 'acquired' data
-ytrue = A*xtrue;
-xhat = A'*ytrue;
+yfull = A*xtrue;
+SNR = 2;
+yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
+
+% reconstruct
+xhat = A'*yfull;
 im(cat(1,xtrue,xhat));
+%xinit = zeros(dim);
+%[x, info] = qpwls_pcg1(xinit(:), A, diag_sp(ones(size(A,1),1)), yfull(:), lambda*C2, 'niter', 30);
 
 return;
 

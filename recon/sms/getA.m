@@ -24,7 +24,7 @@ return
 function x = A_back(arg, y)
 	x = zeros(arg.dim);
 	for ic = 1:arg.nc
-		xtmp = fftshift(ifftn(fftshift(y(:,:,:,ic))));
-		x = x + abs(xtmp).^2;
+		tmp = conj(arg.sens(:,:,:,ic)).*fftshift(ifftn(fftshift(y(:,:,:,ic))));
+		x = x + tmp;
 	end
 return;
