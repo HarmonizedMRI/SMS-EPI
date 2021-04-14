@@ -60,12 +60,33 @@ else
 	A = getAsense(arg);    % explicitly implements forw and back using sens maps
 end
 
-% 'acquired' data
-yfull = A*xtrue(:);
-SNR = 20;
-yfull = yfull + randn(size(yfull))*mean(abs(yfull(:)))/SNR;
+% 'acquired' undersampled multicoil data
+y = A*xtrue(:);
+SNR = 4;
+y = y + randn(size(y))*mean(abs(y(:)))/SNR;
 
-y = yfull;
+% reconstruct
+type = 'leak';
+nbrs = 4;
+chat = 0;
+dist_power = 1;
+kappa = arg.imask;
+%[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
+
+W = Gdiag(ones(size(A,1),1));   % weighting matrix
+xinit = zeros(imsize);
+%tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 100); toc;
+tol = 1e-4; nitmax = 200;
+tic; [xhat,res] = cgnr_jfn(A, y, xinit(:), nitmax, tol); toc;
+xhat = reshape(xhat, [arg.imsize]);
+%x2 = reshape(A'*y, imsize);
+%im(cat(1,x2,xhat)); colormap jet; 
+im(xhat); colormap jet; 
+
+return
+
+
+% misc old code
 
 if 0   % check coil data
 for ic = 1:nc
@@ -84,27 +105,3 @@ xhat = reshape(xhat, [arg.imsize]);
 im(cat(1, xtrue(:,:,:,1), xhat/3)); colormap jet;
 return
 end
-
-% reconstruct
-type = 'leak';
-nbrs = 4;
-chat = 0;
-dist_power = 1;
-kappa = arg.imask;
-%[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
-
-W = Gdiag(ones(size(A,1),1));   % weighting matrix
-xinit = zeros(imsize);
-%tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, 0, 'niter', 100); toc;
-nitmax = 200;
-tol = 1e-5;
-tic; [xhat,res] = cgnr_jfn(A, y, xinit(:), nitmax, tol); toc;
-xhat = reshape(xhat, [arg.imsize]);
-im(xhat); colormap jet; 
-%xcp = A'*y;
-%xcp = reshape(xcp, [arg.imsize]);
-%figure; im(cat(1, xcp/4, xhat)); colormap jet; 
-
-return
-
-
