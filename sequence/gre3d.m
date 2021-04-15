@@ -110,7 +110,7 @@ I = find(abs(ex.rf) == 0);
 iStart = find(diff(I)>1) + 1;
 iStop = I(iStart+1);
 siemens.ex.rf = pulsegeq.rf2pulseq(ex.rf(iStart:iStop), ge.system.raster, seq);  % Gauss -> Hz; 4us -> 1us.
-siemens.ex.rfdelay = roundToRaster(iStart * ge.system.raster, siemens.system.gradRasterTime);
+siemens.ex.rfdelay = roundtoraster(iStart * ge.system.raster, siemens.system.gradRasterTime);
 siemens.ex.gdelay = max(0, siemens.system.rfDeadTime - siemens.ex.rfdelay);
 siemens.ex.g  = pulsegeq.g2pulseq(ex.g, ge.system.raster, seq);    % Gauss/cm -> Hz/m; 4us -> 10us
 siemens.acq.gx = pulsegeq.g2pulseq(acq.gx, ge.system.raster, seq); % readout gradient
@@ -120,7 +120,7 @@ siemens.acq.gz = pulsegeq.g2pulseq(acq.gz, ge.system.raster, seq); % partition-e
 tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'system', siemens.system, 'delay', siemens.ex.rfdelay);
 tmp.readout = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system);
 tr_min = mr.calcDuration(tmp.rf) + mr.calcDuration(tmp.readout);   % sec
-siemens.delay = roundToRaster(TR*1e-3-tr_min, siemens.system.gradRasterTime);       % sec
+siemens.delay = roundtoraster(TR*1e-3-tr_min, siemens.system.gradRasterTime);       % sec
 
 % Create Pulseq adc object
 [~,~,~,~,~,paramsint16] = toppe.readmod('readout.mod');
