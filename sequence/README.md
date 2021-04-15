@@ -6,10 +6,10 @@
 See [Setup.md](Setup.md)
 
 
-## Test the code
+## Create sequences
 
 ```
->> cd SMS-EPI/sequence/
+>> fmri2depi;
 >> makeSMSEPIfMRI('test');
 ```
 

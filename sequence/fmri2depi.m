@@ -17,6 +17,14 @@
 isCalScan = false;    % measure kspace and B0 eddy current using Duyn's method 
 
 %% Sequence parameters
+
+% parameters common to all sequences in this folder (SMS/2D EPI, 3D GRE coil calibration scan)
+[seq, system] = getparams;
+fov = seq.fov;              % cm
+nx = seq.nx; ny = seq.ny;   % matrix size
+gamma = system.ge.gamma;    % Hz/Gauss
+
+% slice-selective excitation
 ex.flip = 45;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.tbw = 8;          % time-bandwidth product
@@ -41,24 +49,7 @@ end
 
 SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
-fov = 22.4;          % cm
-fov = 26;            % cm
-nx = 64; ny = 64;    % matrix size
-
-espmin = 0.52;      % (ms) minimum echo spacing allow by scanner (on GE, see /usr/g/bin/epiesp.dat)
-
-gamma = 4.2576e3;   % Hz/Gauss
-
-%% Set hardware limits
-% NB! maxGrad must be equal to physical hardware limit since used to scale gradients.
-% maxSlew can be less than physical limit (for reducing PNS)
-system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
-	'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...  
-	'maxRf', 0.25, 'rfUnit', 'Gauss');
-
-%system.siemens = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
-%    'MaxSlew', 150, 'SlewUnit', 'T/m/s', ...
-%	 'rfRingdownTime', 20e-6, 'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
+fbesp = system.ge.forbiddenEspRange;   % ms
 
 %% Slice selective excitation (use TOPPE wrapper around John Pauly's SLR toolbox)
 [ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, ex.nSpoilCycles, ...
@@ -88,13 +79,18 @@ gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt
 gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
-% Reduce maxGrad until desired echo spacing is reached.
 % Allow ramp sampling, and violate Nyquist slightly near kmax.
-for s = 1:-0.02:0.1
-	mxg = s*system.ge.maxGrad;
-	gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
-	if length(gx1)*system.ge.raster*1e3 > espmin
-		break;
+gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
+esp = length(gx1)*system.ge.raster*1e3;   % echo spacing (ms)
+if esp > fbesp(1) & esp < fbesp(2)
+	% Reduce maxGrad until desired echo spacing is reached.
+	for s = 1:-0.02:0.1
+		mxg = s*system.ge.maxGrad;
+		gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
+		if length(gx1)*system.ge.raster*1e3 > espmin
+			esp = length(gx1)*system.ge.raster*1e3; 
+			break;
+		end
 	end
 end
 gx1 = gx1(1:(end-1));  % remove 0 at end
