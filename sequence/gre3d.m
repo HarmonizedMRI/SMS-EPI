@@ -1,4 +1,4 @@
-% Create matched Pulseq and TOPPE scans for 3D B0 field mapping
+% 3D GRE multi-echo scan for coil calibration and B0 field mapping
 %
 % Outputs:
 %  Pulseq scan file        B0scan.seq
@@ -16,26 +16,30 @@
 %addpath ~/pulseq_home/github/toppe/
 %addpath ~/pulseq_home/github/PulseGEq/
 
-% Settings for GE
-GEfilePath = '/usr/g/research/pulseq/';    % Scan file path (GE only)
-gmaxGE = 8;                                % Physical hardware spec (Gauss/cm)
 
+%% Acquisition and hardware parameters
 
-%% Acquisition parameters
-% Minimum TR will be calculated below
-nx = 60;
-ny = 60;
-fov = [24 24 20];                  % cm
+% common to all sequences
+[seq,system] = getparams;
+ge.system = system.ge; 
+siemens.system = system.siemens;
+nx = seq.nx;
+ny = seq.ny;
+
+GEfilePath = '/usr/g/bin/';    % Scan file path (GE only)
+
+% parameters specific to this sequence
+fov = [seq.fov seq.fov 2];                  % cm
 if fov(1) ~= fov(2)
 	error('In-plane fov must be square');
 end
-nz = 2*round(nx*fov(3)/fov(1)/2);  % isotropic voxels
+nz = 2*round(fov(3)/seq.slthick/2);
 deltaTE = [0 1.0];
-deltaTE = [0 0.5 1.0 2.0];       % Change in TE (from minimum) for each of the >= 2 scans needed to estimate B0 field (msec)
+deltaTE = [0 0.5 4.0];       % Change in TE (from minimum) for each of the >= 2 scans needed to estimate B0 field (msec)
 oprbw = 125/4;           % Acquisition bandwidth (kHz) for TOPPE scan. Determines gradient readout trapezoid shape.
 nCycleSpoil = 2;         % readout spoiler gradient area (cycles across voxel dimension)
 ex.flip = 5;             % degrees
-ex.thick = 0.85*fov(3);  % excited slab thickness. To avoid wrap-around in z.
+ex.thick = 0.85*fov(3);  % slab thickness. To avoid wrap-around in z.
 ex.tbw = 8;              % time-bandwidth product of excitation pulse
 ex.dur = 2;              % duration (msec)
 
@@ -44,15 +48,7 @@ limits.design = toppe.systemspecs('maxSlew', 10, 'slewUnit', 'Gauss/cm/ms', ...
 	'maxGrad', 2.8, 'gradUnit', 'Gauss/cm', ...
 	'maxRf', 0.25, 'rfUnit', 'Gauss');
 
-% Define the PHYSICAL limits for each scanner
-% NB! When creating .mod files with toppe.writemod, 'maxGrad' MUST match the PHYSICAL system limit since gradients are scaled relative to this.
-ge.system = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
-	'maxGrad', gmaxGE, 'gradUnit', 'Gauss/cm', ...
-	'maxRf', 0.25, 'rfUnit', 'Gauss');
-
-siemens.system = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
-    'MaxSlew', 150, 'SlewUnit', 'T/m/s', ...
-	 'rfRingdownTime', 20e-6, 'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
+% Minimum TR will be calculated below
 
 %% Create waveforms for TOPPE and associated files (modules.txt, *.mod files). In TOPPE, only 'arbitrary' waveforms are used.
 
@@ -272,7 +268,7 @@ fid = fopen('toppe0.meta', 'wt');
 fprintf(fid, metaFileText);
 fclose(fid);
 
-system(sprintf('tar czf B0scan_gmax%d.tgz modules.txt scanloop.txt tipdown.mod readout.mod toppe0.meta', gmaxGE*10));
+%system(sprintf('tar czf B0scan_gmax%d.tgz modules.txt scanloop.txt tipdown.mod readout.mod toppe0.meta', gmaxGE*10));
 
 instr = ['\nPlace toppe0.meta on scanner host (path is hardcoded in the binary)\n' ...
 'Untar B0scan.tgz in ' GEfilePath ' on scanner host\n' ];

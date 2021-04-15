@@ -3,7 +3,7 @@ function [seq, system] = getparams
 % Define common acquisition parameters and system hardware parameters
 
 seq.nx = 64; seq.ny = seq.nx;   % matrix size
-seq.fov = 18;                   % cm
+seq.fov = 18;                   % in-plane fov (cm)
 seq.slthick = seq.fov/seq.nx;   % isotropic voxels
 
 % Scan plane prescription (rotation and slice offset)
@@ -29,9 +29,9 @@ system.ge.forbiddenEspRange = [0.41 0.51];    % (ms) Forbidden echo spacings (me
 system.ge.toppe.myrfdel = 78;        % rf/gradient delay (us) ( = psd_rf_wait). Inside scanner: 78. Outside scanner: 94.
 system.ge.toppe.daqdel  = 84;        % daq/gradient delay (us) (= psd_grd_wait). Inside scanner: 84. Outside scanner: 100.
 
-%system.siemens = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
-%    'MaxSlew', 150, 'SlewUnit', 'T/m/s', ...
-%	 'rfRingdownTime', 20e-6, 'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
+system.siemens = mr.opts('MaxGrad', 28, 'GradUnit', 'mT/m', ...
+    'MaxSlew', 150, 'SlewUnit', 'T/m/s', ...
+	 'rfRingdownTime', 20e-6, 'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
 
 % Fat saturation pulse (bandwidth = 500 Hz)
 seq.fatsat.flip    = 90;
