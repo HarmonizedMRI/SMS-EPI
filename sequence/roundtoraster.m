@@ -1,4 +1,4 @@
-function dur = roundToRaster(dur, raster)
+function dur = roundtoraster(dur, raster)
 
 dur = dur + raster - mod(dur, raster);
 
