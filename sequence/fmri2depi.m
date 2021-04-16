@@ -43,7 +43,7 @@ else
 	ex.thick = 0.4;    % slice thickness (cm)
 	ex.spacing = 0.6;  % center-to-center slice separation (cm)
 	nslices = 30;
-	scandur = 8*60;    % seconds
+	scandur = 1*60;    % seconds
 	tr = 0;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
 
@@ -80,14 +80,14 @@ gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
 % Allow ramp sampling, and violate Nyquist slightly near kmax.
-gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
+gx1 = toppe.utils.trapwave2(2*area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
 esp = length(gx1)*system.ge.raster*1e3;   % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
-	% Reduce maxGrad until desired echo spacing is reached.
+	% Reduce maxGrad until echo spacing is outside forbidden range.
 	for s = 1:-0.02:0.1
 		mxg = s*system.ge.maxGrad;
 		gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
-		if length(gx1)*system.ge.raster*1e3 > espmin
+		if length(gx1)*system.ge.raster*1e3 > fbesp(2)
 			esp = length(gx1)*system.ge.raster*1e3; 
 			break;
 		end
