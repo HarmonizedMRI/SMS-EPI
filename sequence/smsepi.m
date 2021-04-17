@@ -5,17 +5,6 @@
 %
 % TODO: create the corresponding Pulseq file
 
-% Set paths to Pulseq and TOPPE libraries
-%addpath ~/github/pulseq/matlab/         % +mr package
-%addpath ~/github/toppeMRI/toppe/        % +toppe package
-%addpath ~/github/toppeMRI/PulseGEq/     % +pulsegeq package (Pulseq <--> TOPPE conversion)
-% paths for MZ
-%addpath ~/pulseq_home/github/pulseq/matlab/
-%addpath ~/pulseq_home/github/toppe/
-%addpath ~/pulseq_home/github/PulseGEq/
-
-isCalScan = false;    % measure kspace and B0 eddy current using Duyn's method 
-
 %% Sequence parameters
 
 % parameters common to all sequences in this folder (SMS/2D EPI, 3D GRE coil calibration scan)
@@ -26,38 +15,32 @@ gamma = system.ge.gamma;    % Hz/Gauss
 
 % slice-selective excitation
 ex.flip = 45;        % flip angle (degrees)
-ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
+ex.type = 'ex';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
+ex.ftype = 'ls';     
 ex.tbw = 8;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
+ex.sliceSep = 5;       % center-to-center slice separation (cm)
+mbFactor = 3;          % sms/multiband factor (number of simultaneous slices)
+
+nslices = 3;
+if mod(nslices, mbFactor) > 0
+		error('Number of slices must be multiple of MB factor');
+end
 
 delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
 
-if isCalScan
-	ex.thick = 0.3;    % slice thickness (cm)
-	ex.spacing = 10;   % center-to-center slice separation (cm)
-	nslices = 7;
-	scandur = 30;      % seconds
-	tr = 500;          % (ms) sequence tr
-else
-	ex.thick = 0.4;    % slice thickness (cm)
-	ex.spacing = 0.6;  % center-to-center slice separation (cm)
-	nslices = 30;
-	scandur = 1*60;    % seconds
-	tr = 0;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
-end
+scandur = 1*60;    % seconds
+tr = 500;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
 SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
 fbesp = system.ge.forbiddenEspRange;   % ms
 
-%% Slice selective excitation (use TOPPE wrapper around John Pauly's SLR toolbox)
-[ex.rf, ex.g, ex.freq] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, ex.nSpoilCycles, ...
-	'type', ex.type, ...   % 90 excitation. 'st' = small-tip
-	'ftype', 'ls', ...  
-	'writeModFile', false, ...
-	'sliceOffset', ex.spacing, ...  % for calculating ex.freq
-	'spoilDerate', 0.4, ...  % reduce slew by this much during spoiler/rewinder
+%% Slice selective excitation 
+[ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
+	'ofname', 'tipdown.mod', ...
+	'doSim', true, ...   % Bloch simulation of SMS slice profile
 	'system', system.ge);
 ex.rf = toppe.utils.makeGElength(ex.rf);
 ex.g = toppe.utils.makeGElength(ex.g);

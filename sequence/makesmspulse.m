@@ -1,5 +1,5 @@
-function [rf, g] = makeSMSpulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
-% function [rf, g] = makeSMSpulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
+function [rf, g] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
+% function [rf, g] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
 %
 % Create SMS rf and gradient waveforms 
 %
@@ -13,7 +13,6 @@ function [rf, g] = makeSMSpulse(flip, slThick, tbw, dur, nSlices, sliceSep, vara
 %
 % Input options
 %  doSim          bool      Simulate and plot slice profile? Default = false.
-%  writeModFile   bool      Write tipdown.mod file? Default = false.
 %  system         struct    Scanner hardware limits, see systemspecs.m
 %
 % Outputs
@@ -27,20 +26,24 @@ end
 
 % parse inputs
 arg.doSim        = false;
-arg.writeModFile = false;
+arg.writeModFile = true;
 arg.system       = toppe.systemspecs; 
+arg.ofname       = 'tipdown.mod';
+arg.type         = 'ex';               % 'ex': 90 excitation; 'st' = small-tip
+arg.ftype        = 'ls';
 arg = toppe.utils.vararg_pair(arg, varargin);
 
 % design the 'unit' (base) pulse
 nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added at beginning of waveform in makeslr()
 [rf1,g] = toppe.utils.rf.makeslr(flip, slThick, tbw, dur, nSpoilCycles, ...
-	'type', 'ex', ...   % 90 excitation. 'st' = small-tip
-	'ftype', 'ls', ...  
+	'type', arg.type, ...   
+	'ftype', arg.ftype, ...  
 	'system', arg.system, ...
+	'ofname', arg.ofname, ...
 	'writeModFile', false);
 
 % Create SMS pulse
-PHS = getSMSphase(nSlices);  % Phase of the various subpulses (rad). From Wong et al, ISMRM 2012 p2209.
+PHS = getsmsphase(nSlices);  % Phase of the various subpulses (rad). From Wong et al, ISMRM 2012 p2209.
 bw = tbw/dur*1e3;          % pulse bandwidth (Hz)
 gPlateau = max(g);       % gradient amplitude during RF excitation (Gauss/cm)
 rf = 0*rf1;
@@ -88,7 +91,7 @@ if arg.writeModFile
 	% wrap waveforms in toppe.utils.makeGElength() to make sure they are on a 4-sample (16 us) boundary
 	toppe.writemod('rf', toppe.utils.makeGElength(rf), ...
 		'gz', toppe.utils.makeGElength(g), ...
-		'ofname', 'tipdown.mod', ...
+		'ofname', arg.ofname, ...
 		'system', arg.system);
 
 	% Plot .mod file. Note PNS waveform (can easily exceed 80%/100% threshold).

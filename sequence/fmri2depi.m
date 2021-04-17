@@ -31,7 +31,7 @@ if isCalScan
 	scandur = 30;      % seconds
 	tr = 500;          % (ms) sequence tr
 else
-	ex.thick = 0.4;    % slice thickness (cm)
+	ex.thick = seq.slthick;    % slice thickness (cm)
 	ex.spacing = 0.6;  % center-to-center slice separation (cm)
 	nslices = 30;
 	scandur = 1*60;    % seconds
