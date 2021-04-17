@@ -1,6 +1,5 @@
 
-% setup
-curdir = pwd; cd ~/github/mirt; setup; cd(curdir);
+setup;
 
 % toy example
 reconsms;
