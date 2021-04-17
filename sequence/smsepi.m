@@ -15,12 +15,12 @@ gamma = system.ge.gamma;    % Hz/Gauss
 
 % slice-selective excitation
 ex.flip = 45;        % flip angle (degrees)
-ex.type = 'ex';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
+ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.ftype = 'ls';     
-ex.tbw = 8;          % time-bandwidth product
+ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
-ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
-ex.sliceSep = 5;       % center-to-center slice separation (cm)
+ex.nSpoilCycles = 8;   % number of cycles of gradient spoiling across slice thickness
+ex.sliceSep = 5;       % center-to-center separation between SMS slices (cm)
 mbFactor = 3;          % sms/multiband factor (number of simultaneous slices)
 
 nslices = 3;
@@ -28,48 +28,42 @@ if mod(nslices, mbFactor) > 0
 		error('Number of slices must be multiple of MB factor');
 end
 
-delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
-
-scandur = 1*60;    % seconds
-tr = 500;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
+% timing
+delay.postrf = 10;    % (ms) delay after RF pulse. Determines TE. 
+scandur = 1*60;       % seconds
+tr = 500;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
 SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
 
 fbesp = system.ge.forbiddenEspRange;   % ms
 
-%% Slice selective excitation 
+%% SMS excitation module
+sys = system.ge;
+sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
 [ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
 	'ofname', 'tipdown.mod', ...
-	'doSim', true, ...   % Bloch simulation of SMS slice profile
-	'system', system.ge);
-ex.rf = toppe.utils.makeGElength(ex.rf);
-ex.g = toppe.utils.makeGElength(ex.g);
-if isCalScan 
-	% excite slice along x (readout direction) so we can measure eddy currents
-	toppe.writemod('rf', ex.rf, 'gx', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
-else
-	toppe.writemod('rf', ex.rf, 'gz', ex.g, 'system', system.ge, 'ofname', 'tipdown.mod');
-end
+	'doSim', true, ...   % Plot simulated SMS slice profile
+	'system', sys);
 
 %% EPI readout
 res = fov/nx;          % spatial resolution (cm)
 kmax = 1/(2*res);      % cycles/cm
-area = kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
+area = 2*kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
 
 % x/y prephaser
 % reduce slew to reduce PNS
-gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt(2), system.ge.raster*1e3); % raster time in msec (sorry)
+gpre = toppe.utils.trapwave2(area/2, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt(2), system.ge.raster*1e3); % raster time in msec (sorry)
 gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
-% Allow ramp sampling, and violate Nyquist slightly near kmax.
-gx1 = toppe.utils.trapwave2(2*area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+% Allow ramp sampling, and violate Nyquist slightly near kmax for now.
+gx1 = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
 esp = length(gx1)*system.ge.raster*1e3;   % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
-	% Reduce maxGrad until echo spacing is outside forbidden range.
+	% Reduce maxGrad until echo spacing is outside forbidden range
 	for s = 1:-0.02:0.1
 		mxg = s*system.ge.maxGrad;
-		gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
+		gx1 = toppe.utils.trapwave2(area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
 		if length(gx1)*system.ge.raster*1e3 > fbesp(2)
 			esp = length(gx1)*system.ge.raster*1e3; 
 			break;
@@ -79,7 +73,7 @@ end
 gx1 = gx1(1:(end-1));  % remove 0 at end
 
 % y blip
-gyblip = toppe.utils.trapwave2(2*area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+gyblip = toppe.utils.trapwave2(area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
 
 % gy waveform for 1st/last and other echoes
 imax = find(gyblip == max(gyblip));
@@ -89,9 +83,24 @@ gy1 = [zeros(1,length(gx1)-length(gyblipstart)) gyblipstart]; % first echo
 gyn = [gyblipend zeros(1,length(gx1)-length(gyblipend)-length(gyblipstart)) gyblipstart]; % other echoes
 gylast = [gyblipend zeros(1,length(gx1)-length(gyblipend))]; % last echo
 
+% z blip/rewinder. Use one waveform for both and scale as needed.
+kmax = 1/(2*ex.sliceSep);   % cycles/cm
+area = 2*kmax/gamma;        % G/cm * sec
+gzblip = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
+
+% z prewinder
+gzpre = [(mbFactor-1)/2*gzblip zeros(1,length(gpre)-length(gzblip))];
+
+% gz waveforms for the various echoes
+imax = find(gzblip == max(gzblip));
+gzblipstart = gzblip(1:imax(1));  % first half of blip
+gzblipend = gzblip(imax(2):end);
+gz1 = [zeros(1,length(gx1)-length(gzblipstart)) gzblipstart]; % first echo
+
 % put it all together and write to readout.mod
 gx = [-gpre gx1];
 gy = [-gpre gy1];
+gz = [-gzpre gz1];
 for iecho = 2:(ny-1)
 	gx = [gx gx1*(-1)^(iecho+1)];
 	gy = [gy gyn];
