@@ -9,9 +9,10 @@
 
 % parameters common to all sequences in this folder (SMS/2D EPI, 3D GRE coil calibration scan)
 [seq, system] = getparams;
-fov = seq.fov;              % cm
+fov = seq.fov;              % in-plane field of view (cm)
 nx = seq.nx; ny = seq.ny;   % matrix size
 gamma = system.ge.gamma;    % Hz/Gauss
+dt = system.ge.raster;      % sec
 
 % slice-selective excitation
 ex.flip = 45;        % flip angle (degrees)
@@ -42,7 +43,7 @@ sys = system.ge;
 sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
 [ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
 	'ofname', 'tipdown.mod', ...
-	'doSim', false, ...   % Plot simulated SMS slice profile
+	'doSim', true, ...   % Plot simulated SMS slice profile
 	'system', sys);
 
 %% EPI readout
@@ -72,6 +73,13 @@ if esp > fbesp(1) & esp < fbesp(2)
 	end
 end
 gx1 = gx1(1:(end-1));  % remove 0 at end
+
+% check that Nyquist is supported everywhere along readout
+kx = gamma*dt*cumsum(gx);
+minfov = 1/max(abs(diff(kx)));
+if minfov < fov
+	error('Nyquist violated along readout direction');
+end
 
 % y blip
 gyblip = toppe.utils.trapwave2(area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
@@ -132,9 +140,15 @@ toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 
 % plot kspace
 [~,gx,gy,gz] = toppe.readmod('readout.mod');
-dt = system.ge.raster;  % sec
-plot(gamma*dt*cumsum(gx),'r'); hold on; plot(gamma*dt*cumsum(gy),'g'); plot(gamma*dt*cumsum(gz),'b');
-legend('kx', 'ky', 'kz'); ylabel('cycles/cm');
+kx = gamma*dt*cumsum(gx);
+ky = gamma*dt*cumsum(gy);
+kz = gamma*dt*cumsum(gz);
+figure;
+subplot(121); plot(kx,ky,'b.'); axis equal;
+xlabel('kx (cycles/cm)'); ylabel('ky (cycles/cm)');
+T = dt*1e3*(1:length(kx));
+subplot(122); hold off; plot(T,kx,'r'); hold on; plot(T,ky,'g'); plot(T,kz,'b'); hold off;
+legend('kx', 'ky', 'kz'); ylabel('cycles/cm'); xlabel('time (ms)');
 
 
 %% Create modules.txt 
