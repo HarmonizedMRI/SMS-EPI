@@ -2,8 +2,8 @@ function [seq, system] = getparams
 %
 % Define common acquisition parameters and system hardware parameters
 
-seq.nx = 90; seq.ny = seq.nx;   % matrix size
-seq.fov = 21.4;          % in-plane fov (cm)
+seq.nx = 64; seq.ny = seq.nx;   % matrix size
+seq.fov = 18;          % in-plane fov (cm)
 seq.slThick = seq.fov/seq.nx;   % isotropic voxels
 
 % Scan plane prescription (rotation and slice offset)
