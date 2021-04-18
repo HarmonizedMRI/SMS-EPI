@@ -59,7 +59,8 @@ gpre = gpre(1:(end-1)); % remove 0 at end
 % readout trapezoid
 % Allow ramp sampling, and violate Nyquist slightly near kmax for now.
 gxslew = 0.8*system.ge.maxSlew;  % reduce PNS
-gx1 = toppe.utils.trapwave2(area, system.ge.maxGrad, gxslew, system.ge.raster*1e3);
+mxg = 1/(fov*gamma*dt);          % Gauss/cm
+gx1 = toppe.utils.trapwave2(area, mxg, gxslew, system.ge.raster*1e3);
 esp = length(gx1)*system.ge.raster*1e3;   % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
 	% Reduce maxGrad until echo spacing is outside forbidden range
@@ -78,7 +79,7 @@ gx1 = gx1(1:(end-1));  % remove 0 at end
 kx = gamma*dt*cumsum(gx1);
 minfov = 1/max(abs(diff(kx)));
 if minfov < fov
-	%error('Nyquist violated along readout direction');
+	error('Nyquist violated along readout direction');
 end
 
 % y blip
