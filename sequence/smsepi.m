@@ -75,10 +75,10 @@ end
 gx1 = gx1(1:(end-1));  % remove 0 at end
 
 % check that Nyquist is supported everywhere along readout
-kx = gamma*dt*cumsum(gx);
-minfov = 1/max(abs(diff(kx)));
+kx = gamma*dt*cumsum(gx1);
+minfov = 1/max(abs(diff(kx)))
 if minfov < fov
-	error('Nyquist violated along readout direction');
+	%error('Nyquist violated along readout direction');
 end
 
 % y blip
@@ -121,7 +121,7 @@ for iecho = 2:(ny-1)
 end
 gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
 gy = [gy gylast 0];
-for iecho=2:mbFactor:(ny-mbfactor+1)
+for iecho=2:mbFactor:(ny-mbFactor+1)
 	gz = [gz repmat(gz2, 1, mbFactor-2) gz3 gz4];
 end
 gz = [gz gzlast 0];
@@ -194,8 +194,8 @@ for ifr = 1:nframes
 		% excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
-			'textra', delay.postrf, ...
-			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
+			'textra', delay.postrf); %, ...
+			%'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
 
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
