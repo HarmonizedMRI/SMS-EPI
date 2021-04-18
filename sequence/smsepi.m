@@ -31,7 +31,7 @@ end
 
 % timing
 delay.postrf = 10;    % (ms) delay after RF pulse. Determines TE. 
-scandur = 1*60;       % seconds
+scandur = 1*20;       % seconds
 tr = 500;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
 SLICES = [1:2:(nslices/mbFactor) 2:2:(nslices/mbFactor)];   % slice ordering (minimize slice crosstalk)
@@ -76,7 +76,7 @@ gx1 = gx1(1:(end-1));  % remove 0 at end
 
 % check that Nyquist is supported everywhere along readout
 kx = gamma*dt*cumsum(gx1);
-minfov = 1/max(abs(diff(kx)))
+minfov = 1/max(abs(diff(kx)));
 if minfov < fov
 	%error('Nyquist violated along readout direction');
 end
@@ -177,7 +177,7 @@ end
 delay.postreadout = tr-trseq;  % (ms) delay after readout
 
 % number of frames
-trvol = tr*nslices;  % ms
+trvol = tr*nslices/mbFactor;  % ms
 nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
 
 
@@ -213,7 +213,7 @@ for ifr = 1:nframes
 end
 toppe.write2loop('finish');
 
-tar('epi.tar', {'*.txt', '*.mod', '*.m'});
+tar('smsepi.tar', {'*.txt', '*.mod', '*.m'});
 
 return;
 

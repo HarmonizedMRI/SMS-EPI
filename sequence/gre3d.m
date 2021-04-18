@@ -26,14 +26,14 @@ siemens.system = system.siemens;
 nx = seq.nx;
 ny = seq.ny;
 
-GEfilePath = '/usr/g/bin/';    % Scan file path (GE only)
+GEfilePath = ''; %'/usr/g/bin/';    % Scan file path (GE only)
 
 % parameters specific to this sequence
-fov = [seq.fov seq.fov 2];                  % cm
+fov = [seq.fov seq.fov seq.fov]; 
 if fov(1) ~= fov(2)
 	error('In-plane fov must be square');
 end
-nz = 2*round(fov(3)/seq.slthick/2);
+nz = 2*round(fov(3)/seq.slThick/2);
 deltaTE = [0 1.0];
 deltaTE = [0 0.5 4.0];       % Change in TE (from minimum) for each of the >= 2 scans needed to estimate B0 field (msec)
 oprbw = 125/4;           % Acquisition bandwidth (kHz) for TOPPE scan. Determines gradient readout trapezoid shape.
@@ -269,6 +269,7 @@ fprintf(fid, metaFileText);
 fclose(fid);
 
 %system(sprintf('tar czf B0scan_gmax%d.tgz modules.txt scanloop.txt tipdown.mod readout.mod toppe0.meta', gmaxGE*10));
+tar('gre3d.tar', {'*.txt', '*.mod', '*.m'});
 
 instr = ['\nPlace toppe0.meta on scanner host (path is hardcoded in the binary)\n' ...
 'Untar B0scan.tgz in ' GEfilePath ' on scanner host\n' ];
