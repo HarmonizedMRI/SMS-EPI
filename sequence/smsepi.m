@@ -33,7 +33,7 @@ delay.postrf = 10;    % (ms) delay after RF pulse. Determines TE.
 scandur = 1*60;       % seconds
 tr = 500;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
-SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
+SLICES = [1:2:(nslices/mbFactor) 2:2:(nslices/mbFactor)];   % slice ordering (minimize slice crosstalk)
 
 fbesp = system.ge.forbiddenEspRange;   % ms
 
@@ -42,7 +42,7 @@ sys = system.ge;
 sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
 [ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
 	'ofname', 'tipdown.mod', ...
-	'doSim', true, ...   % Plot simulated SMS slice profile
+	'doSim', false, ...   % Plot simulated SMS slice profile
 	'system', sys);
 
 %% EPI readout
@@ -52,7 +52,7 @@ area = 2*kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
 
 % x/y prephaser
 % reduce slew to reduce PNS
-gpre = toppe.utils.trapwave2(area/2, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt(2), system.ge.raster*1e3); % raster time in msec (sorry)
+gpre = toppe.utils.trapwave2(area/2, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt(2), system.ge.raster*1e3);
 gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
@@ -89,15 +89,20 @@ area = 2*kmax/gamma;        % G/cm * sec
 gzblip = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
 
 % z prewinder
-gzpre = [(mbFactor-1)/2*gzblip zeros(1,length(gpre)-length(gzblip))];
+gzpre = [(mbFactor/2-1/2)/2*gzblip zeros(1,length(gpre)-length(gzblip))];
 
 % gz waveforms for the various echoes
 imax = find(gzblip == max(gzblip));
 gzblipstart = gzblip(1:imax(1));  % first half of blip
 gzblipend = gzblip(imax(2):end);
-gz1 = [zeros(1,length(gx1)-length(gzblipstart)) gzblipstart]; % first echo
+amp = 1/(mbFactor-1);  % amplitude of one delta_kz step (scale gzblip by amp)
+gz1 = [zeros(1,length(gx1)-length(gzblipstart)) amp*gzblipstart]; % first echo
+gz2 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) amp*gzblipstart];
+gz3 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) -gzblipstart];
+gz4 = [-gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) amp*gzblipstart];
+gzlast = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend))]; 
 
-% put it all together and write to readout.mod
+% put it all together 
 gx = [-gpre gx1];
 gy = [-gpre gy1];
 gz = [-gzpre gz1];
@@ -107,11 +112,29 @@ for iecho = 2:(ny-1)
 end
 gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
 gy = [gy gylast 0];
+for iecho=2:mbFactor:(ny-mbfactor+1)
+	gz = [gz repmat(gz2, 1, mbFactor-2) gz3 gz4];
+end
+gz = [gz gzlast 0];
+
+% fix gz at end
+gz = gz(1:length(gx));
+gz((end-round(length(gzlast)/2)+1):end) = 0;
+
+% write to readout.mod
 gx = toppe.utils.makeGElength(gx(:));
 gy = toppe.utils.makeGElength(gy(:));
-toppe.writemod('gx', gx, 'gy', gy, ...
+gz = toppe.utils.makeGElength(gz(:));
+toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod');
+
+% plot kspace
+[~,gx,gy,gz] = toppe.readmod('readout.mod');
+dt = system.ge.raster;  % sec
+plot(gamma*dt*cumsum(gx),'r'); hold on; plot(gamma*dt*cumsum(gy),'g'); plot(gamma*dt*cumsum(gz),'b');
+legend('kx', 'ky', 'kz'); ylabel('cycles/cm');
+
 
 %% Create modules.txt 
 % Entries are tab-separated
@@ -152,22 +175,6 @@ rf_spoil_seed = 117;
 
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
-	% Calibration data:
-	% frame(s)       gy    gx
-	% 1, nframes-4   off   positive
-	% 2, nframes-3   off   negative
-	% 3, nframes-2   on    positive
-	% 4, nframes-1   on    negative
-	% 5, nframes     off   off
-
-	% turn off gy for odd/even echo calibration frames
-	gyamp = 1.0 - any(ifr == [1 nframes-4 2 nframes-3 5 nframes]);
-
-	% flip gx for odd/even echo calibration
-	% turn off for frames [5 nframes]
-	gxamp = (-1)^any(ifr == [2 nframes-3 4 nframes-1]);
-	gxamp = gxamp*(1.0 - any(ifr == [5 nframes]));
-
 	for isl = SLICES
 		% excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
@@ -178,7 +185,7 @@ for ifr = 1:nframes
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
 		toppe.write2loop('readout.mod', ...
-			'Gamplitude', [gxamp gyamp 0]', ...
+			'Gamplitude', [1 1 1]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
 			'textra', delay.postreadout, ...

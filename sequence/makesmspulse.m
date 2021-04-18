@@ -95,7 +95,7 @@ if arg.writeModFile
 		'system', arg.system);
 
 	% Plot .mod file. Note PNS waveform (can easily exceed 80%/100% threshold).
-	toppe.plotmod('tipdown.mod');
+	%toppe.plotmod('tipdown.mod');
 end
 
 return
