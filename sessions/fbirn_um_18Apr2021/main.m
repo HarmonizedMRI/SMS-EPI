@@ -9,7 +9,6 @@ system('tar xf gre3d.tar readout.mod');
 	'echo', 1);
 %tic; sens_bart = bart('ecalib', d(2:4:end,:,:,:)); toc;  % takes 19 min
 d = d(2:4:end,:,:,:);  % oprbw = 31.25 kHz (decimation = 4)
-
 fprintf('getting bart sens maps...');
 tic; sens_bart = bart('ecalib -r 20', d); toc;   % takes 13.6 min
 fprintf('\n');
@@ -67,7 +66,7 @@ d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 % apply odd/even dc phase offset
 d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
 
-% inverse nufft along readout
+% interpolate onto cartesian grid along readout
 for ic = 1:ncoils
 	fprintf('%d\n', ic);
 	for iy = 1:ny
@@ -75,11 +74,10 @@ for ic = 1:ncoils
 	end
 	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
 end
-
-% d = [nt*ncoil], where nt = sum(kmask(:))
+dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
 
 % reconstruct
-%xhat = recon3dcart(y, kmask, imask, sens);
+%xhat = recon3dcart(dcart, kmask, imask, sens);
 %im(xhat); colormap jet; 
 
 return
