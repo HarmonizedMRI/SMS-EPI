@@ -58,7 +58,10 @@ end
 
 % apply temporal shift (odd/even linear phase correction)
 nt = length(kx);
-kx = interp1(1:nt, kx, (1:nt)-delay);
+%kx = interp1(1:nt, kx, (1:nt)-delay);
+tmp = dat(:,rec.coil,rec.slice,1,rec.frame);
+tmp = interp1(1:nt, tmp, (1:nt)+delay);
+dat(:,rec.coil,rec.slice,1,rec.frame) = tmp;
 
 % Get data for desired frame/slice and reshape,
 % and odd/even echo calibration data.
