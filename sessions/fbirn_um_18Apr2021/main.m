@@ -22,6 +22,7 @@ clear sens_bart
 sens = flipdim(sens,1);   % bart seems to flip the first dim
 end
 
+% matrix size for reconstruction
 mbfactor = 3;
 [nx ny] = size(sens(:,:,1,1));
 imsize = [nx ny mbfactor];
