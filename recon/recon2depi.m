@@ -1,6 +1,7 @@
-function x = reconepi(dat, kx, nx, fov, gx)
+function x = recon2depi(dat, kx, nx, fov, gx)
 % 2D EPI reconstruction.
-% Uses nufft along x (ramp sampling), and ift in y
+% Does nufft along x (ramp sampling), and ift in y.
+% Assumes that dat/kx has already undergone odd/even echo correction.
 %
 % dat: [nt ny]   data (complex)   
 % kx:  [nt ny]   cycles/cm
