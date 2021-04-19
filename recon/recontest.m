@@ -40,33 +40,31 @@ end
 
 % blipped CAIPI undersampling pattern
 mb = size(xtrue,3);
-arg.kmask = false(imsize);
+kmask = false(imsize);
 for iz = 1:mb
-	arg.kmask(:,iz:mb:end,iz) = true;
+	kmask(:,iz:mb:end,iz) = true;
 end
 
-% 3D cartesian multi-coil system matrix
-% Later: add B0 field map
-%k = [kx(:) ky(:) kz(:)];
-arg.imsize = imsize;
-arg.imask = true(imsize);
-arg.sens = sens;
+% image support
+imask = true(imsize);
+imask = xtrue ~= 0; %true(imsize);
 
-arg.nc = size(arg.sens,4);
-arg.nt = sum(arg.kmask(:));    % number of acquired samples (per coil)
-arg.np = prod(arg.imsize);     % number of spatial positions (voxels)
-
-if 0
-	A0 = getA(arg);
-	A = Asense(A0, sens);  % need to learn how to use this
-else
-	A = getAsense(arg);    % explicitly implements forw and back using sens maps
-end
-
-% 'acquired' undersampled multicoil data
-y = A*xtrue(:);
+% synthesize 'acquired' undersampled multicoil data
+A = getAsense(kmask, imask, sens);
+y = A*xtrue(imask);
 SNR = 4;
 y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+
+% reconstruct
+xhat = recon3dcart(y, kmask, imask, sens);
+im(xhat); colormap jet; 
+
+return;
+
+
+
+
+% old
 
 % reconstruct
 type = 'leak';
