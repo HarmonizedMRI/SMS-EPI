@@ -1,7 +1,5 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
-% 11 Apr 2021 (data in ../sessions/...)
-
 %% EPI correction parameters
 delay = 0.16;  % fraction of 4us sample
 th0 = 0.2;   % odd/even dc phase offset
