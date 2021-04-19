@@ -1,12 +1,12 @@
 function A = getAsense(arg)
 % function A = getAsense(arg)
 %
-% Undersampled 3D Cartesian system matrix
+% Undersampled multi-coil 3D Cartesian system matrix
 %
 % arg.imsize   [1 3] 
 % arg.imask    [nx ny nz]      image support (logical)
 % arg.kmask    [nx ny nz]      logical mask indicating sampled locations
-% arg.sens     [nx ny nz nc]  
+% arg.sens     [nx ny nz nc]   coil sensitivity maps 
 
 arg.nc = size(arg.sens,4);
 arg.nt = sum(arg.kmask(:));    % number of acquired samples (per coil)

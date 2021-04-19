@@ -83,9 +83,10 @@ xinit = zeros(imsize);
 tol = 1e-4; nitmax = 200;
 tic; [xhat,res] = cgnr_jfn(A, y, xinit(:), nitmax, tol); toc;
 xhat = reshape(xhat, [arg.imsize]);
-%x2 = reshape(A'*y, imsize);
+x2 = reshape(A'*y, imsize);
 %im(cat(1,x2,xhat)); colormap jet; 
-im(xhat); colormap jet; 
+subplot(121); im(x2); colormap jet; 
+subplot(122); im(xhat); colormap jet; 
 
 return
 
