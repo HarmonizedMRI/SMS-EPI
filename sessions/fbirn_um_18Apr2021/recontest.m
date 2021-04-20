@@ -38,19 +38,19 @@ end
 IZ = caipi(n,mb);
 
 % synthesize 'acquired' undersampled multicoil data
-A = getAsms(IZ, imask, sens);
-y = A*xtrue(imask);
+%A = getAsms(IZ, imask, sens);
+%y = A*xtrue(imask);
+clear y;
 for ic = 1:ncoils
 	tmp = fftshift(fftn(fftshift(xtrue.*sens(:,:,:,ic))));
-	tmp(~kmask) = 0;
 	for iy = 1:n
-%		y(:,iy,ic) = tmp(:,iy,IZ(iy));
+		y(:,iy,ic) = tmp(:,iy,IZ(iy));
 	end
 end
 
 % add noise
-%SNR = 4;
-%y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+SNR = 4;
+y = y + randn(size(y))*mean(abs(y(:)))/SNR;
 
 % reconstruct
 xhat = reconsms(y(:), IZ, imask, sens);
