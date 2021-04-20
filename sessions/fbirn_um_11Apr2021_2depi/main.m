@@ -56,6 +56,10 @@ else
 load scanparamsP31232.mat
 end
 
+% fix zero at end of kx
+%kx(end) = 1.01*kx(end-2);
+%kx(end-1) = 1.01*kx(end-2);
+
 % apply temporal shift (odd/even linear phase correction)
 nt = length(kx);
 %kx = interp1(1:nt, kx, (1:nt)-delay);
