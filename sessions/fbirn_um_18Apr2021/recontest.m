@@ -1,13 +1,14 @@
 % toy example
 
 % mb factor
-mb = 6;
+mb = 4;
 
 % sensitivity maps
 load sens_bart;
 sens = sens_bart(:,:,6:10:(mb*10+4),:,1);
 clear sens_bart
 sens = flipdim(sens,1);   % bart seems to flip the first dim
+ncoils = size(sens,4);
 
 % object
 imsize = [64 64 mb];
@@ -22,26 +23,37 @@ xtrue(n/4:3*n/4,n/4:3*n/4,iz+1) = 0.5;
 for iz = 1:nz
 	xtrue(:,:,iz) = imrotate(xtrue(:,:,iz), 90*(iz-1));
 end
+%xtrue(:,:,end) = 0;
+
+% object support
+ss = sqrt(sum(abs(sens).^2,4));
+imask = ss > 0.05*max(ss(:));
+imask = true(imsize);
 
 % blipped CAIPI undersampling pattern
 kmask = false(imsize);
 for iz = 1:mb
 	kmask(:,iz:mb:end,iz) = true;
 end
-
-% image support
-imask = true(imsize);
-ss = sqrt(sum(abs(sens).^2,4));
-imask = ss > 0.05*max(ss(:));
+IZ = caipi(n,mb);
 
 % synthesize 'acquired' undersampled multicoil data
-A = getAsense(kmask, imask, sens);
+A = getAsms(IZ, imask, sens);
 y = A*xtrue(imask);
-SNR = 4;
-y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+for ic = 1:ncoils
+	tmp = fftshift(fftn(fftshift(xtrue.*sens(:,:,:,ic))));
+	tmp(~kmask) = 0;
+	for iy = 1:n
+%		y(:,iy,ic) = tmp(:,iy,IZ(iy));
+	end
+end
+
+% add noise
+%SNR = 4;
+%y = y + randn(size(y))*mean(abs(y(:)))/SNR;
 
 % reconstruct
-xhat = recon3dcart(y, kmask, imask, sens);
+xhat = reconsms(y(:), IZ, imask, sens);
 im(xhat); colormap jet; 
 
 return;

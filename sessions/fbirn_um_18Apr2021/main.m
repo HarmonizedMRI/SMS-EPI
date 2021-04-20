@@ -30,7 +30,7 @@ slSep = 5;  % cm (see smsepi.m)
 slThick = 0.2812;
 isl = round(slSep/slThick);
 nz = size(sens,3);
-IZ = [ nz/2-isl, nx/2, nz/2+isl-1, nz];
+IZ = [ nz/2-isl, nx/2, nz/2+isl-1, nz-5];
 sens = sens(:,:,IZ,:);
 
 % blipped CAIPI sampling pattern
@@ -52,11 +52,11 @@ imask = true(imsize);
 imask(:,:,end) = false;
 
 % acquired data
-%dataprep;  % dcart
+dataprep;  % dcart
 
 % reconstruct
 d = reshape(dcart, nx*ny*ncoils, 1);
-xhat = recon3dcart(dcart(:), kmask, imask, sens);
+xhat = recon3dcart(d(:), kmask, imask, sens);
 im(xhat);
 
 return
