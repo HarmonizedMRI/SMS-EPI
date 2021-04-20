@@ -21,7 +21,7 @@ A = getAsense(kmask, imask, sens);
 %C = 0; %Gdiag(zeros(arg.np,1));
 xinit = zeros(size(imask));
 %tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, C, 'niter', 100); toc;
-tol = 1e-4; nitmax = 200;
+tol = 1e-6; nitmax = 200;
 tic; [xhat,res] = cgnr_jfn(A, dat, xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 
