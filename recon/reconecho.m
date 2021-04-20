@@ -1,17 +1,19 @@
-function [x,A,dcf] = reconecho(y, A, dcf, kx, nx, fov, gx)
-% 1D nufft reconstruction
+function [x,A,dcf] = reconecho(y, A, dcf, kx, nx, fov)
+% function [x,A,dcf] = reconecho(y, [A], [dcf], [kx, nx, fov])
 %
-% y:   [nt]   
-% kx:  [nt]  (cycles/cm)
-% nx   int
-% fov  cm
-% gx   [nt]  (a.u.) readout gradient (typically a trapezoid) for one echo in EPI train
+% 1D nufft reconstruction of ramp-sampled EPI echo
+%
+% y:    [nt]   
+% A:    Gmri object. If empty, construct from kx, nx, fov
+% dcf:  density compensation. If empty, construct from kx, nx
+% kx:   [nt]  (cycles/cm)
+% nx    int
+% fov   cm
 
 if strcmp(y, "test")
 	sub_test;
 	return
 end
-
 
 if isempty(A)
 	nufft_args = {[nx],[6],[2*nx],[nx/2],'minmax:kb'};
@@ -19,6 +21,7 @@ if isempty(A)
 	A = Gmri([fov*kx(:)],mask,'nufft',nufft_args);
 end
 if isempty(dcf)
+	gx = [diff(kx(:)); 0];
 	dcf = gx(:)/max(gx)/nx;  % density compensation
 end
 
@@ -55,8 +58,13 @@ A = Gmri([fov*kx(:)],mask,'nufft',nufft_args);
 y = A*x(:);
 
 % recon
-[~,A,dcf] = reconecho(y, [], [], kx, nx, fov, gx);
-xhat = reconecho(y, A, dcf); %, kx, nx, fov);
+% get A and dcf first, then apply (way faster)
+[~,A,dcf] = reconecho(y, [], [], kx, nx, fov);
+tic;
+for ii = 1:1000
+	xhat = reconecho(y, A, dcf);
+end
+toc;
 hold off; plot(x); hold on; plot(abs(xhat),'o'); legend('x true', 'xhat');
 
 return;
