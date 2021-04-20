@@ -1,11 +1,11 @@
-function [x,A,dcf] = reconecho(y, A, dcf, kx, nx, fov)
-% function [x,A,dcf] = reconecho(y, [A], [dcf], [kx, nx, fov])
+function [x,A,dcf] = reconecho(y, nx, A, dcf, kx, fov)
+% function [x,A,dcf] = reconecho(y, nx, [A, dcf], [kx, fov])
 %
 % 1D nufft reconstruction of ramp-sampled EPI echo
 %
-% y:    [nt]   
+% y:    [nt]  If empty, x is empty.
 % A:    Gmri object. If empty, construct from kx, nx, fov
-% dcf:  density compensation. If empty, construct from kx, nx
+% dcf:  [nt] density compensation. If empty, construct from kx.
 % kx:   [nt]  (cycles/cm)
 % nx    int
 % fov   cm
@@ -20,12 +20,17 @@ if isempty(A)
 	mask = true(nx,1);
 	A = Gmri([fov*kx(:)],mask,'nufft',nufft_args);
 end
+
 if isempty(dcf)
 	gx = [diff(kx(:)); 0];
-	dcf = gx(:)/max(gx)/nx;  % density compensation
+	dcf = gx(:)/max(gx);  % density compensation
 end
 
-x = A'*(y(:).*dcf(:));
+if ~isempty(y)
+	x = A'*(y(:).*dcf(:))/nx;
+else
+	x = [];
+end
 
 return
 
@@ -59,13 +64,28 @@ y = A*x(:);
 
 % recon
 % get A and dcf first, then apply (way faster)
-[~,A,dcf] = reconecho(y, [], [], kx, nx, fov);
+[~,A,dcf] = reconecho([], nx, [], [], kx, fov);
+nops = 500;
+fprintf('Doing %d 1d recons... ', nops);
 tic;
-for ii = 1:1000
-	xhat = reconecho(y, A, dcf);
+for ii = 1:nops
+	xhat = reconecho(y, nx, A, dcf);
 end
 toc;
 hold off; plot(x); hold on; plot(abs(xhat),'o'); legend('x true', 'xhat');
+
+if 0
+% compare with fft
+kx = linspace(kx(1), kx(end), nx);
+[~,A,dcf] = reconecho([], nx, [], [], kx, fov);
+y = A*x;
+yf = fftshift(fft(fftshift(x)));
+figure; plot(abs(y)); hold on; plot(abs(yf)); legend('y', 'ift');
+
+x1 = A'*y;
+xf = fftshift(ifft(fftshift(yf)));
+figure; hold on; plot(x); plot(abs(x1)); plot(abs(xf),'o'); legend('x true', 'xhat', 'fft');
+end
 
 return;
 
