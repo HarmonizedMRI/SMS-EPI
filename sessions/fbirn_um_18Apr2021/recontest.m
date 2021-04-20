@@ -37,6 +37,7 @@ skip = 2;
 IZ = caipi(n,mb,skip);
 
 % synthesize noisy test sms data with ramp sampling
+if 0
 %A = getAsms(IZ, imask, sens);
 %y = A*xtrue(imask);   % this should be the same as the following loop
 clear y;
@@ -45,6 +46,7 @@ for ic = 1:ncoils
    for iy = 1:n
       y(:,iy,ic) = tmp(:,iy,IZ(iy));
    end
+end
 end
 
 load tmp/info   % gx1
@@ -55,33 +57,36 @@ for ic = 1:ncoils
 	for iy = 1:ny
 		tmpr = interp1(linspace(kx1(1), kx1(end), nx), tmp(:,iy,IZ(iy)), kx1);
 		tmpr(isnan(tmpr)) = 0;
-		if kx(1) > kx(end)
+		if kx1(1) > kx1(end)
    		tmpr = flipdim(tmpr,2);
  		end
-		d2d(:,iy,ic) = tmpr;
-		kx2d(:,iy) = kx1;
+		if mod(iy,2)
+			d2d(:,iy,ic) = flipdim(tmpr,2);
+			kx2d(:,iy) = flipdim(kx1,2);
+		else
+			d2d(:,iy,ic) = tmpr;
+			kx2d(:,iy) = kx1;
+		end
  	end
 end
 SNR = 4;
 d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
 
 % interpolate onto cartesian grid along readout
-if 0
 for ic = 1:ncoils
 	x = zeros(nx,ny);
 	for iy = 1:ny
-		%x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
-		x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(kx2d(1,iy), kx2d(end,iy), nx)');
+		x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
+		%x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(kx2d(1,iy), kx2d(end,iy), nx)');
 	end
-	%dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
-	dcart(:,:,ic) = x;
+	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
+	%dcart(:,:,ic) = x;
 end
 dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
-end
 
 % reconstruct
 tol = 1e-5;
-xhat = reconsms(y(:), IZ, imask, sens, tol);
+xhat = reconsms(dcart(:), IZ, imask, sens, tol);
 im(xhat); colormap jet; 
 
 return;
