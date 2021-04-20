@@ -1,10 +1,8 @@
-
 % sensitivity maps (and later: B0 field map)
-%d = toppe.utils.loadpfile('~/tmp/smsepi/P_gre3d.7');
 if 0
 	pfile = 'P_gre3d.7';
 	system('tar xf gre3d.tar readout.mod');
-	[ims imsos d] = toppe.utils.recon3dft(pfile, ...   % size(d) = [256    64    64    32] 
+	[ims imsos d] = toppe.utils.recon3dft(pfile, ...   % size(d) = [256 64 64 32] 
 		'readoutFile', 'readout.mod', ...
 		'echo', 1);
 	%tic; sens_bart = bart('ecalib', d(2:4:end,:,:,:)); toc;  % takes 19 min

@@ -32,9 +32,9 @@ end
 kmax = max(kx2d(:,1));
 d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
-% flip even echoes
-d2d(:,2:2:end,:) = flipdim(d2d(:,2:2:end,:),1);
-kx2d(:,2:2:end) = flipdim(kx2d(:,2:2:end),1);
+% flip echoes
+%d2d(:,1:2:end,:) = flipdim(d2d(:,1:2:end,:),1);
+%kx2d(:,1:2:end) = flipdim(kx2d(:,1:2:end),1);
 
 % apply odd/even dc phase offset
 for ic = 1:ncoils
@@ -42,12 +42,19 @@ for ic = 1:ncoils
 end
 
 % interpolate onto cartesian grid along readout
-[~,A,dcf] = reconecho([], nx, [], [], kx2d(:,1), fov);
+clear dcart;
+[~,Ao,dcfo] = reconecho([], nx, [], [], kx2d(:,1), fov); % odd echoes
+[~,Ae,dcfe] = reconecho([], nx, [], [], kx2d(:,2), fov); % even echoes
 for ic = 1:ncoils
-	for iy = 1:ny
-		x(:,iy) = reconecho(d2d(:,iy,ic), nx, A, dcf);
+	x = zeros(nx,ny);
+	for iy = 1:2:ny
+		x(:,iy) = reconecho(d2d(:,iy,ic), nx, Ao, dcfo);
+	end
+	for iy = 2:2:ny
+		x(:,iy) = reconecho(d2d(:,iy,ic), nx, Ae, dcfe);
 	end
 	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
 end
+dcart(isnan(dcart)) = 0;
 dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
 
