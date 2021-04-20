@@ -67,6 +67,8 @@ for ic = 1:ncoils
 			d2d(:,iy,ic) = tmpr;
 			kx2d(:,iy) = kx1;
 		end
+			d2d(:,iy,ic) = tmpr;
+			kx2d(:,iy) = kx1;
  	end
 end
 SNR = 4;
@@ -76,11 +78,11 @@ d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
 for ic = 1:ncoils
 	x = zeros(nx,ny);
 	for iy = 1:ny
-		x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
-		%x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(kx2d(1,iy), kx2d(end,iy), nx)');
+		%x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
+		x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(kx2d(1,iy), kx2d(end,iy), nx)');
 	end
-	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
-	%dcart(:,:,ic) = x;
+	%dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
+	dcart(:,:,ic) = x;
 end
 dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
 
