@@ -17,6 +17,9 @@ for ic = 1:ncoils
 	dat(:,ic) = interp1(1:nt, dat(:,ic), (1:nt)+delay);
 end
 
+% acquisition info
+load tmp/info  % gpre, gx1, fov
+
 % reshape 
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
