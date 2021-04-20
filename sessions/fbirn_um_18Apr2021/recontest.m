@@ -1,4 +1,4 @@
-% toy example
+% toy object, but using real sens maps
 
 % mb factor
 mb = 4;
@@ -25,83 +25,77 @@ for iz = 1:nz
 end
 %xtrue(:,:,end) = 0;
 
+[nx ny nz] = size(xtrue);
+
 % object support
 ss = sqrt(sum(abs(sens).^2,4));
-imask = ss > 0.05*max(ss(:));
 imask = true(imsize);
+imask = ss > 0.05*max(ss(:));
 
 % blipped CAIPI undersampling pattern
-kmask = false(imsize);
-for iz = 1:mb
-	kmask(:,iz:mb:end,iz) = true;
-end
-IZ = caipi(n,mb);
+skip = 2;
+IZ = caipi(n,mb,skip);
 
-% synthesize 'acquired' undersampled multicoil data
+% synthesize noisy test sms data with ramp sampling
 %A = getAsms(IZ, imask, sens);
-%y = A*xtrue(imask);
+%y = A*xtrue(imask);   % this should be the same as the following loop
 clear y;
 for ic = 1:ncoils
-	tmp = fftshift(fftn(fftshift(xtrue.*sens(:,:,:,ic))));
-	for iy = 1:n
-		y(:,iy,ic) = tmp(:,iy,IZ(iy));
-	end
+   tmp = fftshift(fftn(fftshift(xtrue.*sens(:,:,:,ic))));
+   for iy = 1:n
+      y(:,iy,ic) = tmp(:,iy,IZ(iy));
+   end
 end
 
-% add noise
+load tmp/info   % gx1
+kx1 = cumsum(gx1);
+kx1 = kx1/max(kx1(:)) - 0.5;
+for ic = 1:ncoils
+	tmp = fftshift(fftn(fftshift(sens(:,:,:,ic).*xtrue)));  % [nx ny nz]
+	for iy = 1:ny
+		tmpr = interp1(linspace(kx1(1), kx1(end), nx), tmp(:,iy,IZ(iy)), kx1);
+		tmpr(isnan(tmpr)) = 0;
+		if kx(1) > kx(end)
+   		tmpr = flipdim(tmpr,2);
+ 		end
+		d2d(:,iy,ic) = tmpr;
+		kx2d(:,iy) = kx1;
+ 	end
+end
 SNR = 4;
-y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
+
+% interpolate onto cartesian grid along readout
+if 0
+for ic = 1:ncoils
+	x = zeros(nx,ny);
+	for iy = 1:ny
+		%x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
+		x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(kx2d(1,iy), kx2d(end,iy), nx)');
+	end
+	%dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
+	dcart(:,:,ic) = x;
+end
+dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
+end
 
 % reconstruct
-xhat = reconsms(y(:), IZ, imask, sens);
+tol = 1e-5;
+xhat = reconsms(y(:), IZ, imask, sens, tol);
 im(xhat); colormap jet; 
 
 return;
 
 
-
-
 % old
 
-% reconstruct
 type = 'leak';
 nbrs = 4;
 chat = 0;
 dist_power = 1;
 kappa = arg.imask;
-%[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
-
+[C, ~] = C2sparse(type, kappa, nbrs, chat, dist_power);
 W = Gdiag(ones(size(A,1),1));   % weighting matrix
 C = 0; %Gdiag(zeros(arg.np,1));
 xinit = zeros(imsize);
-%tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, C, 'niter', 100); toc;
-tol = 1e-4; nitmax = 200;
-tic; [xhat,res] = cgnr_jfn(A, y, xinit(:), nitmax, tol); toc;
-xhat = reshape(xhat, [arg.imsize]);
-x2 = reshape(A'*y, imsize);
-%im(cat(1,x2,xhat)); colormap jet; 
-subplot(121); im(x2); colormap jet; 
-subplot(122); im(xhat); colormap jet; 
-
-return
-
-
-% misc old code
-
-if 0   % check coil data
-for ic = 1:nc
-	tmp = y(((ic-1)*arg.nt+1):(ic*arg.nt));
-	tmp = embed(tmp, arg.kmask);
-	x = fftshift(ifftn(fftshift(tmp)));
-	figure; im(cat(1, xtrue.*sens(:,:,:,ic), x))
-end
-return;
-end
-
-if 0
-% check A_back 
-xhat = A'*y(:);
-xhat = reshape(xhat, [arg.imsize]);
-im(cat(1, xtrue(:,:,:,1), xhat/3)); colormap jet;
-return
-end
+tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, C, 'niter', 100); toc;

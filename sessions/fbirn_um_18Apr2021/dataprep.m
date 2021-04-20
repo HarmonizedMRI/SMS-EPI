@@ -10,13 +10,13 @@ dat = dat(:,:,1,1,frame);  % [nfid ncoils]
 ncoils = size(dat,2);
 
 % EPI odd/even correction parameters
-delay = 0*0.16;  % fraction of 4us sample
-th0 = 0*0.2;     % odd/even dc phase offset
+delay = 0.0; %0*0.16;  % fraction of 4us sample
+th0 = 0; %*0.2;     % odd/even dc phase offset
 
 % apply temporal shift (odd/even linear phase correction)
 nt = size(dat,1);
 for ic = 1:ncoils
-%	dat(:,ic) = interp1(1:nt, dat(:,ic), (1:nt)+delay);
+	dat(:,ic) = interp1(1:nt, dat(:,ic), (1:nt)+delay);
 end
 
 % acquisition info
@@ -33,7 +33,7 @@ kmax = max(kx2d(:,1));
 d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
 % apply odd/even dc phase offset
-%d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
+d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
 
 % interpolate onto cartesian grid along readout
 for ic = 1:ncoils

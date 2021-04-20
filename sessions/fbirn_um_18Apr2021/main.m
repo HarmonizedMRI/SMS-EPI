@@ -20,6 +20,8 @@ else
 	sens = flipdim(sens,1);   % bart seems to flip the first dim
 end
 
+ncoils = size(sens,4);
+
 % matrix size for reconstruction
 mb = 4; % multiband/sms factor (number of simultaneous slices)
 [nx ny] = size(sens(:,:,1,1));
@@ -30,11 +32,11 @@ slSep = 5;  % cm (see smsepi.m)
 slThick = 0.2812;
 isl = round(slSep/slThick);
 nz = size(sens,3);
-IZ = [ nz/2-isl, nx/2, nz/2+isl-1, nz-5];
+IZ = [ nz/2-isl, ny/2, nz/2+isl-1, nz-5];
 sens = sens(:,:,IZ,:);
 
 % blipped CAIPI sampling pattern
-IZ = caipi(ny,3);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
+IZ = caipi(ny,3,1);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
 
 % image support
 imask = true(imsize);
@@ -45,7 +47,7 @@ dataprep;  % dcart
 
 % reconstruct
 d = reshape(dcart, nx*ny*ncoils, 1);
-xhat = reconsms(d(:), IZ, imask, sens, 1e-8);
+xhat = reconsms(d(:), IZ, imask, sens, 1e-6);
 im(xhat);
 
 return
