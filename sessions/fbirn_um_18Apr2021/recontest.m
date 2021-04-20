@@ -14,6 +14,7 @@ ncoils = size(sens,4);
 imsize = [64 64 mb];
 n = imsize(1);
 nz = imsize(3);
+fov = 20;  % cm
 clear xtrue
 for iz = 2:(nz-1)
 	xtrue(:,:,iz) = phantom(n) * (-1)^(iz+1) * iz/nz;
@@ -29,25 +30,73 @@ end
 
 % object support
 ss = sqrt(sum(abs(sens).^2,4));
-imask = true(imsize);
 imask = ss > 0.05*max(ss(:));
+imask = true(imsize);
 
-% blipped CAIPI undersampling pattern
+% blipped CAIPI sampling pattern
 skip = 2;
 IZ = caipi(n,mb,skip);
 
+% readout gradient (trapezoidal gradient)
+dt = 4e-6;             % gradient raster time (s)
+gamma = 4257.6;        % Hz/G
+res = fov/nx;          % spatial resolution (cm)
+kmax = 1/(2*res);      % cycles/cm
+area = kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
+gmax = 1/(fov*gamma*dt);    % Gauss/cm
+gslew = 10;      % G/cm/ms
+gx = toppe.utils.trapwave2(2*area, gmax, gslew, dt*1e3);
+gx = gx(2:(end-1));
+kx = gamma*dt*cumsum(gx);
+kx = kx - max(kx)/2;  % cycles/cm
+
 % synthesize noisy test sms data with ramp sampling
-if 0
+nufft_args = {[nx],[6],[2*nx],[nx/2],'minmax:kb'};
+mask = true(nx,1);
+A = Gmri([fov*kx(:)],mask,'nufft',nufft_args);  % for ramp sampling
+fprintf('Synthesize ramp sampled EPI data... ');
+tic;
 %A = getAsms(IZ, imask, sens);
 %y = A*xtrue(imask);   % this should be the same as the following loop
-clear y;
+clear d2d;
 for ic = 1:ncoils
-   tmp = fftshift(fftn(fftshift(xtrue.*sens(:,:,:,ic))));
-   for iy = 1:n
-      y(:,iy,ic) = tmp(:,iy,IZ(iy));
-   end
+   tmp = xtrue.*sens(:,:,:,ic);
+   tmp = fftshift(fft(fftshift(tmp,2), [], 2), 2);
+   tmp = fftshift(fft(fftshift(tmp,3), [], 3), 3);
+	for iy = 1:ny
+		d2d(:,iy,ic) = A*tmp(:,iy,IZ(iy));
+	end
 end
+toc;
+
+SNR = 4;
+d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
+
+% interpolate onto cartesian grid along readout
+clear dcart;
+[~,A,dcf] = reconecho([], nx, [], [], kx, fov);
+tic;
+fprintf('Interpolate back onto cartesian grid... ');
+for ic = 1:ncoils
+	x = zeros(nx,ny);
+	for iy = 1:ny
+		x(:,iy) = reconecho(d2d(:,iy,ic), nx, A, dcf);
+	end
+	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
 end
+dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
+toc;
+
+% reconstruct
+tol = 1e-5;
+fprintf('Reconstructing...\n');
+xhat = reconsms(dcart(:), IZ, imask, sens, tol);
+im(xhat); colormap jet; 
+
+return;
+
+
+
 
 load tmp/info   % gx1
 kx1 = cumsum(gx1);
@@ -71,27 +120,6 @@ for ic = 1:ncoils
 			kx2d(:,iy) = kx1;
  	end
 end
-SNR = 4;
-d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
-
-% interpolate onto cartesian grid along readout
-for ic = 1:ncoils
-	x = zeros(nx,ny);
-	for iy = 1:ny
-		%x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
-		x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(kx2d(1,iy), kx2d(end,iy), nx)');
-	end
-	%dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
-	dcart(:,:,ic) = x;
-end
-dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
-
-% reconstruct
-tol = 1e-5;
-xhat = reconsms(dcart(:), IZ, imask, sens, tol);
-im(xhat); colormap jet; 
-
-return;
 
 
 % old
