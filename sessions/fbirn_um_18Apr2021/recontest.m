@@ -89,7 +89,7 @@ for ic = 1:ncoils
 	end
 	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
 end
-dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
+dcart = reshape(dcart, [], ncoils); 
 toc;
 
 % reconstruct
