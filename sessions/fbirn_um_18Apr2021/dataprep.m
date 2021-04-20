@@ -16,7 +16,7 @@ th0 = 0; %*0.2;     % odd/even dc phase offset
 % apply temporal shift (odd/even linear phase correction)
 nt = size(dat,1);
 for ic = 1:ncoils
-	dat(:,ic) = interp1(1:nt, dat(:,ic), (1:nt)+delay);
+%	dat(:,ic) = interp1(1:nt, dat(:,ic), (1:nt)+delay);
 end
 
 % acquisition info
@@ -32,17 +32,22 @@ end
 kmax = max(kx2d(:,1));
 d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
+% flip even echoes
+d2d(:,2:2:end,:) = flipdim(d2d(:,2:2:end,:),1);
+kx2d(:,2:2:end) = flipdim(kx2d(:,2:2:end),1);
+
 % apply odd/even dc phase offset
-d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
+%d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
 
 % interpolate onto cartesian grid along readout
 for ic = 1:ncoils
 	for iy = 1:ny
-		x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
-		%x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(-kmax,kmax,nx)');
+		%x(:,iy) = reconecho(d2d(:,iy,ic), kx2d(:,iy), nx, fov, gx1); 
+		x(:,iy) = interp1(kx2d(:,iy), d2d(:,iy,ic), linspace(-kmax,kmax,nx)');
 	end
-	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
-	%dcart(:,:,ic) = x;
+	%dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
+	dcart(:,:,ic) = x;
 end
+dcart(isnan(dcart)) = 0;
 dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
 

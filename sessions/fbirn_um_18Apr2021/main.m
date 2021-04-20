@@ -46,8 +46,7 @@ imask(:,:,end) = false;
 dataprep;  % dcart
 
 % reconstruct
-d = reshape(dcart, nx*ny*ncoils, 1);
-xhat = reconsms(d(:), IZ, imask, sens, 1e-6);
+xhat = reconsms(dcart(:), IZ, imask, sens, 1e-6);
 im(xhat);
 
 return
