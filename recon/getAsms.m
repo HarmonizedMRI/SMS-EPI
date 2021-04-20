@@ -2,9 +2,9 @@ function A = getAsms(IZ, imask, sens)
 %
 % SMS EPI system matrix
 %
-% imask    [nx ny nz]      image support (logical)
-% kmask    [nx ny nz]      logical mask indicating sampled locations
-% sens     [nx ny nz nc]   coil sensitivity maps 
+% IZ       [ny]            kz phase encoding index along EPI train
+% imask    [nx ny mb]      image support (logical)
+% sens     [nx ny mb nc]   coil sensitivity maps 
 
 arg.IZ = IZ;
 arg.imask = imask;
@@ -49,7 +49,6 @@ function x = A_back(arg, y)
 		for iy = 1:arg.ny
 			tmp3d(:,iy,arg.IZ(iy)) = tmp(:, iy);
    	end
-		%tmp = embed(y(((ic-1)*arg.nt+1):(ic*arg.nt)), arg.kmask);
 		tmp = conj(arg.sens(:,:,:,ic)).*fftshift(ifftn(fftshift(tmp3d)));
 		x = x + tmp(arg.imask);
 	end

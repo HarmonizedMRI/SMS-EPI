@@ -1,4 +1,4 @@
-function xhat = reconsms(dat, IZ, imask, sens)
+function xhat = reconsms(dat, IZ, imask, sens, tol, nitmax)
 % function xhat = recon3dcart(dat, IZ, imask, sens)
 %
 % Undersampled 3d cartesian reconstruction.
@@ -14,13 +14,19 @@ function xhat = reconsms(dat, IZ, imask, sens)
 % Output:
 %  xhat   [nx ny nz]  reconstructed image
 
+if ~exist('tol', 'var')
+	tol = 1e-6; 
+end
+if ~exist('nitmax', 'var')
+	nitmax = 200;
+end
+
 A = getAsms(IZ, imask, sens);
 
 %W = Gdiag(ones(size(A,1),1));   % weighting matrix
 %C = 0; %Gdiag(zeros(arg.np,1));
 xinit = zeros(size(imask));
 %tic; [xhat, info] = qpwls_pcg1(xinit(:), A, W, y, C, 'niter', 100); toc;
-tol = 1e-6; nitmax = 200;
 tic; [xhat,res] = cgnr_jfn(A, dat, xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 
