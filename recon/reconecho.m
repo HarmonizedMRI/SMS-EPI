@@ -4,10 +4,10 @@ function [x,A,dcf] = reconecho(y, nx, A, dcf, kx, fov)
 % 1D nufft reconstruction of ramp-sampled EPI echo
 %
 % y:    [nt]  If empty, x is empty.
+% nx    int
 % A:    Gmri object. If empty, construct from kx, nx, fov
 % dcf:  [nt] density compensation. If empty, construct from kx.
 % kx:   [nt]  (cycles/cm)
-% nx    int
 % fov   cm
 
 if strcmp(y, "test")
@@ -22,8 +22,8 @@ if isempty(A)
 end
 
 if isempty(dcf)
-	gx = [diff(kx(:)); 0];
-	dcf = gx(:)/max(gx);  % density compensation
+	gx = abs([diff(kx(:)); 0]);
+	dcf = gx(:)/max(gx);
 end
 
 if ~isempty(y)
