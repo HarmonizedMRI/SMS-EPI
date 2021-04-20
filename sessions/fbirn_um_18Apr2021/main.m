@@ -34,18 +34,7 @@ IZ = [ nz/2-isl, nx/2, nz/2+isl-1, nz-5];
 sens = sens(:,:,IZ,:);
 
 % blipped CAIPI sampling pattern
-kmask = false(imsize);
-iz = 1;
-for iy = 1:ny
-	kmask(:,iy,iz) = true;
-	iz = iz + 1;
-	if iz > 3
-		iz = 1;
-	end
-end
-for iz = 1:(mb-1)
-%	kmask(:,iz:mb:end,iz) = true;
-end
+IZ = caipi(ny,3);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
 
 % image support
 imask = true(imsize);
@@ -56,7 +45,7 @@ dataprep;  % dcart
 
 % reconstruct
 d = reshape(dcart, nx*ny*ncoils, 1);
-xhat = recon3dcart(d(:), kmask, imask, sens);
+xhat = reconsms(d(:), IZ, imask, sens, 1e-8);
 im(xhat);
 
 return
