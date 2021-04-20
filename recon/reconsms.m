@@ -1,5 +1,5 @@
-function xhat = recon3dcart(dat, kmask, imask, sens)
-% function xhat = recon3dcart(dat, kmask, imask, sens)
+function xhat = reconsms(dat, IZ, imask, sens)
+% function xhat = recon3dcart(dat, IZ, imask, sens)
 %
 % Undersampled 3d cartesian reconstruction.
 %
@@ -8,14 +8,13 @@ function xhat = recon3dcart(dat, kmask, imask, sens)
 %
 % Inputs:
 %  dat    [nt*ncoils 1]      acquired data (complex). nt = sum(kmask(:)).
-%  kmask  [nx ny nz]         logical mask indicating sampled locations
 %  sens   [nx ny nz ncoils]  sensitivity maps
 %  imask  [nx ny nz]         image support (logical)
 %
 % Output:
 %  xhat   [nx ny nz]  reconstructed image
 
-A = getAsense(kmask, imask, sens);
+A = getAsms(IZ, imask, sens);
 
 %W = Gdiag(ones(size(A,1),1));   % weighting matrix
 %C = 0; %Gdiag(zeros(arg.np,1));
