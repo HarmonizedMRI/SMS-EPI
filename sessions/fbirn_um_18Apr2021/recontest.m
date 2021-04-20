@@ -25,6 +25,7 @@ for iz = 1:nz
 	xtrue(:,:,iz) = imrotate(xtrue(:,:,iz), 90*(iz-1));
 end
 %xtrue(:,:,end) = 0;
+xtrue = xtrue.*exp(1i*pi/2*xtrue);  % make it complex
 
 [nx ny nz] = size(xtrue);
 
@@ -37,7 +38,7 @@ imask = true(imsize);
 skip = 2;
 IZ = caipi(n,mb,skip);
 
-% readout gradient (trapezoidal gradient)
+% synthesize noisy EPI sms data with ramp sampling
 dt = 4e-6;             % gradient raster time (s)
 gamma = 4257.6;        % Hz/G
 res = fov/nx;          % spatial resolution (cm)
@@ -45,42 +46,46 @@ kmax = 1/(2*res);      % cycles/cm
 area = kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
 gmax = 1/(fov*gamma*dt);    % Gauss/cm
 gslew = 10;      % G/cm/ms
-gx = toppe.utils.trapwave2(2*area, gmax, gslew, dt*1e3);
+gx = toppe.utils.trapwave2(2*area, gmax, gslew, dt*1e3); % readout gradient (trapezoid)
 gx = gx(2:(end-1));
 kx = gamma*dt*cumsum(gx);
-kx = kx - max(kx)/2;  % cycles/cm
-
-% synthesize noisy test sms data with ramp sampling
+kxo = kx(:) - max(kx)/2;  % cycles/cm. odd echoes.
+kxe = flipud(kxo);  % even echoes
 nufft_args = {[nx],[6],[2*nx],[nx/2],'minmax:kb'};
 mask = true(nx,1);
-A = Gmri([fov*kx(:)],mask,'nufft',nufft_args);  % for ramp sampling
+Ao = Gmri([fov*kxo(:)],mask,'nufft',nufft_args);  % odd echoes
+Ae = Gmri([fov*kxe(:)],mask,'nufft',nufft_args);  % even echoes
 fprintf('Synthesize ramp sampled EPI data... ');
 tic;
-%A = getAsms(IZ, imask, sens);
-%y = A*xtrue(imask);   % this should be the same as the following loop
 clear d2d;
 for ic = 1:ncoils
    tmp = xtrue.*sens(:,:,:,ic);
    tmp = fftshift(fft(fftshift(tmp,2), [], 2), 2);
    tmp = fftshift(fft(fftshift(tmp,3), [], 3), 3);
-	for iy = 1:ny
-		d2d(:,iy,ic) = A*tmp(:,iy,IZ(iy));
+	for iy = 1:2:ny
+		d2d(:,iy,ic) = Ao*tmp(:,iy,IZ(iy));
+	end
+	for iy = 2:2:ny
+		d2d(:,iy,ic) = Ae*tmp(:,iy,IZ(iy));
 	end
 end
 toc;
-
 SNR = 4;
 d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
 
 % interpolate onto cartesian grid along readout
 clear dcart;
-[~,A,dcf] = reconecho([], nx, [], [], kx, fov);
+[~,Ao,dcfo] = reconecho([], nx, [], [], kxo, fov);
+[~,Ae,dcfe] = reconecho([], nx, [], [], kxe, fov);
 tic;
 fprintf('Interpolate back onto cartesian grid... ');
 for ic = 1:ncoils
 	x = zeros(nx,ny);
-	for iy = 1:ny
-		x(:,iy) = reconecho(d2d(:,iy,ic), nx, A, dcf);
+	for iy = 1:2:ny
+		x(:,iy) = reconecho(d2d(:,iy,ic), nx, Ao, dcfo);
+	end
+	for iy = 2:2:ny
+		x(:,iy) = reconecho(d2d(:,iy,ic), nx, Ae, dcfe);
 	end
 	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
 end
