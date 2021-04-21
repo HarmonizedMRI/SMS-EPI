@@ -21,10 +21,10 @@ ex.ftype = 'ls';
 ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   % number of cycles of gradient spoiling across slice thickness
-ex.sliceSep = 5;       % center-to-center separation between SMS slices (cm)
+ex.sliceSep = seq.slThick*10;     % center-to-center separation between SMS slices (cm)
 mbFactor = 4;          % sms/multiband factor (number of simultaneous slices)
 
-nslices = 3;
+nslices = 4;
 if mod(nslices, mbFactor) > 0
 		error('Number of slices must be multiple of MB factor');
 end
@@ -115,16 +115,20 @@ gz4 = [-gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) amp
 gzlast = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend))]; 
 
 % put it all together 
-gx = [-gpre gx1];
-gy = [-gpre gy1];
-gz = [-gzpre gz1];
+% include 3 calibration echoes at start
+gx = [gpre -gx1 gx1 -gx1];
+gy = 0*gx;
+gz = 0*gx;
+gx = [gx 0*gpre  gx1];
+gy = [gy  -gpre  gy1];
+gz = [gz  -gzpre gz1];
 for iecho = 2:(ny-1)
 	gx = [gx gx1*(-1)^(iecho+1)];
 	gy = [gy gyn];
 end
 gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
 gy = [gy gylast 0];
-for iecho=2:mbFactor:(ny-mbFactor+1)
+for iecho = 2:mbFactor:ny
 	gz = [gz repmat(gz2, 1, mbFactor-2) gz3 gz4];
 end
 gz = [gz gzlast 0];
@@ -183,9 +187,7 @@ delay.postreadout = tr-trseq;  % (ms) delay after readout
 trvol = tr*nslices/mbFactor;  % ms
 nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
 
-
 %% Create scanloop.txt
-
 % rf spoiling isn't really needed since T2 << TR but why not
 rfphs = 0;              % radians
 rf_spoil_seed_cnt = 0;
