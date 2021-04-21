@@ -26,6 +26,7 @@ end
 nz = 2*round(fov(3)/seq.slThick/2);
 deltaTE = [0 1.0];
 deltaTE = [0 0.5 4.0];       % Change in TE (from minimum) for each of the >= 2 scans needed to estimate B0 field (msec)
+deltaTE = [0];
 oprbw = 125/4;           % Acquisition bandwidth (kHz) for TOPPE scan. Determines gradient readout trapezoid shape.
 nCycleSpoil = 2;         % readout spoiler gradient area (cycles across voxel dimension)
 ex.flip = 5;             % degrees

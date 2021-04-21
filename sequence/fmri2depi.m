@@ -32,8 +32,8 @@ if isCalScan
 	tr = 500;          % (ms) sequence tr
 else
 	ex.thick = seq.slthick;    % slice thickness (cm)
-	ex.spacing = 0.6;  % center-to-center slice separation (cm)
-	nslices = 30;
+	ex.spacing = ex.thick;  % center-to-center slice separation (cm)
+	nslices = nx;      
 	scandur = 1*60;    % seconds
 	tr = 0;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
