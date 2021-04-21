@@ -18,6 +18,9 @@ else
 	sens = flipdim(sens,1);   % bart seems to flip the first dim
 end
 
+sens = flipdim(sens,2);
+sens = flipdim(sens,1);
+
 ncoils = size(sens,4);
 
 % matrix size for reconstruction
@@ -30,7 +33,7 @@ slSep = 5;  % cm (see smsepi.m)
 slThick = 0.2812;
 isl = round(slSep/slThick);
 nz = size(sens,3);
-IZ = [ nz/2-isl, ny/2, nz/2+isl-1, nz-5];
+IZ = [ nz/2-isl, nz/2, nz/2+isl-1, nz-5];
 sens = sens(:,:,IZ,:);
 
 % blipped CAIPI sampling pattern
@@ -41,7 +44,7 @@ imask = true(imsize);
 imask(:,:,end) = false;
 
 % acquired data
-dataprep;  % dcart
+dataprep;  % dcart = [nx*ny ncoils]
 
 % reconstruct
 xhat = reconsms(dcart(:), IZ, imask, sens, 1e-6);
