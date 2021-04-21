@@ -22,7 +22,7 @@ ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   % number of cycles of gradient spoiling across slice thickness
 ex.sliceSep = 5;       % center-to-center separation between SMS slices (cm)
-mbFactor = 3;          % sms/multiband factor (number of simultaneous slices)
+mbFactor = 4;          % sms/multiband factor (number of simultaneous slices)
 
 nslices = 3;
 if mod(nslices, mbFactor) > 0
