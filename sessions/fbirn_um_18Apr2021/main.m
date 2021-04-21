@@ -2,24 +2,26 @@
 if 0
 	pfile = 'P_gre3d.7';
 	system('tar xf gre3d.tar readout.mod');
-	[ims imsos d] = toppe.utils.recon3dft(pfile, ...   % size(d) = [256 64 64 32] 
+	[ims imsos d] = toppe.utils.recon3dft(pfile, ...   % size(d) = [256 64 64 32] = [nfid ny nz ncoils]
 		'readoutFile', 'readout.mod', ...
+		'flipfid', true, ...
+		'flipim', false, ...
 		'echo', 1);
-	%tic; sens_bart = bart('ecalib', d(2:4:end,:,:,:)); toc;  % takes 19 min
+	%d = flipdim(d,3);   % to match the slice order that BART expects.
 	d = d(2:4:end,:,:,:);  % oprbw = 31.25 kHz (decimation = 4)
 	fprintf('getting bart sens maps...');
-	tic; sens_bart = bart('ecalib -r 20', d); toc;   % takes 13.6 min
+	tic; sens_bart = bart('ecalib -r 20', d); toc;   % takes 14 min
 	fprintf('\n');
+	sens_bart = sens_bart(:,:,:,:,1);
 	save sens_bart sens_bart
 else
 	load sens_bart
-	sens = sens_bart(:,:,:,:,1);
+	sens = flipdim(sens_bart,3);  % for now
 	clear sens_bart
-	sens = flipdim(sens,1);   % bart seems to flip the first dim
 end
 
-sens = flipdim(sens,2);
-sens = flipdim(sens,1);
+%sens = flipdim(sens,2);
+%sens = flipdim(sens,1);
 
 ncoils = size(sens,4);
 
@@ -33,8 +35,8 @@ slSep = 5;  % cm (see smsepi.m)
 slThick = 0.2812;
 isl = round(slSep/slThick);
 nz = size(sens,3);
-IZ = [ nz/2-isl, nz/2, nz/2+isl-1, nz-5];
-sens = sens(:,:,IZ,:);
+IZmb = [ nz/2-isl, nz/2, nz/2+isl-1, nz-5];
+sens = sens(:,:,IZmb,:);
 
 % blipped CAIPI sampling pattern
 IZ = caipi(ny,3,1);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
