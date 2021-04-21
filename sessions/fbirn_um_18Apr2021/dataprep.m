@@ -4,13 +4,13 @@ clear d2d kx2d dcart
 % acquired data
 pfile = 'P_smsepi.7';
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8292 32 1 1 40] (fid ncoils nslices nechoes nviews)
-dat = flipdim(dat,1); % yikes
+dat = flipdim(dat,1); % as usual
 frame = 10;
 dat = dat(:,:,1,1,frame);  % [nfid ncoils]
 ncoils = size(dat,2);
 
 % EPI odd/even correction parameters
-delay = 0; %0*0.16;  % fraction of 4us sample
+delay = 0.0; %0*0.16;  % fraction of 4us sample
 th0 = 0; %*0.2;     % odd/even dc phase offset
 
 % acquisition info
