@@ -7,7 +7,11 @@ if 0
 		'flipfid', true, ...
 		'flipim', false, ...
 		'echo', 1);
-	%d = flipdim(d,3);   % to match the slice order that BART expects.
+
+	% fix for exp on 4/18/21 (should have negated gy and gz blips to match smsepi.m)
+	d = flipdim(d,2);
+	d = flipdim(d,3);
+
 	d = d(2:4:end,:,:,:);  % oprbw = 31.25 kHz (decimation = 4)
 	fprintf('getting bart sens maps...');
 	tic; sens_bart = bart('ecalib -r 20', d); toc;   % takes 14 min
@@ -16,12 +20,9 @@ if 0
 	save sens_bart sens_bart
 else
 	load sens_bart
-	sens = flipdim(sens_bart,3);  % for now
+	sens = sens_bart;
 	clear sens_bart
 end
-
-%sens = flipdim(sens,2);
-%sens = flipdim(sens,1);
 
 ncoils = size(sens,4);
 
@@ -35,7 +36,7 @@ slSep = 5;  % cm (see smsepi.m)
 slThick = 0.2812;
 isl = round(slSep/slThick);
 nz = size(sens,3);
-IZmb = [ nz/2-isl, nz/2, nz/2+isl-1, nz-5];
+IZmb = [ nz/2-isl, nz/2, nz/2+isl-1, nz];
 sens = sens(:,:,IZmb,:);
 
 % blipped CAIPI sampling pattern
@@ -49,7 +50,8 @@ imask(:,:,end) = false;
 dataprep;  % dcart = [nx*ny ncoils]
 
 % reconstruct
-xhat = reconsms(dcart(:), IZ, imask, sens, 1e-6);
+tol = 1e-6;
+xhat = reconsms(dcart(:), IZ, imask, sens, tol);
 im(xhat);
 
 return

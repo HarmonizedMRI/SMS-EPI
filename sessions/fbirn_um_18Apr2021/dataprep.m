@@ -10,7 +10,7 @@ dat = dat(:,:,1,1,frame);  % [nfid ncoils]
 ncoils = size(dat,2);
 
 % EPI odd/even correction parameters
-delay = 0.0; %0*0.16;  % fraction of 4us sample
+delay = 0; %0*0.16;  % fraction of 4us sample
 th0 = 0; %*0.2;     % odd/even dc phase offset
 
 % acquisition info
@@ -18,16 +18,16 @@ load tmp/info  % gpre, gx1, fov
 
 % apply temporal shift (odd/even linear phase correction)
 nt = size(kx,1);
-kx = interp1(1:nt, kx, (1:nt)+delay);
+%kx = interp1(1:nt, kx, (1:nt)+delay);
 
 % reshape 
+clear d2d kx2d
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
 	istop = istart + length(gx1) - 1;
 	d2d(:,:,echo) = dat(istart:istop, :);
 	kx2d(:,echo) = kx(istart:istop);
 end
-kmax = max(kx2d(:,1));
 d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
 % flip echoes
@@ -36,7 +36,7 @@ d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
 % apply odd/even dc phase offset
 for ic = 1:ncoils
-	d2d(:,2:2:end,ic) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end,ic));
+%	d2d(:,2:2:end,ic) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end,ic));
 end
 
 % interpolate onto cartesian grid along readout
@@ -55,4 +55,3 @@ for ic = 1:ncoils
 end
 dcart(isnan(dcart)) = 0;
 dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
-
