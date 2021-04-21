@@ -8,11 +8,11 @@ addpath ~/github/toppeMRI/PulseGEq/
 %addpath ~/pulseq_home/github/toppe/
 %addpath ~/pulseq_home/github/PulseGEq/
 
-% make 3D B0 mapping/coild sensitivity mapping sequence
+% make 3D B0 mapping/coil sensitivity mapping sequence
 %gre3d;
 
 % 2D EPI fMRI sequence
 %fmri2depi;
 
 % make SMS EPI fMRI sequence
-smsepi;
+%smsepi;

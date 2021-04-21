@@ -1,4 +1,4 @@
-% Create 2D EPI fMRI scan in TOPPE (and later in Pulseq)
+% Create SMS EPI fMRI scan in TOPPE (and later in Pulseq)
 %
 % Output:
 %   TOPPE scan files:  modules.txt, scanloop.txt, tipdown.mod, and readout.mod
@@ -30,7 +30,7 @@ if mod(nslices, mbFactor) > 0
 end
 
 % timing
-delay.postrf = 10;    % (ms) delay after RF pulse. Determines TE. 
+delay.postrf = 1;    % (ms) delay after RF pulse. Determines TE. 
 scandur = 1*20;       % seconds
 tr = 500;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
@@ -41,10 +41,12 @@ fbesp = system.ge.forbiddenEspRange;   % ms
 %% SMS excitation module
 sys = system.ge;
 sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
+if 0
 [ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
 	'ofname', 'tipdown.mod', ...
 	'doSim', true, ...   % Plot simulated SMS slice profile
 	'system', sys);
+end
 
 %% EPI readout
 res = fov/nx;          % spatial resolution (cm)
@@ -219,14 +221,14 @@ tar('smsepi.tar', {'*.txt', '*.mod', '*.m'});
 return;
 
 % simulate and plot slice profile
-fovsim = 2;          % cm
 m0 = [0 0 1];        % initial magnetization
-z = linspace(-fovsim/2, fovsim/2, 500);   % spatial locations (cm)
+z = linspace(-fov/2, fov/2, 500);   % spatial locations (cm)
 T1 = 1000;           % ms
 T2 = 100;            % ms
 dt = 4e-3;           % ms
 figure;
-[m] = toppe.utils.rf.slicesim([0 0 1], ex.rf, ex.g, dt, z, T1, T2, true);
+[rf,gx,gy,gz] = toppe.readmod('tipdown.mod');
+[m] = toppe.utils.rf.slicesim([0 0 1], rf, gz, dt, z, T1, T2, true);
 subplot(132); title('simulated slice profile');
 
 return;

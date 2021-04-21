@@ -7,16 +7,6 @@
 % Usage:
 % >> makescanfiles;
 
-% Set paths to Pulseq and TOPPE libraries
-%addpath ~/github/pulseq/matlab/         % +mr package
-%addpath ~/github/toppeMRI/toppe/        % +toppe package
-%addpath ~/github/toppeMRI/PulseGEq/     % +pulsegeq package (Pulseq <--> TOPPE conversion)
-% paths for MZ
-%addpath ~/pulseq_home/github/pulseq/matlab/
-%addpath ~/pulseq_home/github/toppe/
-%addpath ~/pulseq_home/github/PulseGEq/
-
-
 %% Acquisition and hardware parameters
 
 % common to all sequences
@@ -64,6 +54,7 @@ fprintf(fid, modFileText);
 fclose(fid);
 
 % Design rf waveform and write to .mod file
+if 0
 ex.nCycleSpoil = nCycleSpoil * ex.thick/(fov(3)/nz);
 [ex.rf, ex.g] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, ex.nCycleSpoil, ...
 	'type', 'st', ...        % 'st' = small-tip. 'ex' = 90 degree design
@@ -75,6 +66,9 @@ ex.g = toppe.utils.makeGElength(ex.g);
 toppe.writemod('rf', ex.rf, 'gz', ex.g, ...
 	'ofname', 'tipdown.mod', ...
 	'system', ge.system);
+else
+[ex.rf, ~, ~, ex.g] = toppe.readmod('tipdown_gre3d.mod');
+end
 
 % Design readout gradients and write to .mod file
 % Remember: makegre() creates y phase-encodes based on isotropic in-plane resolution
@@ -100,6 +94,8 @@ TR = toppe.getTRtime(1,2)*1e3;      % msec
 
 
 %% Prepare Pulseq sequence object and waveforms
+
+if 0
 
 % Create a new Pulseq sequence object
 seq = mr.Sequence(siemens.system);         
@@ -138,6 +134,8 @@ pulseq.ex.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, ...
 	'system', siemens.system, 'delay', siemens.ex.rfdelay);
 pulseq.ex.g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system, 'delay', siemens.ex.gdelay);
 
+end
+
 
 %% Scan loop. In each iteration, 'scanloop.txt' is updated, and blocks are added to seq object
 rfphs = 0;              % radians
@@ -163,28 +161,31 @@ for iz = 0:nz     % iz = 0 is used as discarded acquisitions to reach steady sta
 		for ie = 1:length(deltaTE)
 
 			% y/z phase-encode amplitudes, scaled to (-1,1)
-			a_gy = (iz > 0) * ((iy-1+0.5)-ny/2)/(ny/2); % * ny/nx; 
+			a_gy = (iz > 0) * ((iy-1+0.5)-ny/2)/(ny/2); 
 			a_gz = (iz > 0) * ((iz-1+0.5)-nz/2)/(nz/2);
 
 			% rf excitation (TOPPE)
 	  		toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, 'RFphase', rfphs, ...
 				'textra', deltaTE(ie));            % dead time at end of module (msec)
 
+if 0
 			% rf excitation (Pulseq)
 			pulseq.ex.rf.phaseOffset = rfphs;
 			seq.addBlock(pulseq.ex.rf, pulseq.ex.g);
 			if deltaTE(ie) > 0
 				seq.addBlock(mr.makeDelay(1e-3*deltaTE(ie)));
 			end
+end
 
 		 	% readout (TOPPE)
 			toppe.write2loop('readout.mod', ...
-				'Gamplitude', [1 a_gy a_gz]', ...
+				'Gamplitude', [1 -a_gy -a_gz]', ...   % negative sign to match smsepi.m
 				'DAQphase', rfphs, ...
 				'slice', max(iz,1), 'echo', ie, 'view', iy, ...  % data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
 				'textra', max(deltaTE)-deltaTE(ie), ...
 				'dabmode', dabmode);
 
+if 0
 			% readout (Pulseq)
 			gy = mr.makeArbitraryGrad('y', a_gy*siemens.acq.gy, siemens.system); 
 			gz = mr.makeArbitraryGrad('z', a_gz*siemens.acq.gz, siemens.system); 
@@ -193,6 +194,7 @@ for iz = 0:nz     % iz = 0 is used as discarded acquisitions to reach steady sta
 			if deltaTE(ie) < max(deltaTE)
 				seq.addBlock(mr.makeDelay(1e-3*(max(deltaTE)-deltaTE(ie))));
 			end
+end
 
 			% update rf phase (RF spoiling)
 			rfphs = rfphs + (rf_spoil_seed/180 * pi)*rf_spoil_seed_cnt ;  % radians
@@ -206,6 +208,7 @@ fprintf('\n');
 
 %% Write Pulseq file
 
+if false
 % check whether the timing of the sequence is correct
 fprintf('Checking Pulseq timing...');
 [ok, error_report]=seq.checkTiming;
@@ -226,6 +229,7 @@ seq.setDefinition('Name', '3D B0 mapping');
 seq.write('B0scan.seq');
 fprintf('done\n');
 % parsemr('B0scan.seq');
+end
 
 if false
 % Display (part of) sequences
