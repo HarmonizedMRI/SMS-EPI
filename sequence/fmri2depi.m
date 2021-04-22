@@ -35,7 +35,7 @@ else
 	ex.thick = seq.slThick;    % slice thickness (cm)
 	ex.spacing = ex.thick;  % center-to-center slice separation (cm)
 	nslices = nx;      
-	scandur = 1*60;    % seconds
+	scandur = 1*20;    % seconds
 	tr = 100;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
 
