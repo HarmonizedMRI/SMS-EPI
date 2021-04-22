@@ -1,20 +1,20 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
-addpath ~/github/pulseq/matlab
 
 %% Load 2D EPI data
 % load data
 pfile = 'P_fmri2depi.7';  
-[dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8852 1 20 1 18]
+[dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [nt ncoils nslices 1 nframes]
 dat = flipdim(dat,1); % as usual
 
 % Demodulate by observed B0 eddy current, which are mostly linear.
 % This should help correct for image-domain spatial shift.
 %dat = bsxfun(@times, exp(-1i*b0(:)), dat);
 
-%% get sequence
+%% get sequence info
 if 0
 cd tmp
-fmri2depi;   % gpre, gx1, gx. nx = ny = 64; fov = 26; etc
+addpath ~/github/pulseq/matlab
+fmri2depi;   % gpre, gx1, gx, gy, nx, ny, fov, etc
 cd ..
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = [kx; zeros(length(gx)-length(kx),1)];
@@ -24,20 +24,24 @@ load scanparams.mat
 end
 
 %% reconstruct
-coil = 10;
-slice = 32;
 frame = 8;   % part of calibration frames (gx and gy both on, positive)
 
 dly = 0.0;
 th0 = 0.12;
-x = recon2depiraw(dat(:,coil,slice,1,frame), ...
-	kx, [nx ny], fov, length(gpre), length(gx1), ...
-	dly, th0);
+for coil = 1:4:size(dat,2)
+	fprintf('.');
+	for slice = 1:size(dat,3)
+		x(:,:,slice,coil) = recon2depiraw(dat(:,coil,slice,1,frame), ...
+			kx, [nx ny], fov, length(gpre), length(gx1),	dly, th0); 
+	end
+end
+fprintf('\n');
 
-im(abs(x));
 return;
 
+
 %% EPI correction parameters
+% plot background signal for different delays and odd/even phase offsets
 coil = 10;
 slice = 32;
 frame = 8;   % part of calibration frames (gx and gy both on, positive)
@@ -85,34 +89,3 @@ dn = datn./datnref;
 b0 = (angle(dp.*dn));
 end
 
-
-% fix zero at end of kx
-%kx(end) = 1.01*kx(end-2);
-%kx(end-1) = 1.01*kx(end-2);
-
-% apply temporal shift (odd/even linear phase correction)
-nt = length(kx);
-kx = interp1(1:nt, kx, (1:nt)-dly);
-%tmp = dat(:,rec.coil,rec.slice,1,rec.frame);
-%tmp = interp1(1:nt, tmp, (1:nt)+dly);
-%dat(:,rec.coil,rec.slice,1,rec.frame) = tmp;
-
-% Get data for desired frame/slice and reshape,
-% and odd/even echo calibration data.
-clear d2d
-for echo = 1:ny   % EPI echo (not dabecho)
-	istart = length(gpre) + (echo-1)*length(gx1) + 1;
-	istop = istart + length(gx1) - 1;
-	d2d(:,echo) = dat(istart:istop, rec.coil, rec.slice, 1, rec.frame);  
-	kx2d(:,echo) = kx(istart:istop);
-end
-kxo = kx2d(:,1);
-kxe = kx2d(:,2);
-
-% apply odd/even dc phase offset
-d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
-
-x = recon2depi(d2d, kxo, kxe, nx, fov);
-im(abs(x));
-
-return;
