@@ -1,13 +1,17 @@
-function recon1(dat, kx, ny, npre, nro, dly, th0)
-% Recon ramp-sampled EPI data
+function x = recon2depiraw(dat, kx, imsize, fov, npre, nro, dly, th0)
+% Recon ramp-sampled EPI raw data
 % 
 % dat   [nt] one EPI readout train
 % kx    [nt] cycles/cm
-% ny    (int) number of phase encodes
+% imsize  [nx ny]
+% fov   (cm) readout fov
 % npre  number of samples in prephaser gradient (before 1st echo)
-% nro   number of sample in each readout trapezoid (one EPI echo)
+% nro   number of samples in each readout trapezoid (one EPI echo)
 % dly   odd/even delay (fraction of one sample)
 % th0   odd/even dc phase offset (radians)
+
+nx = imsize(1);
+ny = imsize(2);
 
 % apply temporal shift (odd/even linear phase correction)
 nt = length(kx);
