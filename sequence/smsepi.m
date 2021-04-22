@@ -15,7 +15,7 @@ gamma = system.ge.gamma;    % Hz/Gauss
 dt = system.ge.raster;      % sec
 
 % slice-selective excitation
-ex.flip = 45;        % flip angle (degrees)
+ex.flip = 30;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.ftype = 'ls';     
 ex.tbw = 6;          % time-bandwidth product
@@ -44,6 +44,8 @@ sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
 [ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
 	'ofname', 'tipdown.mod', ...
 	'doSim', true, ...   % Plot simulated SMS slice profile
+	'type', ex.type, ...
+	'ftype', ex.ftype, ...
 	'system', sys);
 
 %% EPI readout
