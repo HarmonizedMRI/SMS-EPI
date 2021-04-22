@@ -26,6 +26,8 @@ for iz = 1:nz
 end
 %xtrue(:,:,end) = 0;
 xtrue = xtrue.*exp(1i*pi/2*xtrue);  % make it complex
+imsos = sqrt(sum(abs(sens).^2,4));
+xtrue = xtrue.*(imsos > 0.1*max(imsos(:)));
 
 [nx ny nz] = size(xtrue);
 
