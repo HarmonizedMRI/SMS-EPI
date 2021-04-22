@@ -19,10 +19,6 @@ for echo = 1:ny   % EPI echo (not dabecho)
 end
 d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
-% flip echoes
-%d2d(:,1:2:end,:) = flipdim(d2d(:,1:2:end,:),1);
-%kx2d(:,1:2:end) = flipdim(kx2d(:,1:2:end),1);
-
 % apply odd/even dc phase offset
 for ic = 1:ncoils
 	d2d(:,2:2:end,ic) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end,ic));

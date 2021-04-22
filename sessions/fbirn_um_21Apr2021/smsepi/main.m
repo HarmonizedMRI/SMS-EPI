@@ -7,10 +7,11 @@ ncoils = size(sens,4);
 
 % acquisition info
 if 0
-cd tmp
+curdir = pwd;
+cd ../../../sequence/ %tmp
 addpath ~/github/pulseq/matlab
 smsepi;   % gpre, gx1, gx, gy, nx, ny, fov, etc
-cd ..
+cd(curdir);
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = [kx; zeros(length(gx)-length(kx),1)];
 save scanparams.mat gpre gx1 gx nx ny fov kx seq ex
@@ -21,9 +22,10 @@ end
 
 % acquired data
 pfile = 'P_smsepi.7';
+pfile = 'P_epi_mb3.7';
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [nt ncoils nslices 1 nframes]
 dat = flipdim(dat,1); % as usual
-frame = 10;
+frame = 20;
 dat = dat(:,:,1,1,frame);  % [nfid ncoils]
 
 % matrix size for reconstruction
@@ -34,11 +36,11 @@ imsize = [nx ny mb];
 % pick out slices from sensitivity map
 isl = round(ex.sliceSep/seq.slThick);
 nz = size(sens,3);
-IZmb = [ nz/2-isl, nz/2, nz/2+isl-1, nz];
+IZmb = [ nz/2+1-isl, nz/2, nz/2+isl, nz];
 sens = sens(:,:,IZmb,:);
 
 % blipped CAIPI sampling pattern
-IZ = caipi(ny,4,1);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
+IZ = caipi(ny,3,1);  % NB! if mb=3, kz=4 not sampled (but recon requires mb=even)
 
 % image support
 imask = true(imsize);
