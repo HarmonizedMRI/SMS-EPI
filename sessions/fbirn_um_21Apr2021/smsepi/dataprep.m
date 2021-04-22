@@ -1,32 +1,9 @@
 
 clear d2d kx2d dcart
 
-% acquired data
-pfile = 'P_smsepi.7';
-[dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [8292 32 1 1 40] (fid ncoils nslices nechoes nviews)
-dat = flipdim(dat,1); % as usual
-frame = 10;
-dat = dat(:,:,1,1,frame);  % [nfid ncoils]
-ncoils = size(dat,2);
-
 % EPI odd/even correction parameters
 delay = 0; %0*0.16;  % fraction of 4us sample
 th0 = 0; %*0.2;     % odd/even dc phase offset
-
-% acquisition info
-if 1
-cd tmp
-addpath ~/github/pulseq/matlab
-fmri2depi;   % gpre, gx1, gx, gy, nx, ny, fov, etc
-cd ..
-[kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
-kx = [kx; zeros(length(gx)-length(kx),1)];
-save scanparams.mat gpre gx1 gx nx ny fov kx
-else
-load scanparams.mat
-end
-
-return;
 
 % apply temporal shift (odd/even linear phase correction)
 nt = size(kx,1);

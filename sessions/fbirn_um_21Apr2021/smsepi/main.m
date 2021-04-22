@@ -5,8 +5,29 @@ clear sens_bart
 
 ncoils = size(sens,4);
 
+%% acquisition info
+if 1
+cd tmp
+addpath ~/github/pulseq/matlab
+smsepi;   % gpre, gx1, gx, gy, nx, ny, fov, etc
+cd ..
+[kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
+kx = [kx; zeros(length(gx)-length(kx),1)];
+save scanparams.mat gpre gx1 gx nx ny fov kx
+else
+load scanparams.mat
+end
+
+%% acquired data
+pfile = 'P_smsepi.7';
+[dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [nt ncoils nslices 1 nframes]
+dat = flipdim(dat,1); % as usual
+frame = 10;
+dat = dat(:,:,1,1,frame);  % [nfid ncoils]
+ncoils = size(dat,2);
+
 % matrix size for reconstruction
-mb = 4; % multiband/sms factor (number of simultaneous slices)
+mb = 3; % multiband/sms factor (number of simultaneous slices)
 [nx ny] = size(sens(:,:,1,1));
 imsize = [nx ny mb];
 
