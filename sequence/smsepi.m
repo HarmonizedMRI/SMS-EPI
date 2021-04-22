@@ -32,7 +32,7 @@ end
 % timing
 delay.postrf = 1;    % (ms) delay after RF pulse. Determines TE. 
 scandur = 1*20;       % seconds
-tr = 500;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
+tr = 300;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
 SLICES = [1:2:(nslices/mbFactor) 2:2:(nslices/mbFactor)];   % slice ordering (minimize slice crosstalk)
 
