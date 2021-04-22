@@ -2,12 +2,12 @@
 clear d2d kx2d dcart
 
 % EPI odd/even correction parameters
-delay = 0; %0*0.16;  % fraction of 4us sample
-th0 = 0; %*0.2;     % odd/even dc phase offset
+dly = 0;  % fraction of 4us sample
+th0 = 0;     % odd/even dc phase offset
 
 % apply temporal shift (odd/even linear phase correction)
 nt = size(kx,1);
-%kx = interp1(1:nt, kx, (1:nt)+delay);
+kx = interp1(1:nt, kx, (1:nt)+dly);
 
 % reshape 
 clear d2d kx2d
@@ -25,7 +25,7 @@ d2d = permute(d2d, [1 3 2]);  % [length(gx1) 64 ncoils]
 
 % apply odd/even dc phase offset
 for ic = 1:ncoils
-%	d2d(:,2:2:end,ic) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end,ic));
+	d2d(:,2:2:end,ic) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end,ic));
 end
 
 % interpolate onto cartesian grid along readout

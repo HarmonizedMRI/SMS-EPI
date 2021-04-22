@@ -38,7 +38,7 @@ IZmb = [ nz/2-isl, nz/2, nz/2+isl-1, nz];
 sens = sens(:,:,IZmb,:);
 
 % blipped CAIPI sampling pattern
-IZ = caipi(ny,3,1);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
+IZ = caipi(ny,4,1);  % NB! Acquisition was mb=3, so kz=4 not sampled (recon requires mb=even)
 
 % image support
 imask = true(imsize);
