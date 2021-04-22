@@ -12,7 +12,7 @@ nt = size(kx,1);
 % reshape 
 clear d2d kx2d
 for echo = 1:ny   % EPI echo (not dabecho)
-	istart = length(gpre) + (echo-1)*length(gx1) + 1;
+	istart = length(gpre) + (echo+3-1)*length(gx1) + length(gpre) + 1;
 	istop = istart + length(gx1) - 1;
 	d2d(:,:,echo) = dat(istart:istop, :);
 	kx2d(:,echo) = kx(istart:istop);
