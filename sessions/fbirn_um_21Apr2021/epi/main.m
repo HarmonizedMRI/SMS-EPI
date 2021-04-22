@@ -2,11 +2,11 @@
 addpath ~/github/pulseq/matlab
 
 %% EPI correction parameters
-delay = 0.16;  % fraction of 4us sample
-th0 = 0.2;   % odd/even dc phase offset
+dly = 0*0.16;  % fraction of 4us sample
+th0 = 0*0.2;   % odd/even dc phase offset
 
 % frame and slice to reconstruct
-rec.frame = 10;
+rec.frame = 8;  % gx and gy on, positive sign
 rec.slice = 32;
 rec.coil  = 10;
 
@@ -48,16 +48,16 @@ dat = flipdim(dat,1); % as usual
 %dat = bsxfun(@times, exp(-1i*b0(:)), dat);
 
 % get sequence 
-if 1
+if 0
 cd tmp
 fmri2depi;   % gpre, gx1, gx. nx = ny = 64; fov = 26; etc
+cd ..
 [kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
 kx = [kx; zeros(length(gx)-length(kx),1)];
 save scanparams.mat gpre gx1 gx nx ny fov kx
 else
 load scanparams.mat
 end
-return
 
 % fix zero at end of kx
 %kx(end) = 1.01*kx(end-2);
@@ -65,24 +65,27 @@ return
 
 % apply temporal shift (odd/even linear phase correction)
 nt = length(kx);
-%kx = interp1(1:nt, kx, (1:nt)-delay);
+%kx = interp1(1:nt, kx, (1:nt)-dly);
 tmp = dat(:,rec.coil,rec.slice,1,rec.frame);
-tmp = interp1(1:nt, tmp, (1:nt)+delay);
+tmp = interp1(1:nt, tmp, (1:nt)+dly);
 dat(:,rec.coil,rec.slice,1,rec.frame) = tmp;
 
 % Get data for desired frame/slice and reshape,
 % and odd/even echo calibration data.
+clear d2d
 for echo = 1:ny   % EPI echo (not dabecho)
 	istart = length(gpre) + (echo-1)*length(gx1) + 1;
 	istop = istart + length(gx1) - 1;
 	d2d(:,echo) = dat(istart:istop, rec.coil, rec.slice, 1, rec.frame);  
 	kx2d(:,echo) = kx(istart:istop);
 end
+kxo = kx2d(:,1);
+kxe = kx2d(:,2);
 
 % apply odd/even dc phase offset
 d2d(:,2:2:end) = bsxfun(@times, exp(1i*th0), d2d(:,2:2:end));
 
-x = recon2depi(d2d, kx2d, nx, fov, gx1(:));
+x = recon2depi(d2d, kxo, kxe, nx, fov);
 im(abs(x));
 
 return;
