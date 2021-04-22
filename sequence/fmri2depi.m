@@ -18,11 +18,12 @@ gamma = system.ge.gamma;    % Hz/Gauss
 % slice-selective excitation
 ex.flip = 45;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
-ex.tbw = 8;          % time-bandwidth product
+ex.ftype = 'ls';     
+ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 
-delay.postrf = 10;        % (ms) delay after RF pulse. Determines TE. 
+delay.postrf = 1;        % (ms) delay after RF pulse. Determines TE. 
 
 if isCalScan
 	ex.thick = 0.3;    % slice thickness (cm)
@@ -31,14 +32,14 @@ if isCalScan
 	scandur = 30;      % seconds
 	tr = 500;          % (ms) sequence tr
 else
-	ex.thick = seq.slthick;    % slice thickness (cm)
+	ex.thick = seq.slThick;    % slice thickness (cm)
 	ex.spacing = ex.thick;  % center-to-center slice separation (cm)
 	nslices = nx;      
 	scandur = 1*60;    % seconds
-	tr = 0;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
+	tr = 100;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
 
-SLICES = [1:2:nslices 2:2:nslices];   % slice ordering (minimize slice crosstalk)
+SLICES = [1:4:nslices 2:4:nslices 3:4:nslices 4:4:nslices];   % slice ordering (minimize slice crosstalk)
 
 fbesp = system.ge.forbiddenEspRange;   % ms
 
@@ -60,42 +61,7 @@ else
 end
 
 %% EPI readout
-res = fov/nx;          % spatial resolution (cm)
-kmax = 1/(2*res);      % cycles/cm
-area = kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
-
-% x/y prephaser
-% reduce slew to reduce PNS
-gpre = toppe.utils.trapwave2(area, system.ge.maxGrad, 0.8*system.ge.maxSlew/sqrt(2), system.ge.raster*1e3); % raster time in msec (sorry)
-gpre = gpre(1:(end-1)); % remove 0 at end
-
-% readout trapezoid
-% Allow ramp sampling, and violate Nyquist slightly near kmax.
-gx1 = toppe.utils.trapwave2(2*area, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
-esp = length(gx1)*system.ge.raster*1e3;   % echo spacing (ms)
-if esp > fbesp(1) & esp < fbesp(2)
-	% Reduce maxGrad until echo spacing is outside forbidden range.
-	for s = 1:-0.02:0.1
-		mxg = s*system.ge.maxGrad;
-		gx1 = toppe.utils.trapwave2(2*area, mxg, system.ge.maxSlew, system.ge.raster*1e3);
-		if length(gx1)*system.ge.raster*1e3 > fbesp(2)
-			esp = length(gx1)*system.ge.raster*1e3; 
-			break;
-		end
-	end
-end
-gx1 = gx1(1:(end-1));  % remove 0 at end
-
-% y blip
-gyblip = toppe.utils.trapwave2(2*area/ny, system.ge.maxGrad, system.ge.maxSlew, system.ge.raster*1e3);
-
-% gy waveform for 1st/last and other echoes
-imax = find(gyblip == max(gyblip));
-gyblipstart = gyblip(1:imax(1));  % first half of blip
-gyblipend= gyblip(imax(2):end);
-gy1 = [zeros(1,length(gx1)-length(gyblipstart)) gyblipstart]; % first echo
-gyn = [gyblipend zeros(1,length(gx1)-length(gyblipend)-length(gyblipstart)) gyblipstart]; % other echoes
-gylast = [gyblipend zeros(1,length(gx1)-length(gyblipend))]; % last echo
+readouttrap;  % creates gpre and gx1. Also used in fmri2depi.m
 
 % put it all together and write to readout.mod
 gx = [-gpre gx1];

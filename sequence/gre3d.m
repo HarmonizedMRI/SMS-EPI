@@ -55,7 +55,7 @@ fprintf(fid, modFileText);
 fclose(fid);
 
 % Design rf waveform and write to .mod file
-if 0
+if 1
 ex.nCycleSpoil = nCycleSpoil * ex.thick/(fov(3)/nz);
 [ex.rf, ex.g] = toppe.utils.rf.makeslr(ex.flip, ex.thick, ex.tbw, ex.dur, ex.nCycleSpoil, ...
 	'type', 'st', ...        % 'st' = small-tip. 'ex' = 90 degree design
