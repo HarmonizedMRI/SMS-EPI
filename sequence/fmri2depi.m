@@ -23,7 +23,7 @@ ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 
-delay.postrf = 1;        % (ms) delay after RF pulse. Determines TE. 
+dly.postrf = 1;        % (ms) delay after RF pulse. Determines TE. 
 
 if isCalScan
 	ex.thick = 0.3;    % slice thickness (cm)
@@ -35,8 +35,8 @@ else
 	ex.thick = seq.slThick;    % slice thickness (cm)
 	ex.spacing = ex.thick;  % center-to-center slice separation (cm)
 	nslices = nx;      
-	scandur = 1*20;    % seconds
-	tr = 100;            % (ms) If tr < minimum seq tr, minimum tr is calculated and used
+	scandur = 90;      % seconds
+	tr = 100;          % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
 
 SLICES = [1:4:nslices 2:4:nslices 3:4:nslices 4:4:nslices];   % slice ordering (minimize slice crosstalk)
@@ -92,7 +92,7 @@ fclose(fid);
 
 %% Calculate delay to achieve desired TR
 toppe.write2loop('setup', 'version', 3);
-toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
+toppe.write2loop('tipdown.mod', 'textra', dly.postrf);
 toppe.write2loop('readout.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
@@ -101,11 +101,14 @@ if tr < trseq
 	fprintf('Using minimum tr (%.1f ms)\n', round(trseq));
 end
 	
-delay.postreadout = tr-trseq;  % (ms) delay after readout
+dly.postreadout = tr-trseq;  % (ms) delay after readout
 
 % number of frames
 trvol = tr*nslices;  % ms
 nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
+if nframes < 11
+	error('number of frames <= no. of calibration frames (10)');
+end
 
 
 %% Create scanloop.txt
@@ -137,7 +140,7 @@ for ifr = 1:nframes
 		% excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
-			'textra', delay.postrf, ...
+			'textra', dly.postrf, ...
 			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
 
 	 	% readout
@@ -146,7 +149,7 @@ for ifr = 1:nframes
 			'Gamplitude', [gxamp gyamp 0]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
-			'textra', delay.postreadout, ...
+			'textra', dly.postreadout, ...
 			'dabmode', 'on');
 
 		% update rf phase (RF spoiling)
