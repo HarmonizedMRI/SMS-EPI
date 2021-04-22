@@ -28,7 +28,7 @@ frame = 8;   % part of calibration frames (gx and gy both on, positive)
 
 dly = 0.0;
 th0 = 0.12;
-for coil = 1:4:size(dat,2)
+for coil = 1:size(dat,2)
 	fprintf('.');
 	for slice = 1:size(dat,3)
 		x(:,:,slice,coil) = recon2depiraw(dat(:,coil,slice,1,frame), ...
@@ -36,6 +36,7 @@ for coil = 1:4:size(dat,2)
 	end
 end
 fprintf('\n');
+save x x
 
 return;
 
