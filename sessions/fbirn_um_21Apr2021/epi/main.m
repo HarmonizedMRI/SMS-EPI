@@ -33,7 +33,8 @@ ntrap = length(gx1);
 %dat = bsxfun(@times, exp(-1i*b0(:)), dat);
 
 % Gmri objects for inverse nufft (ramp sampling)
-[~,Ao,dcfo] = reconecho([], nx, [], [], kxo(:), fov); % odd echoes
+[~,Ao,dcfo] = reconecho([], nx, [], [], kxo, fov); % odd echoes
+[~,Ae,dcfe] = reconecho([], nx, [], [], kxe, fov); % odd echoes
 
 end
 
@@ -60,22 +61,24 @@ for isl = 1:nslices
 	for ib = 1:60; fprintf('\b'); end;
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
-	for coil = 1:1:ncoils
+
+	for coil = 1:2:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,3);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,4);
-		xo = recon2depi(do, kxo, kxo, nx, fov);
+		xo = recon2depi(do, kxo, kxo, nx, fov, Ao, dcfo, Ao, dcfo);
 
 		de = 0*d2d(:,:,1,1,1);
 		de(:,1:2:end)  = d2d(:,1:2:end,coil,isl,4);
 		de(:,2:2:end) = d2d(:,2:2:end,coil,isl,3);
-		xe = recon2depi(de, kxe, kxe, nx, fov);
+		xe = recon2depi(de, kxe, kxe, nx, fov, Ae, dcfe, Ae, dcfe);
 
 		xm = (abs(xe) + abs(xo))/2;
 		th = th + xm.^2.*exp(1i*angle(xe./xo));
 
 		xsos = xsos + xm.^2;
 	end
+
 	th = angle(th);
 	xsos = sqrt(xsos);
 	mask = xsos > 0.1*max(xsos(:));
