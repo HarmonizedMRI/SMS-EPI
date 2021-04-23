@@ -1,8 +1,11 @@
 % curdir = pwd; cd /opt/matlab/toolbox/irt/; setup; cd(curdir);
 
 %% Load 2D EPI data and kspace sampling locations
+% d2d = [nfid ny ncoils nslices nframes]
+% kxo = [nfid]
+% kxe = [nfid]
 
-if false
+if ~exist('d2d', 'var')
 
 % load data
 pfile = 'P_fmri2depi.7';  
@@ -35,7 +38,7 @@ ntrap = length(gx1);
 end
 
 
-%% Estimate odd/even phase difference (for each slice)
+%% Estimate odd/even phase difference for each slice
 % Calibration data:
 % frame(s)       gy    gx
 % 1, nframes-4   off   positive
@@ -44,19 +47,57 @@ end
 % 4, nframes-1   on    negative
 % 5, nframes     off   off
 
-slice = 32;
-coil = 10;
+if ~exist('a', 'var')
 
-% Get odd-only and even-only images from frames 3 and 4
-do = 0*d2d(:,:,1,1,1);
-do(:,1:2:end)  = d2d(:,1:2:end,coil,slice,3);
-do(:,2:2:end) = d2d(:,2:2:end,coil,slice,4);
-xo = recon2depi(do, kxo, kxo, nx, fov);
-de = 0*d2d(:,:,1,1,1);
-de(:,1:2:end)  = d2d(:,1:2:end,coil,slice,4);
-de(:,2:2:end) = d2d(:,2:2:end,coil,slice,3);
-xe = recon2depi(de, kxe, kxe, nx, fov);
-im(angle(xe./xo), 1.0*[-1 1]);
+[X,Y] = ndgrid(((-nx/2+0.5):(nx/2-0.5))/nx, ((-ny/2+0.5):(ny/2-0.5))/ny);
+
+[nfid ny ncoils nslices nframes ] = size(d2d);
+
+% a: 2d plane fit parameters: offset (rad), x linear (cycles/fov), y linear (cycles/fov)
+a = zeros(nslices, 3);  
+for isl = 1:nslices
+	fprintf('Getting odd/even phase difference: slice %d of %d', isl, nslices);
+	for ib = 1:60; fprintf('\b'); end;
+	th = zeros(nx,ny);
+	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
+	for coil = 1:1:ncoils
+		do = 0*d2d(:,:,1,1,1);
+		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,3);
+		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,4);
+		xo = recon2depi(do, kxo, kxo, nx, fov);
+
+		de = 0*d2d(:,:,1,1,1);
+		de(:,1:2:end)  = d2d(:,1:2:end,coil,isl,4);
+		de(:,2:2:end) = d2d(:,2:2:end,coil,isl,3);
+		xe = recon2depi(de, kxe, kxe, nx, fov);
+
+		xm = (abs(xe) + abs(xo))/2;
+		th = th + xm.^2.*exp(1i*angle(xe./xo));
+
+		xsos = xsos + xm.^2;
+	end
+	th = angle(th);
+	xsos = sqrt(xsos);
+	mask = xsos > 0.1*max(xsos(:));
+
+	% fit phase difference to 2d plane
+	H = [ones(sum(mask(:)),1) X(mask) Y(mask)];  % spatial basis matrix (2d linear)
+	a(isl,:) = H\th(mask);  
+	%thhat = embed(H*a(isl,:)', mask);
+	%figure; im(cat(1, th.*mask, thhat, th.*mask-thhat), 1.0*[-1 1]); colormap hsv; colorbar;
+end
+fprintf('\n');
+save a a
+
+else
+load a
+end
+
+hold on; plot(1:nslices, a(:,1), 'ro');
+plot(1:nslices, a(:,2), 'go');
+plot(1:nslices, a(:,3), 'bo');
+legend('dc', 'x', 'y');
+xlabel('slice');
 
 return;
 
