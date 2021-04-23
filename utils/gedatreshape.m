@@ -1,8 +1,20 @@
-function d2d = gedatreshape(dat, kx, npre, ntrap, ny)
+function [d2d, kxo, ke] = gedatreshape(dat, kx, npre, ntrap, ny)
+% function [d2d, kxo, ke] = gedatreshape(dat, kx, npre, ntrap, ny)
 %
-% Inputs
-% dat   [nfid ncoils]   Data for one whole EPI train
-% kx    [nfid]          (cycles/cm) kspace sampling locations
+% TOPPE acquires data continuously into one long EPI vector,
+% that this function reshapes into a 2D matrix.
+%
+% Inputs:
+% dat    [nfid ncoils]   Data for one whole EPI train
+% kx     [nfid]          (cycles/cm) kspace sampling locations
+% npre   int             Number of acquired samples before first echo
+% ntrap  int             Number of sample in each single-echo trapezoid
+% ny     int             Number of y phase-encodes (matrix size)
+%
+% Outputs:
+% d2d    [ntrap ny ncoils]   Reconstruct each coil with recon2depi.m
+% kxo    [ntrap]             Odd echo kspace sampling locations
+% kxe    [ntrap]             Even echo kspace sampling locations
 %
 % Usage example:
 % >> [~,gx] = toppe.readmod('readout.mod'); % gx: G/cm
@@ -13,11 +25,11 @@ function d2d = gedatreshape(dat, kx, npre, ntrap, ny)
 % >> slice = 20; frame = 30;
 % >> d2d = gedatreshape(dat(:,:,slice,1,frame), kx, npre, ntrap, ny);
 
-d2d = zeros(nro,ny);
-j2d = zeros(nro,ny);
+d2d = zeros(ntrap,ny);
+k2d = zeros(ntrap,ny);
 for echo = 1:ny   % EPI echo (not dabecho)
-   istart = npre + (echo-1)*nro + 1;
-   istop = istart + nro - 1;
+   istart = npre + (echo-1)*ntrap + 1;
+   istop = istart + ntrap - 1;
    d2d(:,echo) = dat(istart:istop);
    kx2d(:,echo) = kx(istart:istop);
 end
