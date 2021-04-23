@@ -1,4 +1,4 @@
-% toy object, but using real sens maps
+% toy object, but using real sens maps and realistic odd/even delays
 
 % mb factor
 mb = 4;
@@ -74,6 +74,17 @@ end
 toc;
 SNR = 4;
 d2d = d2d + randn(size(d2d))*mean(abs(d2d(:)))/SNR;
+
+% apply odd/even delay and constant phase offset
+nt = size(d2d,1);
+dly = 0.0;  % fraction of sample
+th0 = 0.0;  % radians
+for ic = 1:ncoils
+	for iy = 2:2:ny
+		d2d(:,iy,ic) = exp(1i*th0)*interp1(1:nt, d2d(:,iy,ic), (1:nt)+dly);
+	end
+end
+d2d(isnan(d2d)) = 0;
 
 % interpolate onto cartesian grid along readout
 clear dcart;
