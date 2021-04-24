@@ -1,5 +1,5 @@
-function a = getoephase(pfile, readoutfile, npre, ntrap, nx, ny, fov)
-% function a = getoephase(pfile, readoutfile, npre, ntrap, nx, ny, fov)
+function ph = getoephase(pfile, readoutfile, npre, ntrap, nx, ny, fov)
+% function ph = getoephase(pfile, readoutfile, npre, ntrap, nx, ny, fov)
 %
 % 2D linear fit to odd/even phase difference for each slice.
 %
@@ -21,10 +21,10 @@ function a = getoephase(pfile, readoutfile, npre, ntrap, nx, ny, fov)
 %  fov    [1]     cm
 % 
 % Output:
-%  a      [nslices 3] 
-%         a[:,1]  dc offset (rad)
-%         a[:,2]  x linear phase (cycles/fov)
-%         a[:,3]  y linear phase (cycles/fov)
+%  pn      [nslices 3] 
+%         ph[:,1]  dc offset (rad)
+%         ph[:,2]  x linear phase (cycles/fov)
+%         ph[:,3]  y linear phase (cycles/fov)
 
 % load data
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [nt ncoils nslices 1 nframes]
@@ -47,14 +47,14 @@ kx = gamma*dt*cumsum(gx);
 
 [X,Y] = ndgrid(((-nx/2+0.5):(nx/2-0.5))/nx, ((-ny/2+0.5):(ny/2-0.5))/ny);
 
-a = zeros(nslices, 3);  
-for isl = 1:nslices
+ph = zeros(nslices, 3);  
+for isl = 1:1:nslices
 	fprintf('Getting odd/even phase difference: slice %d of %d', isl, nslices);
 	for ib = 1:60; fprintf('\b'); end;
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
-	for coil = 1:8:ncoils
+	for coil = 1:1:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,3);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,4);
@@ -77,13 +77,13 @@ for isl = 1:nslices
 
 	% fit phase difference to 2d plane
 	H = [ones(sum(mask(:)),1) X(mask) Y(mask)];  % spatial basis matrix (2d linear)
-	a(isl,:) = H\th(mask);  
+	ph(isl,:) = H\th(mask);  
 end
 fprintf('\n');
 
-hold on; plot(1:nslices, a(:,1), 'ro');
-plot(1:nslices, a(:,2), 'go');
-plot(1:nslices, a(:,3), 'bo');
+hold on; plot(1:nslices, ph(:,1), 'ro');
+plot(1:nslices, ph(:,2), 'go');
+plot(1:nslices, ph(:,3), 'bo');
 legend('dc', 'x', 'y');
 xlabel('slice');
 
