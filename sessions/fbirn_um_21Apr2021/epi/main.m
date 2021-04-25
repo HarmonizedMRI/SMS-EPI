@@ -13,17 +13,19 @@ pfile = 'P_fmri2depi.7';
 dat = flipdim(dat,1); % as usual
 
 % reshape into [nt ny ncoils] and get odd/even kspace locations
-if 0
 cd tmp
 addpath ~/github/pulseq/matlab
 fmri2depi;   % gpre, gx1, gx, gy, nx, ny, fov, etc
+[~,gx,gy] = toppe.readmod('readout.mod');
 cd ..
-[kx,ky] = toppe.utils.g2k([gx(:) gy(:)]);  % kx = cycles/cm
-kx = [kx; zeros(length(gx)-length(kx),1)];
-save scanparams.mat gpre gx1 gx nx ny fov kx
-else
-load scanparams.mat
-end
+gamma = 4.2576;    % kHz/G
+dt = 4e-3;         % ms
+kx = gamma*dt*cumsum(gx);
+ky = gamma*dt*cumsum(gy);
+
+%save scanparams.mat gpre gx1 gx nx ny fov kx ky
+%load scanparams.mat
+
 npre = length(gpre);
 ntrap = length(gx1);
 [d2d, kxo, kxe] = gedatreshape(dat, kx, npre, ntrap, ny);
@@ -48,59 +50,65 @@ end
 % 4, nframes-1   on    negative
 % 5, nframes     off   off
 
-if ~exist('a', 'var')
+if 0
+ph = getoephase(d2d(:,:,:,:,3:4), kxo, kxe, nx, fov);
 
-[X,Y] = ndgrid(((-nx/2+0.5):(nx/2-0.5))/nx, ((-ny/2+0.5):(ny/2-0.5))/ny);
-
-[nfid ny ncoils nslices nframes ] = size(d2d);
-
-% a: 2d plane fit parameters: offset (rad), x linear (cycles/fov), y linear (cycles/fov)
-a = zeros(nslices, 3);  
-for isl = 1:nslices
-	fprintf('Getting odd/even phase difference: slice %d of %d', isl, nslices);
-	for ib = 1:60; fprintf('\b'); end;
-	th = zeros(nx,ny);
-	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
-
-	for coil = 1:2:ncoils
-		do = 0*d2d(:,:,1,1,1);
-		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,3);
-		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,4);
-		xo = recon2depi(do, kxo, kxo, nx, fov, Ao, dcfo, Ao, dcfo);
-
-		de = 0*d2d(:,:,1,1,1);
-		de(:,1:2:end)  = d2d(:,1:2:end,coil,isl,4);
-		de(:,2:2:end) = d2d(:,2:2:end,coil,isl,3);
-		xe = recon2depi(de, kxe, kxe, nx, fov, Ae, dcfe, Ae, dcfe);
-
-		xm = (abs(xe) + abs(xo))/2;
-		th = th + xm.^2.*exp(1i*angle(xe./xo));
-
-		xsos = xsos + xm.^2;
-	end
-
-	th = angle(th);
-	xsos = sqrt(xsos);
-	mask = xsos > 0.1*max(xsos(:));
-
-	% fit phase difference to 2d plane
-	H = [ones(sum(mask(:)),1) X(mask) Y(mask)];  % spatial basis matrix (2d linear)
-	a(isl,:) = H\th(mask);  
-	%thhat = embed(H*a(isl,:)', mask);
-	%figure; im(cat(1, th.*mask, thhat, th.*mask-thhat), 1.0*[-1 1]); colormap hsv; colorbar;
-end
-fprintf('\n');
-save a a
-
-else
-load a
-end
-
-hold on; plot(1:nslices, a(:,1), 'ro');
-plot(1:nslices, a(:,2), 'go');
-plot(1:nslices, a(:,3), 'bo');
+hold on; plot(1:nslices, ph(:,1), 'ro');
+plot(1:nslices, ph(:,2), 'go');
+plot(1:nslices, ph(:,3), 'bo');
 legend('dc', 'x', 'y');
 xlabel('slice');
+end
+
+
+%% Apply ph and reconstruct
+
+coil = 20; slice = 22; frame = 8;
+
+% First recon the Gmri way
+nufft_args = {[ny,nx],[6,6],[2*ny,2*nx],[ny/2,nx/2],'minmax:kb'};
+mask = true(ny,nx); % Mask for support
+L = 6;
+A = Gmri([fov*kx((npre+1):(end-1)) fov*ky((npre+1):(end-1))], ...
+	mask, 'nufft', nufft_args);
+d2ddc = zeros(size(d2d(:,:,coil,slice,frame)));
+for iy = 1:2:ny
+	d2ddc(:,iy) = d2d(:,iy,coil,slice,frame).*dcfo;
+end
+for iy = 2:2:ny
+	d2ddc(:,iy) = d2d(:,iy,coil,slice,frame).*dcfe;
+end
+
+d2ddc = flipdim(d2ddc, 1);
+d2ddc = flipdim(d2ddc, 2);
+x = reshape(A'*d2ddc(:)/nx, [nx ny]);
+
+% Compare w/ 1d nufft + ift way
+x2 = recon2depi(d2d(:,:,coil,slice,frame), kxo, kxe, nx, fov);
+
+% apply ph
+ntrap = length(kxo);
+k.x = zeros(ntrap, ny);
+k.y = zeros(ntrap, ny);
+for iy = 1:2:ny
+	ktmp = [kxo(1); kxo; kxo(end)]; % to avoid NaN after interpolation
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2);
+	k.x(:,iy) = tmp(2:(end-1));
+	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/2/fov;
+	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
+end
+for iy = 2:2:ny
+	ktmp = [kxe(1); kxe; kxe(end)]; % to avoid NaN after interpolation
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(slice,2)/2);
+	k.x(:,iy) = tmp(2:(end-1));
+	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/2/fov;
+	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
+end
+A = Gmri([fov*k.x(:) fov*k.y(:)], ...
+	mask, 'nufft', nufft_args);
+x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
+
+im(cat(1, x, x2, x3, 10*(abs(x3)-abs(x2))));
 
 return;
 
