@@ -1,7 +1,7 @@
-function ph = getoephase(d2d, kxo, kxe, nx, fov)
-% function ph = getoephase(d2d, kxo, kxe, nx, ny, fov)
+function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, mask)
+% function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, [mask])
 %
-% 2D linear fit to odd/even phase difference for each slice.
+% 2D linear fit to odd/even phase difference for each slice and coil.
 %
 % See also ../sequence/fmri2depi.m which acquires the following calibration data:
 %  frame(s)       gy    gx
@@ -14,10 +14,11 @@ function ph = getoephase(d2d, kxo, kxe, nx, fov)
 % Inputs:
 %  d2d    [ntrap ny ncoils nslices 2]
 %         frame 1: +gx; frame 2: -gx
-%  kxo:   [ntrap]   (cycles/cm) sampling locations for odd echoes
-%  kxe:   [ntrap]   (cycles/cm) sampling locations for even echoes
-%  nx     int       Image size (along x)
-%  fov              cm (along x)
+%  kxo:   [ntrap]           (cycles/cm) sampling locations for odd echoes
+%  kxe:   [ntrap]           (cycles/cm) sampling locations for even echoes
+%  nx     int               Image size (along x)
+%  fov                      cm (along x)
+%  mask   [nx nx nslices]   logical object mask (if not provided, is calculated)
 % 
 % Output:
 %  ph     [nslices 3] 
@@ -33,15 +34,28 @@ function ph = getoephase(d2d, kxo, kxe, nx, fov)
 
 [X,Y] = ndgrid(((-nx/2+0.5):(nx/2-0.5))/nx, ((-ny/2+0.5):(ny/2-0.5))/ny);
 
-ph = zeros(nslices, 3);  
-for isl = 1:1:nslices
+ph = zeros(nslices, ncoils, 3);  
+for isl = 40 %10:4:50   % 1:nslices
 	fprintf('Getting odd/even phase difference: slice %d of %d', isl, nslices);
 	for ib = 1:60; fprintf('\b'); end;
+
+	% object mask
+	if ~exist('mask', 'var')
+		x = zeros(nx,nx);
+		for coil = 1:ncoils
+			tmp = recon2depi(d2d(:,:,coil,isl,1), kxo, kxe, nx, fov, Ao, dcfo, Ae, dcfe);
+			x = x + abs(tmp).^2;
+		end
+		x = sqrt(x);
+		mask2d = x > 0.5*max(x(:));
+	else
+		mask2d = mask(:,:,isl);
+	end
 
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
-	for coil = 1:1:ncoils
+	for coil = 3 %1:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,1);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,2);
@@ -52,22 +66,21 @@ for isl = 1:1:nslices
 		de(:,2:2:end) = d2d(:,2:2:end,coil,isl,1);
 		xe = recon2depi(de, kxe, kxe, nx, fov, Ae, dcfe, Ae, dcfe);
 
+		th = angle(xe./xo);
+
 		xm = (abs(xe) + abs(xo))/2;
-		th = th + xm.^2.*exp(1i*angle(xe./xo));
+		mask2d = xm> 0.02*max(xm(:));
 
-		xsos = xsos + xm.^2;
+		% fit phase difference to 2d plane
+		H = [ones(sum(mask2d(:)),1) X(mask2d) Y(mask2d)];  % spatial basis matrix (2d linear)
+		a = H\th(mask2d)  
+		ph(isl,coil,:) = a;
+
+		%a = squeeze(ph(isl,coil,:));
+		thhat = embed(H*a(:), mask2d);
+		figure; subplot(211); im(xm);
+		subplot(212); im(cat(1,th, thhat, th-thhat), 1*[-1 1]); colormap hsv;
 	end
-
-	th = angle(th);
-	xsos = sqrt(xsos);
-	mask = xsos > 0.1*max(xsos(:));
-
-	% fit phase difference to 2d plane
-	H = [ones(sum(mask(:)),1) X(mask) Y(mask)];  % spatial basis matrix (2d linear)
-	ph(isl,:) = H\th(mask);  
-
-	%thhat = embed(H*ph(isl,:)', mask);
-	%figure; im(cat(1,th, thhat, th-thhat), 1*[-1 1]); colormap hsv;
 end
 fprintf('\n');
 
