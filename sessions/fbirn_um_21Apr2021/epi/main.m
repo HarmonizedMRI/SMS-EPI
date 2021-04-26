@@ -65,7 +65,8 @@ end
 
 %% Apply ph and reconstruct
 
-coil = 20; frame = 8;
+%coil = 10; 
+frame = 8;
 % slice = 40;
 
 % First recon the Gmri way
@@ -93,6 +94,8 @@ x2 = recon2depi(d2d(:,:,coil,slice,frame), kxo, kxe, nx, fov); %, ...
 ntrap = length(kxo);
 k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
+d2dconst = d2d(:,:,coil,slice,frame);
+d2d2 = d2d(:,:,coil,slice,frame);
 for iy = 1:2:ny
 	% interpolate kx space
 	ktmp = [kxo(1)*ones(4,1); kxo; kxo(end)*ones(4,1)]; % to avoid NaN after interpolation
@@ -102,12 +105,14 @@ for iy = 1:2:ny
 
 	% apply constant phase offset
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
+	d2dconst(:,iy) = d2dconst(:,iy) * exp(1i*ph(slice,1)/2);
+	d2d2(:,iy) = d2d2(:,iy) * exp(1i*ph(slice,1)/2);
 	%d2ddc(:,iy) = exp(1i*b0eddy*kxo/max(kxo)).*d2ddc(:,iy);
 
 	% compare with interpolating data
-	dtmp = [d2ddc(1,iy)*ones(4,1); d2ddc(:,iy); d2ddc(end,iy)*ones(4,1)];
-	tmp = interp1(1:size(dtmp), dtmp, (1:length(dtmp)) - ph(slice,2)/2/(2*pi));
-	d2ddc2(:,iy) = tmp(5:(end-4));
+	tmp = [d2d2(1,iy)*ones(4,1); d2d2(:,iy); d2d2(end,iy)*ones(4,1)];
+	tmp = interp1(1:size(tmp), tmp, (1:length(tmp)) - ph(slice,2)/2/(2*pi));
+	d2d2(:,iy) = tmp(5:(end-4));
 end
 for iy = 2:2:ny
 	% interpolate kx space
@@ -118,12 +123,14 @@ for iy = 2:2:ny
 
 	% apply constant phase offset
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
+	d2dconst(:,iy) = d2dconst(:,iy) * exp(-1i*ph(slice,1)/2);
+	d2d2(:,iy) = d2d2(:,iy) * exp(-1i*ph(slice,1)/2);
 	%d2ddc(:,iy) = exp(1i*b0eddy*kxe/max(kxe)).*d2ddc(:,iy);
 
 	% compare with interpolating data
-	dtmp = [d2ddc(1,iy)*ones(4,1); d2ddc(:,iy); d2ddc(end,iy)*ones(4,1)];
-	tmp = interp1(1:size(dtmp), dtmp, (1:length(dtmp)) - ph(slice,2)/2/(2*pi));
-	d2ddc2(:,iy) = tmp(5:(end-4));
+	tmp = [d2d2(1,iy)*ones(4,1); d2d2(:,iy); d2d2(end,iy)*ones(4,1)];
+	tmp = interp1(1:size(tmp), tmp, (1:length(tmp)) - ph(slice,2)/2/(2*pi));
+	d2d2(:,iy) = tmp(5:(end-4));
 end
 
 % recon w/ 2d nufft
@@ -133,13 +140,23 @@ A = Gmri([fov*k.x(:) -fov*k.y(:)], ...  % negative sign needed for correct orien
 x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
 % do 1d nufft + ift
-x4 = recon2depi(d2ddc, k.x(:,1), k.x(:,2), nx, fov);  % interpolating kx-space
-x5 = recon2depi(d2ddc2, kxo, kxe, nx, fov);  % compare with interpolating data. Is worse for some reason...
+x4 = recon2depi(d2dconst, k.x(:,1), k.x(:,2), nx, fov); %, ...
+x5 = recon2depi(d2d2, kxo, kxe, nx, fov);  % compare with interpolating data. Worse for some reason...
 
+% put above code in applyoephasek.m and test
+if ~exist('d2dc', 'var')
+	[d2dc, kxosl, kxesl] = applyoephasek(ph, d2d, kxo, kxe);
+end
+x6 = recon2depi(d2dc(:,:,coil,slice,frame), kxosl(:,slice), kxesl(:,slice), nx, fov); %, ...
 
-subplot(211), im(cat(1, x, x2, x3, x4, x5), [0 1.0*max(abs(x(:)))]); 
-title('2d nufft; 1d nufft; 2d nufft after; 1d nufft after; 1d nufft dat interp');
-subplot(212), im(cat(1, x, x2, x3, x4, x5), [0 0.05*max(abs(x(:)))]); title('20x');
+% test 2d cartesian version of applyoephase
+d = fftshift(fftn(fftshift(x2)));
+dc = applyoephase([ph(slice,1) ph(slice,2)], d);
+x2c = fftshift(ifftn(fftshift(dc)));
+
+subplot(211), im(cat(1, x, x2, x3, x4, x5, x2c), [0 1.0*max(abs(x(:)))]); 
+title('2d nufft; 1d nufft; 2d nufft after; 1d nufft after; 1d nufft dat interp; after applyoephase');
+subplot(212), im(cat(1, x, x2, x3, x4, x5, x2c), [0 0.05*max(abs(x(:)))]); title('20x');
 colormap gray
 
 return;
