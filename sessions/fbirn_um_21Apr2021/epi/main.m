@@ -96,16 +96,16 @@ k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
 for iy = 1:2:ny
 	ktmp = [kxo(1)*ones(2,1); kxo; kxo(end)*ones(2,1)]; % to avoid NaN after interpolation
-	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2);
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(3:(end-2));
-	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/2/fov;
+	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
 end
 for iy = 2:2:ny
 	ktmp = [kxe(1)*ones(2,1); kxe; kxe(end)*ones(2,1)];
-	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2);
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(3:(end-2));
-	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/2/fov;
+	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
 end
 A = Gmri([fov*k.x(:) fov*k.y(:)], ...
