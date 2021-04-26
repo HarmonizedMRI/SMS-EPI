@@ -72,7 +72,6 @@ coil = 20; frame = 8;
 nufft_args = {[ny,nx],[6,6],[2*ny,2*nx],[ny/2,nx/2],'minmax:kb'};
 mask = true(ny,nx); % Mask for support
 L = 6;
-%kx2 = (interp1(1:length(kx), kx, (1:length(kx)) + 0.99))';
 A = Gmri([fov*kx((npre+1):(end-1)) fov*ky((npre+1):(end-1))], ...
 	mask, 'nufft', nufft_args);
 d2ddc = zeros(size(d2d(:,:,coil,slice,frame)));
@@ -96,17 +95,17 @@ ntrap = length(kxo);
 k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
 for iy = 1:2:ny
-	ktmp = [kxo(1)*ones(2,1); kxo; kxo(end)*ones(2,1)]; % to avoid NaN after interpolation
+	ktmp = [kxo(1)*ones(4,1); kxo; kxo(end)*ones(4,1)]; % to avoid NaN after interpolation
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
-	k.x(:,iy) = tmp(3:(end-2));
+	k.x(:,iy) = tmp(5:(end-4));
 	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
 	d2ddc(:,iy) = exp(1i*b0eddy*kxo/max(kxo)).*d2ddc(:,iy);
 end
 for iy = 2:2:ny
-	ktmp = [kxe(1)*ones(2,1); kxe; kxe(end)*ones(2,1)];
+	ktmp = [kxe(1)*ones(4,1); kxe; kxe(end)*ones(4,1)];
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
-	k.x(:,iy) = tmp(3:(end-2));
+	k.x(:,iy) = tmp(5:(end-4));
 	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/(2*pi)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
 	d2ddc(:,iy) = exp(1i*b0eddy*kxe/max(kxe)).*d2ddc(:,iy);
