@@ -13,6 +13,8 @@ function d2d = applyoephase(d2d, ph)
 
 [nx ny nslices] = size(d2d);
 
+npad = 4;
+
 for isl = 1:nslices
 	% apply constant phase offset
 	d2d(:,1:2:end,isl) = exp(-1i*ph(isl,1)/2)*d2d(:,1:2:end,isl);
@@ -20,19 +22,19 @@ for isl = 1:nslices
 
 	% apply shift in x 
 	for iy = 1:1:ny
-   	tmp = [d2d(1,iy)*ones(4,1); d2d(:,iy); d2d(end,iy)*ones(4,1)]; % to avoid NaN after interpolation
+   	tmp = [d2d(1,iy)*ones(npad,1); d2d(:,iy); d2d(end,iy)*ones(npad,1)]; % to avoid NaN after interpolation
    	tmp = interp1(1:length(tmp), tmp, (1:length(tmp)) + (-1)^(iy-1)*ph(isl,2)/2/(2*pi));
-   	d2d(:,iy) = tmp(5:(end-4));
+   	d2d(:,iy) = tmp((npad+1):(end-npad));
 	end
 
 	% apply shift in y
-	y = 1:(nx+8);
+	y = 1:(nx+2*npad);
 	y(1:2:end) = y(1:2:end) + ph(isl,3)/2/(2*pi);
 	y(2:2:end) = y(2:2:end) - ph(isl,3)/2/(2*pi);
 	for ix = 1:nx
-   	tmp = [d2d(ix,1)*ones(1,4) d2d(ix,:) d2d(ix,end)*ones(1,4)];
+   	tmp = [d2d(ix,1)*ones(1,npad) d2d(ix,:) d2d(ix,end)*ones(1,npad)];
    	tmp = interp1(1:length(tmp), tmp, y);
-   	d2d(ix,:) = tmp(5:(end-4));
+   	d2d(ix,:) = tmp((npad+1):(end-npad));
 	end
 end
 
