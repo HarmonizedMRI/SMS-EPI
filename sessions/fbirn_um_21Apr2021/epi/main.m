@@ -90,7 +90,8 @@ x = reshape(A'*d2ddc(:)/nx, [nx ny]);
 % Compare w/ 1d nufft + ift way
 x2 = recon2depi(d2d(:,:,coil,slice,frame), kxo, kxe, nx, fov);
 
-% apply ph
+% apply ph and linear B0 eddy current
+%b0eddy = 0.3;   % rad across kxo/kxe
 ntrap = length(kxo);
 k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
@@ -100,19 +101,21 @@ for iy = 1:2:ny
 	k.x(:,iy) = tmp(3:(end-2));
 	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
+	d2ddc(:,iy) = exp(1i*b0eddy*kxo/max(kxo)).*d2ddc(:,iy);
 end
 for iy = 2:2:ny
 	ktmp = [kxe(1)*ones(2,1); kxe; kxe(end)*ones(2,1)];
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(3:(end-2));
-	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
+	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/(2*pi)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
+	d2ddc(:,iy) = exp(1i*b0eddy*kxe/max(kxe)).*d2ddc(:,iy);
 end
 A = Gmri([fov*k.x(:) fov*k.y(:)], ...
 	mask, 'nufft', nufft_args);
 x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
-im(cat(1, x, x2, x3), [0 0.1*max(abs(x(:)))]); 
+im(cat(1, x, x2, x3), [0 0.05*max(abs(x(:)))]);  %colormap hsv;
 
 return;
 
