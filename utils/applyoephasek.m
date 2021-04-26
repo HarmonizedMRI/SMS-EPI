@@ -1,4 +1,5 @@
-function [d2d, kxosl, kxesl] = applyoephase(ph, d2d, kxo, kxe)
+function [d2d, kxosl, kxesl] = applyoephasek(ph, d2d, kxo, kxe)
+% function [d2d, kxosl, kxesl] = applyoephasek(ph, d2d, kxo, kxe)
 %
 % Inputs
 %  ph     [nslices 2]   odd/even phase fit parameters, see getoephase.m
@@ -30,7 +31,8 @@ for isl = 1:nslices
 	d2d(:,2:2:end,:,isl,:) = exp(-1i*ph(isl,1)/2)*d2d(:,2:2:end,:,isl,:);
 
 	% apply k-space shift
-	ktmp = [kxo(1)*ones(4,1); kxo; kxo(end)*ones(4,1)]; % to avoid NaN after interpolation
+	% pad to avoid NaN after interpolation
+	ktmp = [kxo(1)*ones(4,1); kxo; kxo(end)*ones(4,1)];
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(isl,2)/2/(2*pi));
 	kxosl(:,isl) = tmp(5:(end-4));
 
