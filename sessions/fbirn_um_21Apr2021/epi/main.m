@@ -82,7 +82,6 @@ end
 for iy = 2:2:ny
 	d2ddc(:,iy) = d2d(:,iy,coil,slice,frame).*dcfe;
 end
-
 x = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
 % Compare w/ 1d nufft + ift way
@@ -101,7 +100,7 @@ for iy = 1:2:ny
 	ktmp = [kxo(1)*ones(4,1); kxo; kxo(end)*ones(4,1)]; % to avoid NaN after interpolation
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(5:(end-4));
-	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)); % - ph(slice,3)/(2*pi)/2/fov;
+	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/(2*pi)/2/fov;
 
 	% apply constant phase offset
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
@@ -111,7 +110,7 @@ for iy = 1:2:ny
 
 	% compare with interpolating data
 	tmp = [d2d2(1,iy)*ones(4,1); d2d2(:,iy); d2d2(end,iy)*ones(4,1)];
-	tmp = interp1(1:size(tmp), tmp, (1:length(tmp)) - ph(slice,2)/2/(2*pi));
+	tmp = interp1(1:length(tmp), tmp, (1:length(tmp)) - ph(slice,2)/2/(2*pi));
 	d2d2(:,iy) = tmp(5:(end-4));
 end
 for iy = 2:2:ny
@@ -119,7 +118,7 @@ for iy = 2:2:ny
 	ktmp = [kxe(1)*ones(4,1); kxe; kxe(end)*ones(4,1)];
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(5:(end-4));
-	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)); % + ph(slice,3)/(2*pi)/2/fov;
+	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
 
 	% apply constant phase offset
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
@@ -134,7 +133,6 @@ for iy = 2:2:ny
 end
 
 % recon w/ 2d nufft
-% this flips image in both x and y
 A = Gmri([fov*k.x(:) -fov*k.y(:)], ...  % negative sign needed for correct orientation
 	mask, 'nufft', nufft_args);
 x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
@@ -150,55 +148,17 @@ end
 x6 = recon2depi(d2dc(:,:,coil,slice,frame), kxosl(:,slice), kxesl(:,slice), nx, fov); %, ...
 
 % test 2d cartesian version of applyoephase
+%load ph
 d = fftshift(fftn(fftshift(x2)));
-dc = applyoephase(d,-ph(slice,:));
+dc = applyoephase(d, -ph(slice,:));
 x2c = fftshift(ifftn(fftshift(dc)));
 
-subplot(211), im(cat(1, x, x2, x3, x4, x5, x2c), [0 1.0*max(abs(x(:)))]); 
-title('2d nufft; 1d nufft; 2d nufft after; 1d nufft after; 1d nufft dat interp; after applyoephase');
-subplot(212), im(cat(1, x, x2, x3, x4, x5, x2c), [0 0.05*max(abs(x(:)))]); title('20x');
+subplot(211), im(cat(1, x, x2, x3, x4, x5, x6, x2c), [0 1.0*max(abs(x(:)))]); 
+subplot(212), im(cat(1, x, x2, x3, x4, x5, x6, x2c), [0 0.1*max(abs(x(:)))]); title('10x');
 colormap gray
 
 return;
 
-
-
-dly = 0.0;
-th0 = 0.12;
-for coil = 1:size(dat,2)
-	fprintf('.');
-	for slice = 1:size(dat,3)
-		x(:,:,slice,coil) = recon2depiraw(dat(:,coil,slice,1,frame), ...
-			kx, [nx ny], fov, length(gpre), length(gx1),	dly, th0); 
-	end
-end
-fprintf('\n');
-save x x
-
-return;
-
-
-%% EPI correction parameters
-% plot background signal for different delays and odd/even phase offsets
-coil = 10;
-slice = 32;
-frame = 8;   % part of calibration frames (gx and gy both on, positive)
-dly = [0 0]; %-0.2:0.02:0.2;  % fraction of 4us sample
-th0 = -0.3:0.02:0.3;  % odd/even dc phase offset
-load bg ; % background ROI
-clear gnr
-for idly = 1:length(dly)
-	fprintf('.');
-	for ith0 = 1:length(th0)
-		x = recon2depiraw(dat(:,coil,slice,1,frame), ...
-			kx, [nx ny], fov, length(gpre), length(gx1), ...
-			dly(idly), th0(ith0));
-		gnr(idly,ith0) = mean(abs(x(bg)));
-	end
-end
-fprintf('\n');
-surf(gnr);
-return;
 
 
 %% Get B0 eddy current
