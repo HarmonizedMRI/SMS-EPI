@@ -1,4 +1,4 @@
-function [d2d, kxo, kxe] = applyoephase(ph, d2d, kxo, kxe)
+function [d2d, kxosl, kxesl] = applyoephase(ph, d2d, kxo, kxe)
 %
 % Inputs
 %  ph     [nslices 2]   odd/even phase fit parameters, see getoephase.m
@@ -15,7 +15,6 @@ function [d2d, kxo, kxe] = applyoephase(ph, d2d, kxo, kxe)
 
 [ntrap ny ncoils nslices nframes] = size(d2d);
 
-
 ntrap = length(kxo);
 k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
@@ -23,7 +22,9 @@ k.y = zeros(ntrap, ny);
 kxosl = zeros(ntrap, nslices);
 kxesl = zeros(ntrap, nslices);
 
+toppe.utils.textprogressbar('Applying odd/even phase correction ')
 for isl = 1:nslices
+	toppe.utils.textprogressbar(isl/nslices*100);
 	% apply constant phase offset
 	d2d(:,1:2:end,:,isl,:) = exp(+1i*ph(isl,1)/2)*d2d(:,1:2:end,:,isl,:);
 	d2d(:,2:2:end,:,isl,:) = exp(-1i*ph(isl,1)/2)*d2d(:,2:2:end,:,isl,:);
@@ -37,5 +38,6 @@ for isl = 1:nslices
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(isl,2)/2/(2*pi));
 	kxesl(:,isl) = tmp(5:(end-4));
 end
+toppe.utils.textprogressbar(' done.');
 
 return
