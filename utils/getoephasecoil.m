@@ -45,7 +45,7 @@ for isl = 30 %1:nslices
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
 	if(sum(mask2d(:))) > 10
-	for coil = 1:ncoils
+	for coil = 1:2:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,1);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,2);
