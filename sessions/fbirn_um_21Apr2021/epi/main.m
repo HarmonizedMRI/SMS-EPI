@@ -51,7 +51,9 @@ end
 % 5, nframes     off   off
 
 if ~exist('ph', 'var')
-ph = getoephase(d2d(:,:,:,:,3:4), kxo, kxe, nx, fov);
+load imsos % see getimsos.m
+mask = imsos > 0.1*max(imsos(:)) & imsos < 0.9*max(imsos(:));
+ph = getoephase(d2d(:,:,:,:,3:4), kxo, kxe, nx, fov, mask);
 
 figure;
 hold on; plot(1:nslices, ph(:,1), 'ro');
@@ -139,7 +141,7 @@ x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
 % do 1d nufft + ift
 x4 = recon2depi(d2dconst, k.x(:,1), k.x(:,2), nx, fov); %, ...
-x5 = recon2depi(d2d2, kxo, kxe, nx, fov);  % compare with interpolating data. Worse for some reason...
+x5 = recon2depi(d2d2, kxo, kxe, nx, fov);  % compare with interpolating data
 
 % put above code in applyoephasek.m and test
 if ~exist('d2dc', 'var')
@@ -150,12 +152,12 @@ x6 = recon2depi(d2dc(:,:,coil,slice,frame), kxosl(:,slice), kxesl(:,slice), nx, 
 % test 2d cartesian version of applyoephase
 %load ph
 d = fftshift(fftn(fftshift(x2)));
-dc = applyoephase(d, -ph(slice,:));
+dc = applyoephase(d, -ph(slice,:)); %, b0eddy);
 x2c = fftshift(ifftn(fftshift(dc)));
 
 subplot(211), im(cat(1, x, x2, x3, x4, x5, x6, x2c), [0 1.0*max(abs(x(:)))]); 
 subplot(212), im(cat(1, x, x2, x3, x4, x5, x6, x2c), [0 0.1*max(abs(x(:)))]); title('10x');
-colormap gray
+colormap turbo
 
 return;
 
