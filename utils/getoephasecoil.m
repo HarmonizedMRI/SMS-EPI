@@ -18,7 +18,7 @@ function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, mask)
 %  kxe:   [ntrap]           (cycles/cm) sampling locations for even echoes
 %  nx     int               Image size (along x)
 %  fov                      cm (along x)
-%  mask   [nx nx nslices]   logical object mask (if not provided, is calculated)
+%  mask   [nx nx nslices]   logical object mask 
 % 
 % Output:
 %  ph     [nslices 3] 

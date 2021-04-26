@@ -1,4 +1,4 @@
-function d2d = applyoephase(d2d, ph)
+function d2d = applyoephase(d2d, ph) %, b0eddy)
 % Add odd/even phase to 2D cartesian data to emulate real acquisition.
 %
 % Inputs
@@ -19,6 +19,12 @@ for isl = 1:nslices
 	% apply constant phase offset
 	d2d(:,1:2:end,isl) = exp(-1i*ph(isl,1)/2)*d2d(:,1:2:end,isl);
 	d2d(:,2:2:end,isl) = exp(+1i*ph(isl,1)/2)*d2d(:,2:2:end,isl);
+
+	% test: add b0 eddy
+	%t = 1:size(d2d,1);
+	%t = t-t(end)/2+1;
+	%d2d(:,1:2:end,isl) = repmat(exp(1i*t'/max(t)*b0eddy),[1 length(1:2:nx)]).*d2d(:,1:2:end,isl);
+	%d2d(:,2:2:end,isl) = repmat(exp(-1i*t'/max(t)*b0eddy),[1 length(2:2:nx)]).*d2d(:,2:2:end,isl);
 
 	% apply shift in x 
 	for iy = 1:1:ny

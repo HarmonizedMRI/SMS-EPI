@@ -1,5 +1,5 @@
-function ph = getoephase(d2d, kxo, kxe, nx, fov)
-% function ph = getoephase(d2d, kxo, kxe, nx, fov)
+function ph = getoephase(d2d, kxo, kxe, nx, fov, mask)
+% function ph = getoephase(d2d, kxo, kxe, nx, fov, mask)
 %
 % 2D linear fit to odd/even phase difference for each slice.
 %
@@ -18,6 +18,7 @@ function ph = getoephase(d2d, kxo, kxe, nx, fov)
 %  kxe:   [ntrap]   (cycles/cm) sampling locations for even echoes
 %  nx     int       Image size (along x)
 %  fov              cm (along x)
+%  mask   [nx nx nslices]   logical object mask 
 % 
 % Output:
 %  ph     [nslices 3] 
@@ -38,10 +39,12 @@ for isl = 1:1:nslices
 	fprintf('Getting odd/even phase difference: slice %d of %d', isl, nslices);
 	for ib = 1:60; fprintf('\b'); end;
 
+	mask2d = mask(:,:,isl);
+
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
-	for coil = 1:1:ncoils
+	for coil = 1:4:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,1);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,2);
@@ -52,21 +55,17 @@ for isl = 1:1:nslices
 		de(:,2:2:end) = d2d(:,2:2:end,coil,isl,1);
 		xe = recon2depi(de, kxe, kxe, nx, fov, Ae, dcfe, Ae, dcfe);
 
-		xm = (abs(xe) + abs(xo))/2;
-		th = th + xm.^2.*exp(1i*angle(xe./xo));
+		th = th + abs(xe).^(1/3).*exp(1i*angle(xe./xo));
 
-		xsos = xsos + xm.^2;
 	end
 
 	th = angle(th);
-	xsos = sqrt(xsos);
-	mask = xsos > 0.1*max(xsos(:));
 
 	% fit phase difference to 2d plane
-	H = [ones(sum(mask(:)),1) X(mask) Y(mask)];  % spatial basis matrix (2d linear)
-	ph(isl,:) = H\th(mask);  
+	H = [ones(sum(mask2d(:)),1) X(mask2d) Y(mask2d)];  % spatial basis matrix (2d linear)
+	ph(isl,:) = H\th(mask2d);  
 
-	%thhat = embed(H*ph(isl,:)', mask);
+	%thhat = embed(H*ph(isl,:)', mask2d);
 	%figure; im(cat(1,th, thhat, th-thhat), 1*[-1 1]); colormap hsv;
 end
 fprintf('\n');
