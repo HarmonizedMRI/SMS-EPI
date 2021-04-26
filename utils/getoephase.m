@@ -41,7 +41,7 @@ for isl = 1:1:nslices
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
-	for coil = 1:1:ncoils
+	for coil = 1:8:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,1);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,2);
@@ -66,7 +66,8 @@ for isl = 1:1:nslices
 	H = [ones(sum(mask(:)),1) X(mask) Y(mask)];  % spatial basis matrix (2d linear)
 	ph(isl,:) = H\th(mask);  
 
-	%figure; im(cat(1,xo,xe));
+	%thhat = embed(H*ph(isl,:)', mask);
+	%figure; im(cat(1,th, thhat, th-thhat), 1*[-1 1]); colormap hsv;
 end
 fprintf('\n');
 
