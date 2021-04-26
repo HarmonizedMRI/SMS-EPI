@@ -50,25 +50,29 @@ end
 % 4, nframes-1   on    negative
 % 5, nframes     off   off
 
-if 0
+if ~exist('ph', 'var')
 ph = getoephase(d2d(:,:,:,:,3:4), kxo, kxe, nx, fov);
 
+figure;
 hold on; plot(1:nslices, ph(:,1), 'ro');
 plot(1:nslices, ph(:,2), 'go');
 plot(1:nslices, ph(:,3), 'bo');
 legend('dc', 'x', 'y');
 xlabel('slice');
+return;
 end
 
 
 %% Apply ph and reconstruct
 
-coil = 20; slice = 22; frame = 8;
+coil = 20; frame = 8;
+% slice = 40;
 
 % First recon the Gmri way
 nufft_args = {[ny,nx],[6,6],[2*ny,2*nx],[ny/2,nx/2],'minmax:kb'};
 mask = true(ny,nx); % Mask for support
 L = 6;
+%kx2 = (interp1(1:length(kx), kx, (1:length(kx)) + 0.99))';
 A = Gmri([fov*kx((npre+1):(end-1)) fov*ky((npre+1):(end-1))], ...
 	mask, 'nufft', nufft_args);
 d2ddc = zeros(size(d2d(:,:,coil,slice,frame)));
@@ -91,36 +95,28 @@ ntrap = length(kxo);
 k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
 for iy = 1:2:ny
-	ktmp = [kxo(1); kxo; kxo(end)]; % to avoid NaN after interpolation
+	ktmp = [kxo(1)*ones(2,1); kxo; kxo(end)*ones(2,1)]; % to avoid NaN after interpolation
 	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2);
-	k.x(:,iy) = tmp(2:(end-1));
-	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/2/fov;
+	k.x(:,iy) = tmp(3:(end-2));
+	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
 end
 for iy = 2:2:ny
-	ktmp = [kxe(1); kxe; kxe(end)]; % to avoid NaN after interpolation
-	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(slice,2)/2);
-	k.x(:,iy) = tmp(2:(end-1));
-	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/2/fov;
+	ktmp = [kxe(1)*ones(2,1); kxe; kxe(end)*ones(2,1)];
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2);
+	k.x(:,iy) = tmp(3:(end-2));
+	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/2/fov;
 	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
 end
 A = Gmri([fov*k.x(:) fov*k.y(:)], ...
 	mask, 'nufft', nufft_args);
 x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
-im(cat(1, x, x2, x3, 10*(abs(x3)-abs(x2))));
+im(cat(1, x, x2, x3), [0 0.1*max(abs(x(:)))]); 
 
 return;
 
 
-%% reconstruct
-frame = 8;   % part of calibration frames (gx and gy both on, positive)
-coil = 10;
-slice = 32;
-x = recon2depi(d2d(:,:,coil,slice,frame), kxo, kxe, nx, fov);
-im(x)
-
-return;
 
 dly = 0.0;
 th0 = 0.12;
