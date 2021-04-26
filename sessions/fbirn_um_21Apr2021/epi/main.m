@@ -72,7 +72,7 @@ coil = 20; frame = 8;
 nufft_args = {[ny,nx],[6,6],[2*ny,2*nx],[ny/2,nx/2],'minmax:kb'};
 mask = true(ny,nx); % Mask for support
 L = 6;
-A = Gmri([fov*kx((npre+1):(end-1)) fov*ky((npre+1):(end-1))], ...
+A = Gmri([fov*kx((npre+1):(end-1)) -fov*ky((npre+1):(end-1))], ... % note minus sign
 	mask, 'nufft', nufft_args);
 d2ddc = zeros(size(d2d(:,:,coil,slice,frame)));
 for iy = 1:2:ny
@@ -82,39 +82,65 @@ for iy = 2:2:ny
 	d2ddc(:,iy) = d2d(:,iy,coil,slice,frame).*dcfe;
 end
 
-d2ddc = flipdim(d2ddc, 1);
-d2ddc = flipdim(d2ddc, 2);
 x = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
 % Compare w/ 1d nufft + ift way
-x2 = recon2depi(d2d(:,:,coil,slice,frame), kxo, kxe, nx, fov);
+x2 = recon2depi(d2d(:,:,coil,slice,frame), kxo, kxe, nx, fov); %, ...
+	%Ao, dcfo, Ae, dcfe);
 
-% apply ph and linear B0 eddy current
+% apply ph 
 %b0eddy = 0.3;   % rad across kxo/kxe
 ntrap = length(kxo);
 k.x = zeros(ntrap, ny);
 k.y = zeros(ntrap, ny);
 for iy = 1:2:ny
+	% interpolate kx space
 	ktmp = [kxo(1)*ones(4,1); kxo; kxo(end)*ones(4,1)]; % to avoid NaN after interpolation
-	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(5:(end-4));
-	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) - ph(slice,3)/(2*pi)/2/fov;
-	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
-	d2ddc(:,iy) = exp(1i*b0eddy*kxo/max(kxo)).*d2ddc(:,iy);
+	k.y(:,iy) = ones(size(kxo))*ky(npre + ntrap*(iy-1) + round(ntrap/2)); % - ph(slice,3)/(2*pi)/2/fov;
+
+	% apply constant phase offset
+	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
+	%d2ddc(:,iy) = exp(1i*b0eddy*kxo/max(kxo)).*d2ddc(:,iy);
+
+	% compare with interpolating data
+	dtmp = [d2ddc(1,iy)*ones(4,1); d2ddc(:,iy); d2ddc(end,iy)*ones(4,1)];
+	tmp = interp1(1:size(dtmp), dtmp, (1:length(dtmp)) - ph(slice,2)/2/(2*pi));
+	d2ddc2(:,iy) = tmp(5:(end-4));
 end
 for iy = 2:2:ny
+	% interpolate kx space
 	ktmp = [kxe(1)*ones(4,1); kxe; kxe(end)*ones(4,1)];
-	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) - ph(slice,2)/2/(2*pi));
+	tmp = interp1(1:length(ktmp), ktmp, (1:length(ktmp)) + ph(slice,2)/2/(2*pi));
 	k.x(:,iy) = tmp(5:(end-4));
-	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)) + ph(slice,3)/(2*pi)/2/fov;
-	d2ddc(:,iy) = d2ddc(:,iy) * exp(1i*ph(slice,1)/2);
-	d2ddc(:,iy) = exp(1i*b0eddy*kxe/max(kxe)).*d2ddc(:,iy);
+	k.y(:,iy) = ones(size(kxe))*ky(npre + ntrap*(iy-1) + round(ntrap/2)); % + ph(slice,3)/(2*pi)/2/fov;
+
+	% apply constant phase offset
+	d2ddc(:,iy) = d2ddc(:,iy) * exp(-1i*ph(slice,1)/2);
+	%d2ddc(:,iy) = exp(1i*b0eddy*kxe/max(kxe)).*d2ddc(:,iy);
+
+	% compare with interpolating data
+	dtmp = [d2ddc(1,iy)*ones(4,1); d2ddc(:,iy); d2ddc(end,iy)*ones(4,1)];
+	tmp = interp1(1:size(dtmp), dtmp, (1:length(dtmp)) - ph(slice,2)/2/(2*pi));
+	d2ddc2(:,iy) = tmp(5:(end-4));
 end
-A = Gmri([fov*k.x(:) fov*k.y(:)], ...
+
+% recon w/ 2d nufft
+% this flips image in both x and y
+A = Gmri([fov*k.x(:) -fov*k.y(:)], ...  % negative sign needed for correct orientation
 	mask, 'nufft', nufft_args);
 x3 = reshape(A'*d2ddc(:)/nx, [nx ny]);
 
-im(cat(1, x, x2, x3), [0 0.05*max(abs(x(:)))]);  %colormap hsv;
+% do 1d nufft + ift
+x4 = recon2depi(d2ddc, k.x(:,1), k.x(:,2), nx, fov);  % interpolating kx-space
+x5 = recon2depi(d2ddc2, kxo, kxe, nx, fov);  % compare with interpolating data. Is worse for some reason...
+
+
+subplot(211), im(cat(1, x, x2, x3, x4, x5), [0 1.0*max(abs(x(:)))]); 
+title('2d nufft; 1d nufft; 2d nufft after; 1d nufft after; 1d nufft dat interp');
+subplot(212), im(cat(1, x, x2, x3, x4, x5), [0 0.05*max(abs(x(:)))]); title('20x');
+colormap gray
 
 return;
 
