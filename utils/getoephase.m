@@ -1,5 +1,5 @@
 function ph = getoephase(d2d, kxo, kxe, nx, fov)
-% function ph = getoephase(d2d, kxo, kxe, nx, ny, fov)
+% function ph = getoephase(d2d, kxo, kxe, nx, fov)
 %
 % 2D linear fit to odd/even phase difference for each slice.
 %
