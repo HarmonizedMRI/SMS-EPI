@@ -22,8 +22,8 @@ function ph = getoephase(d2d, kxo, kxe, nx, fov)
 % Output:
 %  ph     [nslices 3] 
 %         ph(:,1)  dc offset (rad)
-%         ph(:,2)  x linear phase (cycles/fov)
-%         ph(:,3)  y linear phase (cycles/fov)
+%         ph(:,2)  x linear phase (rad/fov)
+%         ph(:,3)  y linear phase (rad/fov)
 
 [ntrap ny ncoils nslices nframes] = size(d2d);
 
@@ -41,7 +41,7 @@ for isl = 1:1:nslices
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
-	for coil = 1:8:ncoils
+	for coil = 1:1:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,1);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,2);
