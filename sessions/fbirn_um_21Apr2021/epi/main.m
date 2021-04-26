@@ -151,7 +151,7 @@ x6 = recon2depi(d2dc(:,:,coil,slice,frame), kxosl(:,slice), kxesl(:,slice), nx, 
 
 % test 2d cartesian version of applyoephase
 d = fftshift(fftn(fftshift(x2)));
-dc = applyoephase([ph(slice,1) ph(slice,2)], d);
+dc = applyoephase(d,-ph(slice,:));
 x2c = fftshift(ifftn(fftshift(dc)));
 
 subplot(211), im(cat(1, x, x2, x3, x4, x5, x2c), [0 1.0*max(abs(x(:)))]); 
