@@ -1,5 +1,5 @@
 function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, mask)
-% function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, [mask])
+% function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, mask)
 %
 % 2D linear fit to odd/even phase difference for each slice and coil.
 %
@@ -35,27 +35,17 @@ function ph = getoephasecoil(d2d, kxo, kxe, nx, fov, mask)
 [X,Y] = ndgrid(((-nx/2+0.5):(nx/2-0.5))/nx, ((-ny/2+0.5):(ny/2-0.5))/ny);
 
 ph = zeros(nslices, ncoils, 3);  
-for isl = 40 %10:4:50   % 1:nslices
+for isl = 30 %1:nslices
 	fprintf('Getting odd/even phase difference: slice %d of %d', isl, nslices);
 	for ib = 1:60; fprintf('\b'); end;
 
-	% object mask
-	if ~exist('mask', 'var')
-		x = zeros(nx,nx);
-		for coil = 1:ncoils
-			tmp = recon2depi(d2d(:,:,coil,isl,1), kxo, kxe, nx, fov, Ao, dcfo, Ae, dcfe);
-			x = x + abs(tmp).^2;
-		end
-		x = sqrt(x);
-		mask2d = x > 0.5*max(x(:));
-	else
-		mask2d = mask(:,:,isl);
-	end
+	mask2d = mask(:,:,isl);
 
 	th = zeros(nx,ny);
 	xsos = zeros(nx,ny);  % sum-of-squares coil combined image (for mask)
 
-	for coil = 3 %1:ncoils
+	if(sum(mask2d(:))) > 10
+	for coil = 1:ncoils
 		do = 0*d2d(:,:,1,1,1);
 		do(:,1:2:end)  = d2d(:,1:2:end,coil,isl,1);
 		do(:,2:2:end) = d2d(:,2:2:end,coil,isl,2);
@@ -69,17 +59,16 @@ for isl = 40 %10:4:50   % 1:nslices
 		th = angle(xe./xo);
 
 		xm = (abs(xe) + abs(xo))/2;
-		mask2d = xm> 0.02*max(xm(:));
 
 		% fit phase difference to 2d plane
 		H = [ones(sum(mask2d(:)),1) X(mask2d) Y(mask2d)];  % spatial basis matrix (2d linear)
-		a = H\th(mask2d)  
+		a = H\th(mask2d);
 		ph(isl,coil,:) = a;
 
-		%a = squeeze(ph(isl,coil,:));
 		thhat = embed(H*a(:), mask2d);
 		figure; subplot(211); im(xm);
 		subplot(212); im(cat(1,th, thhat, th-thhat), 1*[-1 1]); colormap hsv;
+	end
 	end
 end
 fprintf('\n');
