@@ -1,6 +1,7 @@
 % sens maps
 load ../gre3d/sens_bart
 sens = sens_bart;
+%sens = flip(sens,2);
 
 
 %% Recon ../epi/ epi data using 2d sense nufft (for testing)
@@ -10,27 +11,27 @@ pfile = '../epi/P_fmri2depi.7';
 [dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [nt ncoils nslices 1 nframes]
 dat = flipdim(dat,1); % as usual
 
-npre = 83;
-ntrap = 101;
-nx = 64; ny = 64; fov = 25.6;
-
 [nfid ncoils nz nframes] = size(squeeze(dat));
-
-% select slice and frame
-frame = 8;
-slice = 32;
-sens = squeeze(sens(:,:,slice,:));
-dat = dat(:,:,slice,1,frame);
-
-% indeces corresponding to EPI train
-istart = npre + 1;
-istop = istart + ntrap*ny - 1;
 
 % kspace locations
 [~,gx,gy,gz] = toppe.readmod('../epi/tmp/readout.mod'); 
 gamma = 4.2576;  % kHz/G
 dt = 4e-3;       % ms
 k = dt*gamma*cumsum([gx gy gz]);
+
+npre = 83;
+ntrap = 101;
+nx = 64; ny = 64; fov = 25.6;
+
+% select slice and frame
+frame = 8;
+slice = 44;
+sens = squeeze(sens(:,:,slice,:));
+dat = dat(:,:,slice,1,frame);
+
+% indeces corresponding to EPI train
+istart = npre + 1;
+istop = istart + ntrap*ny - 1;
 
 % apply gradient delay
 ph = [-0.14 -4.8];  % constant (rad) and linear (rad/cycle) odd/even phase offset
@@ -52,7 +53,7 @@ for iy = 1:2:ny
 end
 
 % odd echoes only
-ysamp = 1:4:ny;
+ysamp = 1:2:ny;
 dat = d2d(:,ysamp,:);
 k = reshape(k, [ntrap ny 3]);
 k = k(:,ysamp,:);
