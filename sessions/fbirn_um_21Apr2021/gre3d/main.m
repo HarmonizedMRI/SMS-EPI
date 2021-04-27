@@ -20,11 +20,8 @@ end
 %% do 3d sense nufft recon (for testing/learning)
 
 % sens maps
-% flip to match nufft (Gmri) orientation
 load sens_bart;
 sens = sens_bart;
-sens = flipdim(sens,2);
-sens = flipdim(sens,3);
 
 % data
 [~,gx,gy,gz,desc,hdrint] = toppe.readmod('readout.mod');  % from gre3d.tar
@@ -46,11 +43,11 @@ k = k((npre+1):(npre+nro),:);
 kx = repmat(k(:,1), [1 ny nz]);
 
 ky = repmat(k(:,2), [1 ny]);
-ky = bsxfun(@times, 2/ny*[(-ny/2+0.5):(ny/2-0.5)], ky);
+ky = bsxfun(@times, 2/ny*[(ny/2-0.5):-1:(-ny/2+0.5)], ky);  % grad trap starts negative (already negative in readout.mod)
 ky = repmat(ky, [1 1 nz]);
 
 kz = repmat(k(:,3), [1 nz]);
-kz = bsxfun(@times, 2/nz*[(-nz/2+0.5):(nz/2-0.5)], kz);
+kz = bsxfun(@times, 2/nz*[(nz/2-0.5):-1:(-nz/2+0.5)], kz);
 kz = repmat(kz, [1 1 ny]);
 kz = permute(kz, [1 3 2]);
 
@@ -84,19 +81,21 @@ kz = kz(:,ysamp,zsamp);
 
 fov = 25.6; % see getparams.m (in gre3d.tar)
 
-nufft_args = {[n,n,n],[6,6,6],[2*n,2*n,2*n],[n/2,n/2,n/2],'minmax:kb'};
-mask = true(n,n,n); % Mask for support
+nz = n-0;
+sens = sens(:,:,1:nz,:);
+nufft_args = {[n,n,nz],[6,6,6],[2*n,2*n,2*nz],[n/2,n/2,nz/2],'minmax:kb'};
+mask = true(n,n,nz); % Mask for support
 L = 6;
 A0 = Gmri([fov*kx(:) fov*ky(:) fov*kz(:)], ...
 	mask, 'nufft', nufft_args);
 A = Asense(A0, sens);
 
-x0 = reshape(A'*dat(:)/(n*n*n), [n n n]);
+x0 = reshape(A'*dat(:)/(n*n*nz), [n n nz]);
 W = 1; C = 0;
 x = qpwls_pcg1(x0, A, W, dat(:), C, ...
                    'niter', 10);
 %tic; [x,res] = cgnr_jfn(A, dat(:), x0(:), 15, 1e-7); toc; % Also works
-x = reshape(x, [n n n]);
+x = reshape(x, [n n nz]);
 im(x);
 
 % do single-coil recon as a check
