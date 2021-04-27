@@ -63,32 +63,29 @@ ky = ky(2:4:end,:,:,:);
 kz = kz(2:4:end,:,:,:);
 
 % reduce matrix size to speed up this test
-if false
-n = norig/2;
+n = nx/2;
+r = (n/2+1):(3*n/2);
 sensorig = sens;
 sens = zeros(n,n,n,ncoils);
 for ic = 1:ncoils
 	tmp = fftshift(ifftn(fftshift(sensorig(:,:,:,ic))));
-	r = (n/2+1):(3*n/2);
 	sens(:,:,:,ic) = fftshift(fftn(fftshift(tmp(r,r,r))));
 end
-end
+dats = dats(r,r,r,:);
+kx = kx(r,r,r);
+ky = ky(r,r,r);
+kz = kz(r,r,r);
 
-nx = ny;   % isotropic resolution and fov
 fov = 25.6; % see getparams.m (in gre3d.tar)
 
-nufft_args = {[nx,ny,nz],[6,6,6],[2*nx,2*ny,2*nz],[nx/2,ny/2,nz/2],'minmax:kb'};
-mask = true(nx,ny,nz); % Mask for support
+nufft_args = {[n,n,n],[6,6,6],[2*n,2*n,2*n],[n/2,n/2,n/2],'minmax:kb'};
+mask = true(n,n,n); % Mask for support
 L = 6;
-if ~exist('A', 'var')
-	tic
-	A = Gmri([fov*kx(:) fov*ky(:) fov*kz(:)], ...
-		mask, 'nufft', nufft_args);
-	toc
-	A = Asense(A, sens);
-end
+A = Gmri([fov*kx(:) fov*ky(:) fov*kz(:)], ...
+	mask, 'nufft', nufft_args);
+A = Asense(A, sens);
 
-x = reshape(A'*dats(:)/(nx*ny*nz), [nx ny nz]);
+x = reshape(A'*dats(:)/(n*n*n), [n n n]);
 
 % do single-coil recon as a check
 %coil = 20;
