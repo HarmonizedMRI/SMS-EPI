@@ -7,7 +7,7 @@ sens = sens_bart;
 
 
 %% Synthesize data and recon using 3d sense nufft
-if false
+if true
 
 % data
 pfile = '../epi/P_fmri2depi.7';
@@ -34,7 +34,7 @@ nk = size(k,1);
 
 % select frame and MB slices
 frame = 8;
-IZmb = [15 30 45]; 
+IZmb = 13:11:54;  %[15 30 45]; 
 d = diff(IZmb);
 slThick = 0.4;
 slSep = d(1)*slThick;  % cm
@@ -55,20 +55,22 @@ k = k(istartk:istopk,:);
 % simulate SMS acquisition (mb=3)
 dat = permute(dat, [1 3 2]);  % [ntrap*ny mb ncoils]
 kzmax = 1/(2*slSep); % cycles/cm
-iz = caipi(ny,mb,1);
+IZ = caipi(ny,mb,1);
 kz = zeros(ntrap,ny);
-k(:,3) = kz(:);
 for iy = 1:ny
-	kz(:,iy) = kzmax*(iz(iy)-2);
+	kz(:,iy) = kzmax*(IZ(iy)-(mb+1)/2)/(mb/2);
 end
 d2d = reshape(dat, ntrap, ny, mb, []);  % [ntrap ny mb ncoils]
-for ic = 1:ncoils
-	d2d(:,:,1,ic) = d2d(:,:,1,ic).*exp(1i*2*pi*kz*(-slSep));
-	d2d(:,:,3,ic) = d2d(:,:,3,ic).*exp(1i*2*pi*kz*(+slSep));
+for iz = 1:mb
+	z = (IZmb(iz) - (nslices/2+1) ) * slThick;
+	for ic = 1:ncoils
+		d2d(:,:,iz,ic) = d2d(:,:,iz,ic).*exp(1i*2*pi*kz*z);
+	end
 end
 dat = squeeze(sum(d2d,3));   % simulated SMS data, [ntrap ny ncoils]
-%dat = squeeze(d2d(:,:,2,:));   % simulated SMS data, [ntrap ny ncoils]
+k(:,3) = kz(:);
 
+% apply odd/even phase correction
 for iy = 1:2:ny
   % d2d(:,1:2:end,:,isl,:) = exp(+1i*ph(isl,1)/2)*d2d(:,1:2:end,:,isl,:);
   % d2d(:,2:2:end,:,isl,:) = exp(-1i*ph(isl,1)/2)*d2d(:,2:2:end,:,isl,:);
@@ -83,13 +85,14 @@ k = k(:,ysamp,:);
 k = reshape(k, [], 3);
 end
 
-nufft_args = {[nx,ny,mb],[6,6,6],[2*nx,2*ny,8],[nx/2,ny/2,4],'minmax:kb'};
+nufft_args = {[nx,ny,mb],[6,6,6],[2*nx,2*ny,2*mb],[nx/2,ny/2,mb/2],'minmax:kb'};
 mask = true(nx,ny,mb); % Mask for support
 %mask(:,:,mb) = false;
-L = 6;
 A0 = Gmri(k, mask, ...
 	'fov', [fov fov slSep*(mb-1)], ...
+	'L', 6, ...
 	'nufft', nufft_args);
+
 A = Asense(A0, sens);
 
 x0 = reshape(A'*dat(:)/(nx*ny*mb), [nx ny mb]);
