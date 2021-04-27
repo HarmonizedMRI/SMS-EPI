@@ -1,3 +1,88 @@
+% sens maps
+load ../gre3d/sens_bart
+sens = sens_bart;
+%sens = flipdim(sens,1); % 0 0 0 1 1 1 1
+%sens = flipdim(sens,2); % 1 1 0 0 1 1 0
+%sens = flipdim(sens,3); % 1 0 1 0 1 0 1
+
+
+%% Synthesize data and recon using 3d sense nufft
+
+% pfile and frame to reconstruct
+pfile = '../epi/P_fmri2depi.7';
+[dat, rdb_hdr] = toppe.utils.loadpfile(pfile); % dat = [nt ncoils nslices 1 nframes]
+dat = flipdim(dat,1); % as usual
+npredat = 83;
+
+% kspace locations
+[~,gx,gy,gz] = toppe.readmod('readout.mod'); 
+gamma = 4.2576;  % kHz/G
+dt = 4e-3;       % ms
+k = dt*gamma*cumsum([gx gy gz]);
+
+nprek = 469;  % > npredat since it does 3 echoes at beginning for epi calibration
+ntrap = 101;
+nx = 64; ny = 64; fov = 25.6;
+
+[nfid ncoils nz nframes] = size(squeeze(dat));
+
+% select frame and MB slices
+frame = 8;
+IZmb = [15 30 45]; 
+slSep = 4;  % cm
+sens = sens(:,:,IZmb,:);
+dat = dat(:,:,IZmb,1,frame);
+dat = sum(dat,3);   % simulated SMS data, [nfid ncoils]
+
+% indeces corresponding to EPI train
+istartdat = npredat + 1;
+istopdat = istartdat + ntrap*ny - 1;
+istartk = nprek + 1;
+istopk = istartk + ntrap*ny - 1;
+
+% apply gradient delay
+ph = [-0.14 -0.8];  % constant (rad) and linear (rad/cycle) odd/even phase offset
+%k(:,1) = interp1(1:nfid, k(:,1), (1:nfid) + ph(2)/(2*pi));
+
+% crop out dephaser gradients before start of EPI train
+dat = dat(istartdat:istopdat,:);
+k = k(istartk:istopk,:);
+
+d2d = reshape(dat, ntrap, ny, []);
+
+for iy = 1:2:ny
+  % d2d(:,1:2:end,:,isl,:) = exp(+1i*ph(isl,1)/2)*d2d(:,1:2:end,:,isl,:);
+  % d2d(:,2:2:end,:,isl,:) = exp(-1i*ph(isl,1)/2)*d2d(:,2:2:end,:,isl,:);
+end
+
+% odd echoes only (for testing)
+ysamp = 1:2:ny;
+dat = d2d(:,ysamp,:);
+k = reshape(k, [ntrap ny 3]);
+k = k(:,ysamp,:);
+k = reshape(k, [], 3);
+
+nz = size(sens,3);
+
+nufft_args = {[nx,ny,nz],[6,6,2],[2*nx,2*ny,2*nz],[nx/2,ny/2,nz/2],'minmax:kb'};
+mask = true(nx,ny,nz); % Mask for support
+%mask(:,:,nz) = false;
+L = 6;
+A0 = Gmri([fov*k(:,1) fov*k(:,2) 0*slSep*(nz-1)*k(:,3)], ...
+	mask, 'nufft', nufft_args);
+A = Asense(A0, sens);
+
+x0 = reshape(A'*dat(:)/(nx*ny*nz), [nx ny nz]);
+W = 1; C = 0;
+x = qpwls_pcg1(x0, A, W, dat(:), C, ...
+                   'niter', 10);
+%tic; [x,res] = cgnr_jfn(A, dat(:), x0(:), 15, 1e-7); toc; % Also works
+x = reshape(x, [nx ny nz]);
+im(x);
+
+return;
+
+
 %% Recon using 3d sense nufft, following ../gre3d/main.m
 
 % pfile and frame to reconstruct
@@ -45,31 +130,38 @@ k = dt*gamma*cumsum([gx gy gz]);
 
 % apply gradient delay
 ph = [-0.14 -0.8];  % constant (rad) and linear (rad/cycle) odd/even phase offset
-k(:,1) = interp1(1:nfid, k(:,1), (1:nfid) + ph(2)/(2*pi));
+%k(:,1) = interp1(1:nfid, k(:,1), (1:nfid) + ph(2)/(2*pi));
 
 % crop out dephaser gradients before start of EPI train
 dat = dat(istart:istop,:);
 k = k(istart:istop,:);
 
-d2d = reshape(dat, [ntrap ny ncoils]);
+d2d = reshape(dat, ntrap, ny, []);
+
 for iy = 1:2:ny
   % d2d(:,1:2:end,:,isl,:) = exp(+1i*ph(isl,1)/2)*d2d(:,1:2:end,:,isl,:);
   % d2d(:,2:2:end,:,isl,:) = exp(-1i*ph(isl,1)/2)*d2d(:,2:2:end,:,isl,:);
 end
 
+% odd echoes only (for testing)
+ysamp = 1:2:ny;
+dat = d2d(:,ysamp,:);
+k = reshape(k, [ntrap ny 3]);
+k = k(:,ysamp,:);
+k = reshape(k, [], 3);
+
 % pick out SMS slices from 3D sens map
 isl = slSep/slThick;  % should be integer, see smsepi.m
 nz = size(sens,3);
-IZmb = [nz/2-isl+1, nz/2, nz/2+isl, nz/2+2*isl];
+IZmb = [nz/2-isl+1, nz/2, nz/2+isl]; %, nz/2+2*isl];
 sens = sens(:,:,IZmb,:);
 nz = size(sens,3);
 
-nufft_args = {[nx,ny,nz],[6,6,6],[2*nx,2*ny,2*nz],[nx/2,ny/2,nz/2],'minmax:kb'};
+nufft_args = {[nx,ny,nz],[6,6,2],[2*nx,2*ny,2*nz],[nx/2,ny/2,nz/2],'minmax:kb'};
 mask = true(nx,ny,nz); % Mask for support
 %mask(:,:,nz) = false;
 L = 6;
-%A0 = Gmri([fov*k(:,1) fov*k(:,2) slSep*nz*k(:,3)], ...
-A0 = Gmri([fov*k(:,1) fov*k(:,2) fov*k(:,3)], ...
+A0 = Gmri([fov*k(:,1) fov*k(:,2) slSep*(nz-1)*k(:,3)], ...
 	mask, 'nufft', nufft_args);
 A = Asense(A0, sens);
 
@@ -85,9 +177,7 @@ return;
 
 
 
-
-
-%% First attempt, failed
+%% First attempt with my fatrix based on fft, failed
 % sensitivity maps
 load ../gre3d/sens_bart
 sens = sens_bart;
