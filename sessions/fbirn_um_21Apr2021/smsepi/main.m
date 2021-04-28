@@ -52,7 +52,7 @@ istopk = istartk + ntrap*ny - 1;
 dat = dat(istartdat:istopdat,:,:);
 k = k(istartk:istopk,:);
 
-% simulate SMS acquisition (mb=3)
+% simulate SMS acquisition
 dat = permute(dat, [1 3 2]);  % [ntrap*ny mb ncoils]
 kzmax = 1/(2*slSep); % cycles/cm
 IZ = caipi(ny,mb,1);
@@ -85,9 +85,10 @@ k = k(:,ysamp,:);
 k = reshape(k, [], 3);
 end
 
-nufft_args = {[nx,ny,mb],[6,6,6],[2*nx,2*ny,2*mb],[nx/2,ny/2,mb/2],'minmax:kb'};
+nufft_args = {[nx,ny,mb], [6,6,2], [2*nx,2*ny,2*mb], [nx/2,ny/2,mb/2], 'minmax:kb'};
 mask = true(nx,ny,mb); % Mask for support
-%mask(:,:,mb) = false;
+%ssos = sqrt(sum(abs(sens).^2,4));
+%mask(ssos > 1e-3) = false;
 A0 = Gmri(k, mask, ...
 	'fov', [fov fov slSep*(mb-1)], ...
 	'L', 6, ...
@@ -97,7 +98,7 @@ A = Asense(A0, sens);
 
 x0 = reshape(A'*dat(:)/(nx*ny*mb), [nx ny mb]);
 W = 1; C = 0;
-x = qpwls_pcg1(x0, A, W, dat(:), C, ...
+x = qpwls_pcg1(x0(:), A, W, dat(:), C, ...
                    'niter', 10);
 %tic; [x,res] = cgnr_jfn(A, dat(:), x0(:), 15, 1e-7); toc; % Also works
 x = reshape(x, [nx ny mb]);
