@@ -51,6 +51,7 @@ istop = istart + ntrap*ny - 1;
 dat = dat(istart:istop,:);
 k = k(istart:istop,:);
 
+% reshape 
 dat = reshape(dat, ntrap, ny, ncoils);
 
 % odd/even echo phase offset
@@ -61,7 +62,7 @@ dat(:,2:2:end,:) = exp(-1i*ph(1)/2)*dat(:,2:2:end,:);
 isl = slSep/slThick;  % should be integer, see smsepi.m
 nz = size(sens,3);
 IZmb = [nz/2-isl, nz/2, nz/2+isl]; %, nz/2+2*isl];
-sens = sens(:,:,IZmb+1,:);
+sens = sens(:,:,IZmb+1,:);  % TODO: not sure about the offset here
 
 mb = size(sens,3);
 
@@ -84,8 +85,9 @@ dcart(isnan(dcart)) = 0;
 dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
 
 % kz encoding and slice offsets
-kzmax = 1/(2*slSep); % cycles/cm
+kzmax = 0.125; %1/(2*slSep); % cycles/cm
 KZ = (IZ-mb/2-0.5)/(mb/2)*kzmax;
+KZ = (IZ-mb/2-0.5)/((mb-1)/2)*kzmax;  % TODO: check this for mb ~= 3
 Z = [(-mb/2+0.5):(mb/2-0.5)]*slSep;  % slice locations (cm)
 
 % reconstruct
