@@ -9,7 +9,7 @@ function A = Gsms(KZ, Z, sens, imask)
 % sens     [nx ny mb nc]   coil sensitivity maps 
 % imask    [nx ny mb]      image support (logical)
 
-arg.KZ = IZ;
+arg.KZ = KZ;
 arg.Z = Z;
 arg.sens = sens;
 arg.imask = imask;
@@ -33,30 +33,28 @@ return
 % y  [arg.nt*arg.nc]
 function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
-	y = zeros(arg.nt*arg.nc,1);
+	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
 		xsum = zeros(arg.nx, arg.ny);
 		for iz = 1:arg.mb
-			xsum = xsum + exp(1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * arg.sens(:,:,iz,ic)) .* x(:,:,iz);
+			xsum = xsum + exp(1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * arg.sens(:,:,iz,ic) .* x(:,:,iz);
 		end
-		y2d = fftshift(fftn(fftshift(xsum)));
-		y(((ic-1)*arg.nt+1):(ic*arg.nt)) = y2d(:);
+		y(:,:,ic) = fftshift(fftn(fftshift(xsum)));
 	end
+	y = y(:);
 return
 
 function x = A_back(arg, y)
 	y = reshape(y, [arg.nx arg.ny arg.nc]);
-	x = zeros(arg.np,1);
-	xfull = fftshift(ifftn(fftshift(tmp3d)))
+	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
-		y1 = y(:,:,ic);
 		tmp = zeros(arg.nx, arg.ny, arg.mb);
 		for iz = 1:arg.mb
-			tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * conj(arg.sens(:,:,iz,ic)).*fftshift(ifftn(fftshift(y1(:))));
+			tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * conj(arg.sens(:,:,iz,ic)).*fftshift(ifftn(fftshift(y(:,:,ic))));
 		end
-		xfull = xfull + tmp;
+		x = x + tmp;
 	end
-	x = xfull(arg.imask);
+	x = x(arg.imask);  % [arg.np]
 return;
 
 
