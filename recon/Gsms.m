@@ -4,7 +4,7 @@ function A = Gsms(KZ, Z, sens, imask)
 % SMS EPI system matrix
 %
 % KZ       [ny]            (cycles/cm) kz encoding value along EPI train
-%                          A regular Caipi pattern is assumed (see caipi.m)
+%                          A regular (periodic) Caipi pattern is assumed, see caipi.m
 % Z        [mb]            (cm) slice offsets
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
