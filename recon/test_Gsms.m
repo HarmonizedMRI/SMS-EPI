@@ -8,7 +8,7 @@ slSep = 4;  % slice separation (cm)
 Z = [(-mb/2+0.5):(mb/2-0.5)]*slSep;  % slice locations (cm)
 
 % sensitivity maps
-load ../gre3d/sens_bart;  % [64 64 64 32]
+load sens_bart;  % [64 64 64 32]
 sens = sens_bart;  clear sens_bart
 zfov = 25.6;  % cm
 zres = zfov/size(sens,3);
@@ -43,24 +43,28 @@ imask = true(imsize);
 skip = 1;
 IZ = caipi(n,mb,skip);
 kzmax = 1/(2*slSep); % cycles/cm
-KZ = [(-mb/2+0.5):(mb/2-0.5)]/(mb/2)*kzmax;
+KZ = (IZ-mb/2-0.5)/(mb/2)*kzmax; 
 y = zeros(nx, ny, ncoils);
 for ic = 1:ncoils
-	x = 0*xtrue;
-	for iz = 1:mb
-		x(:,:,iz) = exp(1i*2*pi*KZ(iz)*Z(iz)) * sens(:,:,iz,ic) .* xtrue(:,:,iz);
+	for iy = 1:ny
+		x = 0*xtrue;
+		for iz = 1:mb
+			x(:,:,iz) = exp(1i*2*pi*KZ(iy)*Z(iz)) * sens(:,:,iz,ic) .* xtrue(:,:,iz);
+		end
+		xsum = sum(x,3);
+		tmp = fftshift(fftn(fftshift(xsum)));
+		y(:,iy,ic) = tmp(:,iy);
 	end
-	xsum = sum(x,3);
-	y(:,:,ic) = fftshift(fftn(fftshift(xsum)));
 end
 SNR = 4;
-y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+%y = y + randn(size(y))*mean(abs(y(:)))/SNR;
 
 % reconstruct
 fprintf('Reconstructing...\n');
 A = Gsms(KZ, Z, sens, imask);
+%y = A*xtrue(:);
 xinit = zeros(size(imask));
-tol = 1e-6; nitmax = 50;
+tol = 1e-6; nitmax = 5;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 im(xhat)
