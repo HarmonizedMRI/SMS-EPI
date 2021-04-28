@@ -4,6 +4,7 @@ function A = Gsms(KZ, Z, sens, imask)
 % SMS EPI system matrix
 %
 % KZ       [ny]            (cycles/cm) kz encoding value along EPI train
+%                          A regular Caipi pattern is assumed (see caipi.m)
 % Z        [mb]            (cm) slice offsets
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
@@ -46,15 +47,14 @@ function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
 	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
-		%  TODO: reduce the following loop by ny/mb since iy + n*mb (n=0,1,2,...) can share the same 2d fft
-		for iy = 1:arg.ny  
+		for iy = 1:arg.mb %arg.ny % can loop over 1:ny here if using non-regular caipi pattern 
 			xsum = zeros(arg.nx, arg.ny);
 			for iz = 1:arg.mb
 				xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
 				arg.sens(:,:,iz,ic) .* x(:,:,iz);
 			end
 			tmp = fftshift(fftn(fftshift(xsum)));
-			y(:,iy,ic) = tmp(:,iy); 
+			y(:,iy:arg.mb:end,ic) = tmp(:,iy:arg.mb:end); 
 		end
 	end
 	y = y(:);
@@ -65,10 +65,10 @@ function x = A_back(arg, y)
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
 		xc = zeros(arg.nx, arg.ny, arg.mb);
-		for iy = 1:arg.ny
+		for iy = 1:arg.mb %arg.ny  
 			% P^H
 			y1 = zeros(arg.nx, arg.ny);
-			y1(:,iy) = y(:,iy,ic);
+			y1(:,iy:arg.mb:end) = y(:,iy:arg.mb:end,ic);
 
 			% F^H
 			x1 = fftshift(ifftn(fftshift(y1)));
