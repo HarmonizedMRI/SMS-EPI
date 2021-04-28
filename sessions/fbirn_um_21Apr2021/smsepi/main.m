@@ -53,19 +53,18 @@ dat = dat(istartdat:istopdat,:,:);
 k = k(istartk:istopk,:);
 
 % simulate SMS acquisition
+% recon each slice using 2d nufft, apply kz encoding, and inufft back
 dat = permute(dat, [1 3 2]);  % [ntrap*ny mb ncoils]
+d2d = reshape(dat, ntrap, ny, mb, []);  % [ntrap ny mb ncoils]
 kzmax = 1/(2*slSep); % cycles/cm
 IZ = caipi(ny,mb,1);
 kz = zeros(ntrap,ny);
 for iy = 1:ny
 	kz(:,iy) = kzmax*(IZ(iy)-(mb+1)/2)/(mb/2);
 end
-d2d = reshape(dat, ntrap, ny, mb, []);  % [ntrap ny mb ncoils]
 for iz = 1:mb
 	z = (IZmb(iz) - (nslices/2+1) ) * slThick;
-	for ic = 1:ncoils
-		d2d(:,:,iz,ic) = d2d(:,:,iz,ic).*exp(1i*2*pi*kz*z);
-	end
+	d2d(:,:,mb,ic) = exp(1i*2*pi*kz*z).*d2d(:,:,mb,ic);
 end
 dat = squeeze(sum(d2d,3));   % simulated SMS data, [ntrap ny ncoils]
 k(:,3) = kz(:);
@@ -85,13 +84,39 @@ k = k(:,ysamp,:);
 k = reshape(k, [], 3);
 end
 
+% image support
+imask = true(nx,ny,mb);
+
+% interpolate onto cartesian grid along readout
+clear dcart;
+kx2d = reshape(k(:,1), ntrap, ny);
+[~,Ao,dcfo] = reconecho([], nx, [], [], kx2d(:,1), fov); % odd echoes
+[~,Ae,dcfe] = reconecho([], nx, [], [], kx2d(:,2), fov); % even echoes
+for ic = 1:ncoils
+	x = zeros(nx,ny);
+	for iy = 1:2:ny
+		x(:,iy) = reconecho(dat(:,iy,ic), nx, Ao, dcfo);
+	end
+	for iy = 2:2:ny
+		x(:,iy) = reconecho(dat(:,iy,ic), nx, Ae, dcfe);
+	end
+	dcart(:,:,ic) = fftshift(fft(fftshift(x,1), [], 1),1);
+end
+dcart(isnan(dcart)) = 0;
+dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
+
+% reconstruct
+tol = 1e-6;
+%xhat = reconsms(dcart(:), IZ, imask, sens, tol);
+%im(xhat);
+%return;
+
 nufft_args = {[nx,ny,mb], [6,6,2], [2*nx,2*ny,2*mb], [nx/2,ny/2,mb/2], 'minmax:kb'};
 mask = true(nx,ny,mb); % Mask for support
 %ssos = sqrt(sum(abs(sens).^2,4));
 %mask(ssos > 1e-3) = false;
 A0 = Gmri(k, mask, ...
 	'fov', [fov fov slSep*(mb-1)], ...
-	'L', 6, ...
 	'nufft', nufft_args);
 
 A = Asense(A0, sens);

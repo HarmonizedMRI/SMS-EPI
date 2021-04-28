@@ -69,7 +69,7 @@ A = Asense(A0, sens);
 x0 = reshape(A'*dat(:)/(nx*ny), [nx ny]);
 W = 1; C = 0;
 x = qpwls_pcg1(x0, A, W, dat(:), C, ...
-                   'niter', 30);
+                   'niter', 10);
 %tic; [x,res] = cgnr_jfn(A, dat(:), x0(:), 15, 1e-7); toc; % Also works
 x = reshape(x, [nx ny]);
 im(cat(1,x0,x));
