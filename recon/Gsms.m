@@ -41,18 +41,20 @@ return
 %  S: coil sensitivity for coil c
 %  F: 2D FFT
 %  P_ky: picks out the y^th phase encode
+%
 function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
 	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
-		for iy = 1:arg.ny
+		%  TODO: reduce the following loop by ny/mb since iy + n*mb (n=0,1,2,...) can share the same 2d fft
+		for iy = 1:arg.ny  
 			xsum = zeros(arg.nx, arg.ny);
 			for iz = 1:arg.mb
 				xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
 				arg.sens(:,:,iz,ic) .* x(:,:,iz);
 			end
 			tmp = fftshift(fftn(fftshift(xsum)));
-			y(:,iy,ic) = tmp(:,iy);
+			y(:,iy,ic) = tmp(:,iy); 
 		end
 	end
 	y = y(:);

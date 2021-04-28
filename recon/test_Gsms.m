@@ -67,6 +67,7 @@ xinit = zeros(size(imask));
 tol = 1e-6; nitmax = 10;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
-im(xhat)
+subplot(121); im(xhat)
+subplot(122); plot(res, 'o-');
 
 return;
