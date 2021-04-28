@@ -4,7 +4,7 @@ function A = Gsms(KZ, Z, sens, imask)
 % SMS EPI system matrix
 %
 % KZ       [ny]            (cycles/cm) kz encoding value along EPI train
-% Z        [mb]            (cm) slice offset 
+% Z        [mb]            (cm) slice offsets
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
 % imask    [nx ny mb]      image support (logical)
@@ -30,30 +30,34 @@ A = fatrix2('arg', arg, ...
 return
 
 % x  [arg.np] 
-% y  [arg.nc*arg.nt]
+% y  [arg.nt*arg.nc]
 function y = A_forw(arg, x)
-	x = embed(x, arg.imask);
+	x = embed(x, arg.imask);  % [nx ny mb]
 	y = zeros(arg.nt*arg.nc,1);
-	y2d = zeros(arg.nx, arg.ny);
 	for ic = 1:arg.nc
-		tmp = fftshift(fftn(fftshift(arg.sens(:,:,:,ic).*x)));
-		for iy = 1:arg.ny
-			y2d(:,iy) = tmp(:, iy, arg.IZ(iy));
-   	end
+		xsum = zeros(arg.nx, arg.ny);
+		for iz = 1:arg.mb
+			xsum = xsum + exp(1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * arg.sens(:,:,iz,ic)) .* x(:,:,iz);
+		end
+		y2d = fftshift(fftn(fftshift(xsum)));
 		y(((ic-1)*arg.nt+1):(ic*arg.nt)) = y2d(:);
 	end
 return
 
 function x = A_back(arg, y)
+	y = reshape(y, [arg.nx arg.ny arg.nc]);
 	x = zeros(arg.np,1);
+	xfull = fftshift(ifftn(fftshift(tmp3d)))
 	for ic = 1:arg.nc
-		tmp = y(((ic-1)*arg.nt+1):(ic*arg.nt));
-		tmp = reshape(tmp, arg.nx, arg.ny);
-		tmp3d = zeros(arg.nx, arg.ny, arg.mb);
-		for iy = 1:arg.ny
-			tmp3d(:,iy,arg.IZ(iy)) = tmp(:, iy);
-   	end
-		tmp = conj(arg.sens(:,:,:,ic)).*fftshift(ifftn(fftshift(tmp3d)));
-		x = x + tmp(arg.imask);
+		y1 = y(:,:,ic);
+		tmp = zeros(arg.nx, arg.ny, arg.mb);
+		for iz = 1:arg.mb
+			tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * conj(arg.sens(:,:,iz,ic)).*fftshift(ifftn(fftshift(y1(:))));
+		end
+		xfull = xfull + tmp;
 	end
+	x = xfull(arg.imask);
 return;
+
+
+
