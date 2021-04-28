@@ -13,7 +13,8 @@ sens = sens_bart;  clear sens_bart
 zfov = 25.6;  % cm
 zres = zfov/size(sens,3);
 zind = size(sens,3)/2 + round(Z/zres); % SMS slices
-sens = sens(:,:,zind,:);
+senstrue = sens(:,:,zind,:);  
+sens = sens(:,:,zind+0,:);  % test impact of wrong sens map slices
 
 ncoils = size(sens,4);
 
@@ -49,7 +50,7 @@ for ic = 1:ncoils
 	for iy = 1:ny
 		x = 0*xtrue;
 		for iz = 1:mb
-			x(:,:,iz) = exp(1i*2*pi*KZ(iy)*Z(iz)) * sens(:,:,iz,ic) .* xtrue(:,:,iz);
+			x(:,:,iz) = exp(1i*2*pi*KZ(iy)*Z(iz)) * senstrue(:,:,iz,ic) .* xtrue(:,:,iz);
 		end
 		xsum = sum(x,3);
 		tmp = fftshift(fftn(fftshift(xsum)));
@@ -67,7 +68,8 @@ xinit = zeros(size(imask));
 tol = 1e-6; nitmax = 10;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
-subplot(121); im(xhat)
-subplot(122); plot(res, 'o-');
+im(xhat)
+%subplot(121); im(xhat)
+%subplot(122); plot(res, 'o-');
 
 return;
