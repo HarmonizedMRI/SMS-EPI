@@ -28,17 +28,30 @@ A = fatrix2('arg', arg, ...
 return
 
 % x  [arg.np] 
-% y  [arg.nx*arg.ny*arg.nc]
+% d  [arg.nx*arg.ny*arg.nc]
+%
+% Data model for each coil:
+%  d_ky = P_ky * F * [S(z1)*exp(1i*kz*z1) S(z2)*exp(1i*kz*z2) ...] * [x1; x2; ...]
+%  d_ky = y(:,ky,c), c = coil, ky = phase encode
+%  x1, x2, ..., xmb = slice 1, 2, ..., mb 
+%  z1, z2, ..., zmb = z location for each slice (cm)
+%  kz(ky) = kz encoding (cycles/cm) for the ky^th phase encode
+%  S: coil sensitivity for coil c
+%  F: 2D FFT
+%  P_ky: picks out the y^th phase encode
 function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
 	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
-		tmp = zeros(arg.nx, arg.ny);
-		for iz = 1:arg.mb
-			tmp = tmp + exp(1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * ...
+		for iy = 1:arg.ny
+			xsum = zeros(arg.nx, arg.ny);
+			for iz = 1:arg.mb
+				xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
 				arg.sens(:,:,iz,ic) .* x(:,:,iz);
+			end
+			tmp = fftshift(fftn(fftshift(xsum)));
+			y(:,iy,ic) = tmp(:,iy);
 		end
-		y(:,:,ic) = fftshift(fftn(fftshift(tmp)));
 	end
 	y = y(:);
 return
@@ -47,10 +60,12 @@ function x = A_back(arg, y)
 	y = reshape(y, [arg.nx arg.ny arg.nc]);
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
-		tmp = zeros(arg.nx, arg.ny, arg.mb);
-		for iz = 1:arg.mb
-			tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * ...
-				conj(arg.sens(:,:,iz,ic)) .* fftshift(ifftn(fftshift(y(:,:,ic))));
+		for iy = 1:arg.ny
+			tmp = zeros(arg.nx, arg.ny, arg.mb);
+			for iz = 1:arg.mb
+				tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * ...
+					conj(arg.sens(:,:,iz,ic)) .* fftshift(ifftn(fftshift(y(:,:,ic))));
+			end
 		end
 		x = x + tmp;
 	end
