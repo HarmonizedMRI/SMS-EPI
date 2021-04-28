@@ -8,6 +8,8 @@ function A = Gsms(KZ, Z, sens, imask)
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
 % imask    [nx ny mb]      image support (logical)
+%
+% Test function: test_Gsms.m
 
 arg.KZ = KZ;
 arg.Z = Z;

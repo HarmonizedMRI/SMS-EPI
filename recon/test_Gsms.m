@@ -1,10 +1,10 @@
 % toy object, but using real sens maps and realistic odd/even delays
 
 % mb factor
-mb = 4;
+mb = 6;
 
 % define SMS slices
-slSep = 4;  % slice separation (cm)
+slSep = 2;  % slice separation (cm)
 Z = [(-mb/2+0.5):(mb/2-0.5)]*slSep;  % slice locations (cm)
 
 % sensitivity maps
@@ -57,14 +57,14 @@ for ic = 1:ncoils
 	end
 end
 SNR = 4;
-%y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+y = y + randn(size(y))*mean(abs(y(:)))/SNR;
 
 % reconstruct
 fprintf('Reconstructing...\n');
 A = Gsms(KZ, Z, sens, imask);
 %y = A*xtrue(:);
 xinit = zeros(size(imask));
-tol = 1e-6; nitmax = 5;
+tol = 1e-6; nitmax = 10;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 im(xhat)
