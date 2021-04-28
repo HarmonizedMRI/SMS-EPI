@@ -60,14 +60,23 @@ function x = A_back(arg, y)
 	y = reshape(y, [arg.nx arg.ny arg.nc]);
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
+		xc = zeros(arg.nx, arg.ny, arg.mb);
 		for iy = 1:arg.ny
+			% P^H
+			y1 = zeros(arg.nx, arg.ny);
+			y1(:,iy) = y(:,iy,ic);
+
+			% F^H
+			x1 = fftshift(ifftn(fftshift(y1)));
+			
 			tmp = zeros(arg.nx, arg.ny, arg.mb);
 			for iz = 1:arg.mb
-				tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iz)*arg.Z(iz)) * ...
-					conj(arg.sens(:,:,iz,ic)) .* fftshift(ifftn(fftshift(y(:,:,ic))));
+				tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
+					conj(arg.sens(:,:,iz,ic)) .* x1;
 			end
+			xc = xc + tmp;
 		end
-		x = x + tmp;
+		x = x + xc;
 	end
 	x = x(arg.imask);  % [arg.np]
 return;
