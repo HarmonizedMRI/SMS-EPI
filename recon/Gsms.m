@@ -1,5 +1,5 @@
-function A = Gsms(KZ, Z, sens, imask)
-% function A = Gsms(KZ, Z, sens, imask)
+function A = Gsms(KZ, Z, sens, imask, varargin)
+% function A = Gsms(KZ, Z, sens, imask, varargin)
 %
 % SMS EPI system matrix
 %
@@ -10,7 +10,20 @@ function A = Gsms(KZ, Z, sens, imask)
 % sens     [nx ny mb nc]   coil sensitivity maps 
 % imask    [nx ny mb]      image support (logical)
 %
+% Options:
+% zmap     [nx ny mb]      relax_map + 2i*pi*field_map (as in Gmri.m)
+%                          included as a exp(-zmap * TE(ky)) term
+% ti       [ny]            echo times (msec)
+%
 % Test function: test_Gsms.m
+
+arg.zmap = [];
+arg.ti = [];
+arg = vararg_pair(arg, varargin);
+
+if ~isempty(arg.zmap) & isempty(arg.ti)
+	error(' ''ti'' is required when passing a zmap argument');
+end
 
 arg.KZ = KZ;
 arg.Z = Z;
@@ -53,14 +66,28 @@ function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
 	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
-		for ikzl = 1:length(arg.kzlevels)
-			xsum = zeros(arg.nx, arg.ny);
-			for iz = 1:arg.mb
-				xsum = xsum + exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
-				arg.sens(:,:,iz,ic) .* x(:,:,iz);
+		if isempty(arg.zmap)
+			% group fft operations by kz encoding level
+			for ikzl = 1:length(arg.kzlevels)
+				xsum = zeros(arg.nx, arg.ny);
+				for iz = 1:arg.mb
+					xsum = xsum + exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
+					arg.sens(:,:,iz,ic) .* x(:,:,iz);
+				end
+				tmp = fftshift(fftn(fftshift(xsum)));
+				y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
 			end
-			tmp = fftshift(fftn(fftshift(xsum)));
-			y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
+		else
+			% do one fft for every ky encode (echo)
+			for iy = 1:arg.ny
+				xsum = zeros(arg.nx, arg.ny);
+				for iz = 1:arg.mb
+					xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
+					arg.sens(:,:,iz,ic) .* x(:,:,iz) .* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
+				end
+				tmp = fftshift(fftn(fftshift(xsum)));
+				y(:,iy,ic) = tmp(:,iy); 
+			end
 		end
 	end
 	y = y(:);
@@ -71,20 +98,38 @@ function x = A_back(arg, y)
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
 		xc = zeros(arg.nx, arg.ny, arg.mb);
-		for ikzl = 1:length(arg.kzlevels)
-			% P^H
-			y1 = zeros(arg.nx, arg.ny);
-			y1(:,arg.pegroup{ikzl}) = y(:,arg.pegroup{ikzl},ic);
+		if isempty(arg.zmap)
+			for ikzl = 1:length(arg.kzlevels)
+				% P^H
+				y1 = zeros(arg.nx, arg.ny);
+				y1(:,arg.pegroup{ikzl}) = y(:,arg.pegroup{ikzl},ic);
 
-			% F^H
-			x1 = fftshift(ifftn(fftshift(y1)));
+				% F^H
+				x1 = fftshift(ifftn(fftshift(y1)));
 			
-			tmp = zeros(arg.nx, arg.ny, arg.mb);
-			for iz = 1:arg.mb
-				tmp(:,:,iz) = exp(-1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
-					conj(arg.sens(:,:,iz,ic)) .* x1;
+				tmp = zeros(arg.nx, arg.ny, arg.mb);
+				for iz = 1:arg.mb
+					tmp(:,:,iz) = exp(-1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
+						conj(arg.sens(:,:,iz,ic)) .* x1;
+				end
+				xc = xc + tmp;
 			end
-			xc = xc + tmp;
+		else
+			for iy = 1:arg.ny
+				% P^H
+				y1 = zeros(arg.nx, arg.ny);
+				y1(:,iy) = y(:,iy,ic);
+
+				% F^H
+				x1 = fftshift(ifftn(fftshift(y1)));
+			
+				tmp = zeros(arg.nx, arg.ny, arg.mb);
+				for iz = 1:arg.mb
+					tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
+						conj(arg.sens(:,:,iz,ic)) .* x1 .* conj(exp(-arg.zmap(:,:,iz)*arg.ti(iy)));
+				end
+				xc = xc + tmp;
+			end
 		end
 		x = x + xc;
 	end
