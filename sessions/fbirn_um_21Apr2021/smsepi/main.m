@@ -92,7 +92,9 @@ Z = [(-mb/2+0.5):(mb/2-0.5)]*slSep;  % slice locations (cm)
 
 % reconstruct
 fprintf('Reconstructing...\n');
-imask = true(nx,ny,mb);
+tmp = sqrt(sum(abs(sens).^2,4)); %true(nx,ny,mb);
+imask = tmp > 0;
+
 A = Gsms(KZ, Z, sens, imask);
 xinit = zeros(size(imask));
 tol = 1e-6; nitmax = 20;
