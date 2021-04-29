@@ -4,7 +4,7 @@ function A = Gsms(KZ, Z, sens, imask)
 % SMS EPI system matrix
 %
 % KZ       [ny]            (cycles/cm) kz encoding value along EPI train
-%                          A regular (periodic) Caipi pattern is assumed, see caipi.m
+%                          Arbitrary, but impacts speed of forw/back operations
 % Z        [mb]            (cm) slice offsets
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
@@ -21,6 +21,12 @@ arg.imask = imask;
 
 arg.nc = size(arg.sens,4);
 arg.np = sum(arg.imask(:));    % number of spatial positions (voxels)
+
+% group echoes according to kz-encoding (to speed up forw/back operations)
+arg.kzlevels = unique(KZ);
+for ikzl = 1:length(arg.kzlevels)
+	arg.pegroup{ikzl} = find(KZ == arg.kzlevels(ikzl));
+end
 
 A = fatrix2('arg', arg, ...
 	'idim', [arg.np], ...             % size of x
@@ -47,14 +53,14 @@ function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
 	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
-		for iy = 1:arg.mb %arg.ny % can loop over 1:ny here if using non-regular caipi pattern 
+		for ikzl = 1:length(arg.kzlevels)
 			xsum = zeros(arg.nx, arg.ny);
 			for iz = 1:arg.mb
-				xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
+				xsum = xsum + exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
 				arg.sens(:,:,iz,ic) .* x(:,:,iz);
 			end
 			tmp = fftshift(fftn(fftshift(xsum)));
-			y(:,iy:arg.mb:end,ic) = tmp(:,iy:arg.mb:end); 
+			y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
 		end
 	end
 	y = y(:);
@@ -65,17 +71,17 @@ function x = A_back(arg, y)
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
 		xc = zeros(arg.nx, arg.ny, arg.mb);
-		for iy = 1:arg.mb %arg.ny  
+		for ikzl = 1:length(arg.kzlevels)
 			% P^H
 			y1 = zeros(arg.nx, arg.ny);
-			y1(:,iy:arg.mb:end) = y(:,iy:arg.mb:end,ic);
+			y1(:,arg.pegroup{ikzl}) = y(:,arg.pegroup{ikzl},ic);
 
 			% F^H
 			x1 = fftshift(ifftn(fftshift(y1)));
 			
 			tmp = zeros(arg.nx, arg.ny, arg.mb);
 			for iz = 1:arg.mb
-				tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
+				tmp(:,:,iz) = exp(-1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
 					conj(arg.sens(:,:,iz,ic)) .* x1;
 			end
 			xc = xc + tmp;
