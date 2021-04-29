@@ -95,7 +95,7 @@ fprintf('Reconstructing...\n');
 imask = true(nx,ny,mb);
 A = Gsms(KZ, Z, sens, imask);
 xinit = zeros(size(imask));
-tol = 1e-6; nitmax = 10;
+tol = 1e-6; nitmax = 20;
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 subplot(121); im(xhat)
