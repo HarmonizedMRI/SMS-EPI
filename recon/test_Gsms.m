@@ -1,4 +1,4 @@
-% toy object, but using real sens maps and realistic odd/even delays
+% toy object, but using real sens maps 
 
 % mb factor
 mb = 6;
@@ -57,17 +57,16 @@ for ic = 1:ncoils
 		y(:,iy,ic) = tmp(:,iy);
 	end
 end
-SNR = 4;
-y = y + randn(size(y))*mean(abs(y(:)))/SNR;
+y = y + randn(size(y))*mean(abs(y(:)))/3;
 
 % reconstruct
 fprintf('Reconstructing...\n');
 A = Gsms(KZ, Z, sens, imask);
 %y = A*xtrue(:);
 xinit = zeros(size(imask));
-tol = 1e-6; nitmax = 10;
+tol = 1e-6; nitmax = 30;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
-W = 1; C = 0;
+%W = 1; C = 0;
 %xhat = qpwls_pcg1(xinit(imask), A, W, y(:), C, 'niter', 250);  % runs but doesn't find the right solution
 xhat = embed(xhat, imask);
 im(xhat)
