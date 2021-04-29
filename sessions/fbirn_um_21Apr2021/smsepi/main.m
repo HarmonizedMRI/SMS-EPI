@@ -87,7 +87,7 @@ dcart = reshape(dcart, [], ncoils);  % [sum(kmask(:)) ncoils]
 % kz encoding and slice offsets
 kzmax = 0.125; %1/(2*slSep); % cycles/cm
 KZ = (IZ-mb/2-0.5)/(mb/2)*kzmax;
-KZ = (IZ-mb/2-0.5)/((mb-1)/2)*kzmax;  % TODO: check this for mb ~= 3
+KZ = (IZ-mb/2-0.5)/((mb-1)/2)*kzmax;  % TODO: get this from scan design scripts (smsepi.m)
 Z = [(-mb/2+0.5):(mb/2-0.5)]*slSep;  % slice locations (cm)
 
 % reconstruct
