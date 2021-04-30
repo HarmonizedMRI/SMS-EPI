@@ -70,6 +70,8 @@ function y = A_forw(arg, x)
 			% group fft operations by kz encoding level
 			for ikzl = 1:length(arg.kzlevels)
 				xsum = zeros(arg.nx, arg.ny);
+				%xfull = bsxfun(@times, repmat(exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z), [1 1 arg.mb]), ...
+				%	arg.sens(:,:,:,ic) .* x;
 				for iz = 1:arg.mb
 					xsum = xsum + exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
 					arg.sens(:,:,iz,ic) .* x(:,:,iz);
