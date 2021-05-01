@@ -102,7 +102,7 @@ fmap = 0*ones(size(imask));     % Hz
 %A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti);
 A = Gsms(KZ, Z, sens, imask);
 xinit = zeros(size(imask));
-tol = 1e-5; nitmax = 20;
+tol = 1e-5; nitmax = 15;
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 subplot(121); im(xhat)
