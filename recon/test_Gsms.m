@@ -64,7 +64,7 @@ fprintf('Reconstructing...\n');
 A = Gsms(KZ, Z, sens, imask);
 %y = A*xtrue(:);
 xinit = zeros(size(imask));
-tol = 1e-6; nitmax = 30;
+tol = 1e-6; nitmax = 15;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 %W = 1; C = 0;
 %xhat = qpwls_pcg1(xinit(imask), A, W, y(:), C, 'niter', 250);  % runs but doesn't find the right solution

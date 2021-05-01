@@ -129,6 +129,7 @@ function x = A_back(arg, y)
 				x1 = fftshift(ifft2(fftshift(y1)));
 			
 				xc = xc + conj(arg.ekzzzmap(:,:,:,iy) .* arg.sens(:,:,:,ic)) .* repmat(x1, [1 1 arg.mb]);
+				% xc = xc + bsxfun(@times, conj(arg.ekzzzmap(:,:,:,iy) .* arg.sens(:,:,:,ic)), x1);  % slower
 			end
 		end
 		x = x + xc;
@@ -139,7 +140,7 @@ return;
 
 % old code
 
-% tried group operations when passing zamp, but it's actually a bit slower
+% tried grouping operations when passing zamp, but it's actually a bit slower
 
 	for ic = 1:arg.nc
 		arg.sensrepmat(:,:,:,:,ic) = repmat(arg.sens(:,:,:,ic), [1 1 1 arg.ny]);
@@ -148,11 +149,14 @@ return;
 	if ~isempty(arg.zmap)
 		xrepmat = repmat(x, [1 1 1 arg.ny]);
 	end
+
 			for ikzl = 1:length(arg.kzlevels)
 				PE = arg.pegroup{ikzl};  % phase-encode indeces for this kz level
-				tmp = arg.ekzz(:,:,:,arg.pegroup{ikzl}) .* ...
-					repmat(arg.sens(:,:,:,ic), [1 1 1 length(PE)]) .* ...
-					repmat(x, [1 1 1 length(PE)]);
+				%tmp = arg.ekzzzmap(:,:,:,arg.pegroup{ikzl}) .* ...
+				%	repmat(arg.sens(:,:,:,ic), [1 1 1 length(PE)]) .* ...
+				%	repmat(x, [1 1 1 length(PE)]);
+				tmp = bsxfun(@times, arg.ekzzzmap(:,:,:,arg.pegroup{ikzl}), ...
+					arg.sens(:,:,:,ic) .* x);
 		%		tmp = arg.ekzz(:,:,:,PE) .* ...
 		%			arg.sensrepmat(:,:,:,PE,ic) .* ...
 		%			xrepmat(:,:,:,PE);
