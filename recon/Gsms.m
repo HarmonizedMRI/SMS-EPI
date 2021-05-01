@@ -41,6 +41,25 @@ for ikzl = 1:length(arg.kzlevels)
 	arg.pegroup{ikzl} = find(KZ == arg.kzlevels(ikzl));
 end
 
+% precompute exponentials (for speed up)
+if ~isempty(arg.zmap)
+	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
+	for iy = 1:arg.ny
+		for iz = 1:arg.mb
+			arg.ekzz(:,:,iz,iy) = exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz))  ...
+				.* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
+		end
+	end
+else
+	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, length(arg.kzlevels));
+	uni = ones(arg.nx, arg.ny, arg.mb);
+	for ikzl = 1:length(arg.kzlevels)
+		for iz = 1:arg.mb
+			arg.ekzz(:,:,iz,ikzl) = exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz));
+		end
+	end
+end
+
 A = fatrix2('arg', arg, ...
 	'idim', [arg.np], ...             % size of x
 	'odim', [arg.nx*arg.ny*arg.nc], ...      % size of A*x
@@ -69,24 +88,14 @@ function y = A_forw(arg, x)
 		if isempty(arg.zmap)
 			% group fft operations by kz encoding level
 			for ikzl = 1:length(arg.kzlevels)
-				xsum = zeros(arg.nx, arg.ny);
-				%xfull = bsxfun(@times, repmat(exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z), [1 1 arg.mb]), ...
-				%	arg.sens(:,:,:,ic) .* x;
-				for iz = 1:arg.mb
-					xsum = xsum + exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
-					arg.sens(:,:,iz,ic) .* x(:,:,iz);
-				end
+				xsum = sum(arg.ekzz(:,:,:,ikzl) .* arg.sens(:,:,:,ic) .* x, 3);
 				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
 			end
 		else
 			% do one fft for every ky encode (echo)
 			for iy = 1:arg.ny
-				xsum = zeros(arg.nx, arg.ny);
-				for iz = 1:arg.mb
-					xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
-					arg.sens(:,:,iz,ic) .* x(:,:,iz) .* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
-				end
+				xsum = sum(arg.ekzz(:,:,:,iy) .* arg.sens(:,:,:,ic) .* x, 3);
 				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,iy,ic) = tmp(:,iy); 
 				%tmp = fftshift(fft(fftshift(xsum), [], 2));    % no faster
@@ -111,28 +120,18 @@ function x = A_back(arg, y)
 				% F^H
 				x1 = fftshift(ifft2(fftshift(y1)));
 			
-				tmp = zeros(arg.nx, arg.ny, arg.mb);
-				for iz = 1:arg.mb
-					tmp(:,:,iz) = exp(-1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
-						conj(arg.sens(:,:,iz,ic)) .* x1;
-				end
-				xc = xc + tmp;
+				xc = xc + conj(arg.ekzz(:,:,:,ikzl) .* arg.sens(:,:,:,ic)) .* x1;
 			end
 		else
 			for iy = 1:arg.ny
 				% P^H
-				y1 = zeros(arg.nx, arg.ny);
+				y1 = zeros(arg.nx, arg.ny);  
 				y1(:,iy) = y(:,iy,ic);
 
 				% F^H
 				x1 = fftshift(ifft2(fftshift(y1)));
 			
-				tmp = zeros(arg.nx, arg.ny, arg.mb);
-				for iz = 1:arg.mb
-					tmp(:,:,iz) = exp(-1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
-						conj(arg.sens(:,:,iz,ic)) .* x1 .* conj(exp(-arg.zmap(:,:,iz)*arg.ti(iy)));
-				end
-				xc = xc + tmp;
+				xc = xc + conj(arg.ekzz(:,:,:,iy) .* arg.sens(:,:,:,ic)) .* repmat(x1, [1 1 arg.mb]);
 			end
 		end
 		x = x + xc;
