@@ -94,15 +94,14 @@ Z = [(-mb/2+0.5):(mb/2-0.5)]*slSep;  % slice locations (cm)
 fprintf('Reconstructing...\n');
 tmp = sqrt(sum(abs(sens).^2,4)); %true(nx,ny,mb);
 imask = tmp > 0;
-
 esp = 0.52e-3;  % echo spacing (sec)
 ti = (0:(ny-1))*esp;
 t2 = 50e-3*ones(size(imask));   % sec
 fmap = 0*ones(size(imask));     % Hz
-%A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti);
-A = Gsms(KZ, Z, sens, imask);
+A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 5;
+%A = Gsms(KZ, Z, sens, imask); nitmax = 15;
 xinit = zeros(size(imask));
-tol = 1e-5; nitmax = 15;
+tol = 1e-5; 
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xinit(imask), nitmax, tol); toc;
 xhat = embed(xhat, imask);
 subplot(121); im(xhat)
