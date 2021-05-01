@@ -46,7 +46,7 @@ if ~isempty(arg.zmap)
 	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
 	for iy = 1:arg.ny
 		for iz = 1:arg.mb
-			arg.ekzz(:,:,iz,iy) = exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz))  ...
+			arg.ekzz(:,:,iz,iy) = exp(2i*pi*arg.KZ(iy)*arg.Z(iz))  ...
 				.* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
 		end
 	end
@@ -55,7 +55,7 @@ else
 	uni = ones(arg.nx, arg.ny, arg.mb);
 	for ikzl = 1:length(arg.kzlevels)
 		for iz = 1:arg.mb
-			arg.ekzz(:,:,iz,ikzl) = exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz));
+			arg.ekzz(:,:,iz,ikzl) = exp(2i*pi*arg.kzlevels(ikzl)*arg.Z(iz));
 		end
 	end
 end
