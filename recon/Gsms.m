@@ -50,10 +50,10 @@ if isempty(arg.zmap)
 		end
 	end
 else
-	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
+	arg.ekzzmap = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
 	for iy = 1:arg.ny
 		for iz = 1:arg.mb
-			arg.ekzz(:,:,iz,iy) = exp(2i*pi*arg.KZ(iy)*arg.Z(iz))  ...
+			arg.ekzzzmap(:,:,iz,iy) = exp(2i*pi*arg.KZ(iy)*arg.Z(iz))  ...
 				.* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
 		end
 	end
@@ -94,7 +94,7 @@ function y = A_forw(arg, x)
 		else
 			% do one fft for every ky encode (echo)
 			for iy = 1:arg.ny
-				xsum = sum(arg.ekzz(:,:,:,iy) .* arg.sens(:,:,:,ic) .* x, 3);
+				xsum = sum(arg.ekzzzmap(:,:,:,iy) .* arg.sens(:,:,:,ic) .* x, 3);
 				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,iy,ic) = tmp(:,iy); 
 			end
@@ -128,7 +128,7 @@ function x = A_back(arg, y)
 				% F^H
 				x1 = fftshift(ifft2(fftshift(y1)));
 			
-				xc = xc + conj(arg.ekzz(:,:,:,iy) .* arg.sens(:,:,:,ic)) .* repmat(x1, [1 1 arg.mb]);
+				xc = xc + conj(arg.ekzzzmap(:,:,:,iy) .* arg.sens(:,:,:,ic)) .* repmat(x1, [1 1 arg.mb]);
 			end
 		end
 		x = x + xc;
