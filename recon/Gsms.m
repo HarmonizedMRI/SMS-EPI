@@ -155,8 +155,7 @@ return;
 				%tmp = arg.ekzzzmap(:,:,:,arg.pegroup{ikzl}) .* ...
 				%	repmat(arg.sens(:,:,:,ic), [1 1 1 length(PE)]) .* ...
 				%	repmat(x, [1 1 1 length(PE)]);
-				tmp = bsxfun(@times, arg.ekzzzmap(:,:,:,arg.pegroup{ikzl}), ...
-					arg.sens(:,:,:,ic) .* x);
+				tmp = bsxfun(@times, arg.ekzzzmap(:,:,:,PE), arg.sens(:,:,:,ic) .* x);
 		%		tmp = arg.ekzz(:,:,:,PE) .* ...
 		%			arg.sensrepmat(:,:,:,PE,ic) .* ...
 		%			xrepmat(:,:,:,PE);
@@ -166,7 +165,8 @@ return;
 			end
 
 
-% doing 1d fft followed by one line fft is no faster than 2d fft followed by extracting one row
+% doing 1d fft followed by one line fft (rather than 2d fft followed by extracting one row)
+% did not impact recon speed. Maybe b/c speed is limited by matrix multiplications?
 				%tmp = fftshift(fft(fftshift(xsum), [], 2));    % no faster
 				%y(:,iy,ic) = fftshift(fft(fftshift(tmp(:,iy)))); 
 
