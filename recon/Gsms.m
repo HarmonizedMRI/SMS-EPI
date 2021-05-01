@@ -76,7 +76,7 @@ function y = A_forw(arg, x)
 					xsum = xsum + exp(1i*2*pi*arg.kzlevels(ikzl)*arg.Z(iz)) * ...
 					arg.sens(:,:,iz,ic) .* x(:,:,iz);
 				end
-				tmp = fftshift(fftn(fftshift(xsum)));
+				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
 			end
 		else
@@ -87,7 +87,7 @@ function y = A_forw(arg, x)
 					xsum = xsum + exp(1i*2*pi*arg.KZ(iy)*arg.Z(iz)) * ...
 					arg.sens(:,:,iz,ic) .* x(:,:,iz) .* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
 				end
-				tmp = fftshift(fftn(fftshift(xsum)));
+				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,iy,ic) = tmp(:,iy); 
 			end
 		end
@@ -107,7 +107,7 @@ function x = A_back(arg, y)
 				y1(:,arg.pegroup{ikzl}) = y(:,arg.pegroup{ikzl},ic);
 
 				% F^H
-				x1 = fftshift(ifftn(fftshift(y1)));
+				x1 = fftshift(ifft2(fftshift(y1)));
 			
 				tmp = zeros(arg.nx, arg.ny, arg.mb);
 				for iz = 1:arg.mb
@@ -123,7 +123,7 @@ function x = A_back(arg, y)
 				y1(:,iy) = y(:,iy,ic);
 
 				% F^H
-				x1 = fftshift(ifftn(fftshift(y1)));
+				x1 = fftshift(ifft2(fftshift(y1)));
 			
 				tmp = zeros(arg.nx, arg.ny, arg.mb);
 				for iz = 1:arg.mb
