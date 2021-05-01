@@ -89,6 +89,8 @@ function y = A_forw(arg, x)
 				end
 				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,iy,ic) = tmp(:,iy); 
+				%tmp = fftshift(fft(fftshift(xsum), [], 2));    % no faster
+				%y(:,iy,ic) = fftshift(fft(fftshift(tmp(:,iy)))); 
 			end
 		end
 	end
