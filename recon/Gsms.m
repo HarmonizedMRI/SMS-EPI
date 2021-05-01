@@ -95,8 +95,10 @@ function y = A_forw(arg, x)
 			% do one fft for every ky encode (echo)
 			for iy = 1:arg.ny
 				xsum = sum(arg.ekzzzmap(:,:,:,iy) .* arg.sens(:,:,:,ic) .* x, 3);
-				tmp = fftshift(fft2(fftshift(xsum)));
-				y(:,iy,ic) = tmp(:,iy); 
+				%tmp = fftshift(fft2(fftshift(xsum)));
+				%y(:,iy,ic) = tmp(:,iy); 
+				tmp = fftshift(fft(fftshift(xsum), [], 2));
+				y(:,iy,ic) = fftshift(fft(fftshift(tmp(:,iy)))); 
 			end
 		end
 	end
@@ -164,9 +166,4 @@ return;
 				y(:,PE,ic) = tmp(:,PE);
 			end
 
-
-% doing 1d fft followed by one line fft (rather than 2d fft followed by extracting one row)
-% did not impact recon speed. Maybe b/c speed is limited by matrix multiplications?
-				%tmp = fftshift(fft(fftshift(xsum), [], 2));    % no faster
-				%y(:,iy,ic) = fftshift(fft(fftshift(tmp(:,iy)))); 
 
