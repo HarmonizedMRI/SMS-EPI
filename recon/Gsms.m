@@ -42,20 +42,19 @@ for ikzl = 1:length(arg.kzlevels)
 end
 
 % precompute exponentials (for speed up)
-if ~isempty(arg.zmap)
+if isempty(arg.zmap)
+	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, length(arg.kzlevels));
+	for ikzl = 1:length(arg.kzlevels)
+		for iz = 1:arg.mb
+			arg.ekzz(:,:,iz,ikzl) = exp(2i*pi*arg.kzlevels(ikzl)*arg.Z(iz));
+		end
+	end
+else
 	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
 	for iy = 1:arg.ny
 		for iz = 1:arg.mb
 			arg.ekzz(:,:,iz,iy) = exp(2i*pi*arg.KZ(iy)*arg.Z(iz))  ...
 				.* exp(-arg.zmap(:,:,iz)*arg.ti(iy));
-		end
-	end
-else
-	arg.ekzz = zeros(arg.nx, arg.ny, arg.mb, length(arg.kzlevels));
-	uni = ones(arg.nx, arg.ny, arg.mb);
-	for ikzl = 1:length(arg.kzlevels)
-		for iz = 1:arg.mb
-			arg.ekzz(:,:,iz,ikzl) = exp(2i*pi*arg.kzlevels(ikzl)*arg.Z(iz));
 		end
 	end
 end
@@ -98,8 +97,6 @@ function y = A_forw(arg, x)
 				xsum = sum(arg.ekzz(:,:,:,iy) .* arg.sens(:,:,:,ic) .* x, 3);
 				tmp = fftshift(fft2(fftshift(xsum)));
 				y(:,iy,ic) = tmp(:,iy); 
-				%tmp = fftshift(fft(fftshift(xsum), [], 2));    % no faster
-				%y(:,iy,ic) = fftshift(fft(fftshift(tmp(:,iy)))); 
 			end
 		end
 	end
@@ -140,4 +137,32 @@ function x = A_back(arg, y)
 return;
 
 
+% old code
+
+% tried group operations when passing zamp, but it's actually a bit slower
+
+	for ic = 1:arg.nc
+		arg.sensrepmat(:,:,:,:,ic) = repmat(arg.sens(:,:,:,ic), [1 1 1 arg.ny]);
+	end
+
+	if ~isempty(arg.zmap)
+		xrepmat = repmat(x, [1 1 1 arg.ny]);
+	end
+			for ikzl = 1:length(arg.kzlevels)
+				PE = arg.pegroup{ikzl};  % phase-encode indeces for this kz level
+				tmp = arg.ekzz(:,:,:,arg.pegroup{ikzl}) .* ...
+					repmat(arg.sens(:,:,:,ic), [1 1 1 length(PE)]) .* ...
+					repmat(x, [1 1 1 length(PE)]);
+		%		tmp = arg.ekzz(:,:,:,PE) .* ...
+		%			arg.sensrepmat(:,:,:,PE,ic) .* ...
+		%			xrepmat(:,:,:,PE);
+				tmp = squeeze(sum(tmp,3));
+				tmp = fftshift(fft2(fftshift(tmp)));
+				y(:,PE,ic) = tmp(:,PE);
+			end
+
+
+% doing 1d fft followed by one line fft is no faster than 2d fft followed by extracting one row
+				%tmp = fftshift(fft(fftshift(xsum), [], 2));    % no faster
+				%y(:,iy,ic) = fftshift(fft(fftshift(tmp(:,iy)))); 
 
