@@ -104,7 +104,7 @@ tol = 1e-5;
 A = Gsms(KZ, Z, sens, imask); nitmax = 10;
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xinit(imask), nitmax, tol); toc;
 
-A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 5;
+A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xhat, nitmax, tol); toc;
 
 xhat = embed(xhat, imask);
