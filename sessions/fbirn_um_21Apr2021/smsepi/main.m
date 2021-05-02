@@ -102,7 +102,7 @@ xinit = zeros(size(imask));
 
 tol = 1e-6; 
 
-A = Gsms(KZ, Z, sens, imask); nitmax = 20;
+A = Gsms(KZ, Z, sens, imask); nitmax = 100;
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xinit(imask), nitmax, tol); toc;
 
 A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
