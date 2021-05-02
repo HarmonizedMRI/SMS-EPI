@@ -1,4 +1,5 @@
-% toy object, but using real sens maps 
+% create toy object, simulate an SMS EPI acquisition,
+% and reconstruct 
 
 % mb factor
 mb = 6;
