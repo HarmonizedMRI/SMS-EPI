@@ -4,7 +4,6 @@ function A = Gsms(KZ, Z, sens, imask, varargin)
 % SMS EPI system matrix
 %
 % KZ       [ny]            (cycles/cm) kz encoding value along EPI train
-%                          Arbitrary, but impacts speed of forw/back operations
 % Z        [mb]            (cm) slice offsets
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
@@ -13,7 +12,7 @@ function A = Gsms(KZ, Z, sens, imask, varargin)
 % Options:
 % zmap     [nx ny mb]      relax_map + 2i*pi*field_map (as in Gmri.m)
 %                          included as a exp(-zmap * TE(ky)) term
-% ti       [ny]            echo times (msec)
+% ti       [ny]            echo times 
 %
 % Test function: test_Gsms.m
 
