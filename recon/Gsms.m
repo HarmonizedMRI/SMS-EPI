@@ -11,8 +11,8 @@ function A = Gsms(KZ, Z, sens, imask, varargin)
 %
 % Options:
 % zmap     [nx ny mb]      relax_map + 2i*pi*field_map (as in Gmri.m)
-%                          included as a exp(-zmap * TE(ky)) term
-% ti       [ny]            echo times 
+%                          included as a exp(-zmap * ti(ky)) term
+% ti       [ny]            echo times (at center of each echo in EPI train)
 %
 % Test function: test_Gsms.m
 
