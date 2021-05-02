@@ -50,7 +50,7 @@ if isempty(arg.zmap)
 		end
 	end
 else
-	arg.ekzzmap = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
+	arg.ekzzzmap = zeros(arg.nx, arg.ny, arg.mb, arg.ny);
 	for iy = 1:arg.ny
 		for iz = 1:arg.mb
 			arg.ekzzzmap(:,:,iz,iy) = exp(2i*pi*arg.KZ(iy)*arg.Z(iz))  ...
@@ -142,7 +142,7 @@ return;
 
 % old code
 
-% tried grouping operations when passing zamp, but it's actually a bit slower
+% tried grouping operations when passing zamp, but it's no faster
 
 	for ic = 1:arg.nc
 		arg.sensrepmat(:,:,:,:,ic) = repmat(arg.sens(:,:,:,ic), [1 1 1 arg.ny]);
@@ -154,16 +154,20 @@ return;
 
 			for ikzl = 1:length(arg.kzlevels)
 				PE = arg.pegroup{ikzl};  % phase-encode indeces for this kz level
-				%tmp = arg.ekzzzmap(:,:,:,arg.pegroup{ikzl}) .* ...
-				%	repmat(arg.sens(:,:,:,ic), [1 1 1 length(PE)]) .* ...
-				%	repmat(x, [1 1 1 length(PE)]);
-				tmp = bsxfun(@times, arg.ekzzzmap(:,:,:,PE), arg.sens(:,:,:,ic) .* x);
+				tmp = arg.ekzzzmap(:,:,:,PE) .* ...
+					repmat(arg.sens(:,:,:,ic), [1 1 1 length(PE)]) .* ...
+					repmat(x, [1 1 1 length(PE)]);
+				%tmp = bsxfun(@times, arg.ekzzzmap(:,:,:,PE), arg.sens(:,:,:,ic) .* x);
 		%		tmp = arg.ekzz(:,:,:,PE) .* ...
 		%			arg.sensrepmat(:,:,:,PE,ic) .* ...
 		%			xrepmat(:,:,:,PE);
 				tmp = squeeze(sum(tmp,3));
-				tmp = fftshift(fft2(fftshift(tmp)));
-				y(:,PE,ic) = tmp(:,PE);
+				tmp = fftshift(fft(fftshift(tmp), [], 1));
+				tmp = fftshift(fft(fftshift(tmp), [], 2));
+				for iy = 1:length(PE)
+					y(:,PE(iy),ic) = tmp(:,PE(iy),iy);
+				end
 			end
+
 
 
