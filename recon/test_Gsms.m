@@ -61,6 +61,7 @@ y = y + randn(size(y))*mean(abs(y(:)))/3;
 
 % reconstruct
 % first recon w/o zmap to get a decent initialization
+% the use dummy zmap for now, just to test recon speed
 fprintf('Reconstructing...\n');
 
 A = Gsms(KZ, Z, sens, imask); nitmax = 10;
@@ -70,16 +71,15 @@ tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 
 esp = 0.52e-3;  % echo spacing (sec)
 ti = (0:(ny-1))*esp;
-t2 = 20e-3*ones(size(imask));   % sec
+t2 = 50e-3*ones(size(imask));   % sec
 fmap = 0*ones(size(imask));     % Hz
 A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
-tic; [xhat,res] = cgnr_jfn(A, y(:), xhat, nitmax, tol); toc;
+%tic; [xhat,res] = cgnr_jfn(A, y(:), xhat, nitmax, tol); toc;
 
 %W = 1; C = 0;
 %xhat = qpwls_pcg1(xinit(imask), A, W, y(:), C, 'niter', 250);  % runs but doesn't find the right solution
 xhat = embed(xhat, imask);
-im(xhat)
-%subplot(121); im(xhat)
-%subplot(122); plot(res, 'o-');
+subplot(121); im(xhat)
+subplot(122); plot(res, 'o-');
 
 return;
