@@ -21,10 +21,10 @@ ex.ftype = 'ls';
 ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   % number of cycles of gradient spoiling across slice thickness
-ex.sliceSep = seq.slThick*10;     % center-to-center separation between SMS slices (cm)
-mbFactor = 3;          % sms/multiband factor (number of simultaneous slices)
+ex.sliceSep = seq.slThick*6;     % center-to-center separation between SMS slices (cm)
+mbFactor = 6;          % sms/multiband factor (number of simultaneous slices)
 
-nslices = 3;
+nslices = 6;
 if mod(nslices, mbFactor) > 0
 		error('Number of slices must be multiple of MB factor');
 end
@@ -58,12 +58,13 @@ gzblip = toppe.utils.trapwave2(area, system.ge.maxGrad, system.ge.maxSlew, syste
 
 % z prewinder
 gzpre = [(mbFactor/2-1/2)/2*gzblip zeros(1,length(gpre)-length(gzblip))];
+gzpre = [gzblip/2 zeros(1,length(gpre)-length(gzblip))];
 
 % gz waveforms for the various echoes
 imax = find(gzblip == max(gzblip));
 gzblipstart = gzblip(1:imax(1));  % first half of blip
 gzblipend = gzblip(imax(2):end);
-amp = 1/(mbFactor-1);  % amplitude of one delta_kz step (scale gzblip by amp)
+amp = 1/(mbFactor/2-1);  % amplitude of one delta_kz step (scale gzblip by amp)
 gz1 = [zeros(1,length(gx1)-length(gzblipstart)) amp*gzblipstart]; % first echo
 gz2 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) amp*gzblipstart];
 gz3 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) -gzblipstart];
@@ -84,8 +85,8 @@ for iecho = 2:(ny-1)
 end
 gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
 gy = [gy gylast 0];
-for iecho = 2:mbFactor:ny
-	gz = [gz repmat(gz2, 1, mbFactor-2) gz3 gz4];
+for iecho = 2:mbFactor/2:ny
+	gz = [gz repmat(gz2, 1, mbFactor/2-2) gz3 gz4];
 end
 gz = [gz gzlast 0];
 
