@@ -27,8 +27,8 @@ dly.postrf = 1;        % (ms) delay after RF pulse. Determines TE.
 
 if isCalScan
 	ex.thick = 0.3;    % slice thickness (cm)
-	ex.spacing = 10;   % center-to-center slice separation (cm)
-	nslices = 7;
+	ex.spacing = 2;    % center-to-center slice separation (cm)
+	nslices = 5;
 	scandur = 30;      % seconds
 	tr = 500;          % (ms) sequence tr
 else
@@ -61,11 +61,13 @@ else
 end
 
 %% EPI readout
-readouttrap;  % creates gpre and gx1. Also used in fmri2depi.m
+readouttrap;  % creates gpre and gx1. Also used in smsepi.m
 
 % put it all together and write to readout.mod
-gx = [-gpre gx1];
-gy = [-gpre gy1];
+gx = [gpre -gx1 gx1 -gx1];
+gy = 0*gx;
+gx = [gx 0*gpre  gx1];
+gy = [gy  -gpre  gy1];
 for iecho = 2:(ny-1)
 	gx = [gx gx1*(-1)^(iecho+1)];
 	gy = [gy gyn];
@@ -77,6 +79,17 @@ gy = toppe.utils.makeGElength(gy(:));
 toppe.writemod('gx', gx, 'gy', gy, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod');
+
+% plot kspace
+[~,gx,gy] = toppe.readmod('readout.mod');
+kx = gamma*dt*cumsum(gx);
+ky = gamma*dt*cumsum(gy);
+figure;
+subplot(121); plot(kx,ky,'b.'); axis equal;
+xlabel('kx (cycles/cm)'); ylabel('ky (cycles/cm)');
+T = dt*1e3*(1:length(kx));
+subplot(122); hold off; plot(T,kx,'r'); hold on; plot(T,ky,'g'); hold off;
+legend('kx', 'ky'); ylabel('cycles/cm'); xlabel('time (ms)');
 
 %% Create modules.txt 
 % Entries are tab-separated
