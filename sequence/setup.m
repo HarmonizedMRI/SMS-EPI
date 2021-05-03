@@ -1,3 +1,3 @@
 addpath ~/github/pulseq/matlab/
-addpath ~/gitlab/fMRI/toppe
+addpath ~/github/toppeMRI/toppe
 curdir = pwd; cd ~/github/mirt; setup; cd(curdir);
