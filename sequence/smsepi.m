@@ -62,14 +62,21 @@ toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod' );
 
+%% Gradient spoiler
+mxs = 10;  % Gauss/cm/ms. Lower to reduce PNS.
+mxg = system.ge.maxGrad;  % Gauss/cm
+gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, 0, mxs, mxg);
+toppe.writemod('gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod');
+
 %% Create modules.txt 
 % Entries are tab-separated
 modFileText = ['' ...
 'Total number of unique cores\n' ...
-'2\n' ...
+'3\n' ...
 'fname	duration(us)	hasRF?	hasDAQ?\n' ...
 'tipdown.mod	0	1	0\n' ...
-'readout.mod	0	0	1' ];
+'readout.mod	0	0	1\n' ...
+'spoil.mod	0	0	0' ];
 fid = fopen('modules.txt', 'wt');
 fprintf(fid, modFileText);
 fclose(fid);
@@ -78,6 +85,7 @@ fclose(fid);
 toppe.write2loop('setup', 'version', 3);
 toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
 toppe.write2loop('readout.mod');
+toppe.write2loop('spoil.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
 if tr < trseq
@@ -113,8 +121,14 @@ for ifr = 1:nframes
 			'Gamplitude', [1 1 1]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
-			'textra', delay.postreadout, ...
 			'dabmode', 'on');
+		
+		% spoiler
+		% set sign of gx so it adds to readout gradient first moment
+		kx = sum(gx);
+		toppe.write2loop('spoil.mod', ...
+			'textra', delay.postreadout, ...
+			'Gamplitude', [sign(sum(gx)) 1 0]');
 
 		% update rf phase (RF spoiling)
 		rfphs = rfphs + (rf_spoil_seed/180 * pi)*rf_spoil_seed_cnt ;  % radians
@@ -123,7 +137,8 @@ for ifr = 1:nframes
 end
 toppe.write2loop('finish');
 
-figure; toppe.plotseq(1, 2, 'drawpause', false);
+numModulesPerTR = 3;
+figure; toppe.plotseq(1, numModulesPerTR, 'drawpause', false);
 
 tar('smsepi.tar', {'*.txt', '*.mod', '*.m'});
 

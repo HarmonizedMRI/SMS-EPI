@@ -6,6 +6,8 @@ seq.nx = 64; seq.ny = seq.nx;   % matrix size
 seq.fov = 25.6;                 % in-plane fov (cm)
 seq.slThick = seq.fov/seq.nx;   % isotropic voxels
 
+seq.nSpoilCycles = 2;           % lower bound on number of cycles of gradient spoiling across voxel (applied to x and y)
+
 % Scan plane prescription (rotation and slice offset)
 if 0
 	% use slab prescription from SlicePlanner GUI (https://github.com/toppeMRI/SlicePlanner)
