@@ -146,6 +146,7 @@ fprintf('Matrix: [%d %d %d]; %.2f cm iso resolution; FOV: [%.1f %.1f %.1f] cm\n'
 	nx, ny, nslices, fov/nx, fov, fov, zfov);
 fprintf('SMS factor: %d; SMS slice separation: %.2f cm\n', mb, ex.sliceSep);
 fprintf('Sequence TR: %.1f ms; Volume (frame) TR: %.1f ms\n', tr, trvol);
+fprintf('Echo spacing: %.3f ms\n', esp);
 fprintf('Number of frames: %d\n', nframes);
 fprintf('To set TE, change delay.postrf in this script (currently set to %.1f ms)\n', delay.postrf);
 fprintf('To plot first TR:       >> toppe.plotseq(1, numModulesPerTR, ''drawpause'', false);\n');

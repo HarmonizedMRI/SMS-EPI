@@ -1,4 +1,15 @@
 function [gx, gy, gz, esp] = getepireadout(fov, nx, ny, gMax, slewMax, raster, fbesp, mb, sliceSep)
+% function [gx, gy, gz, esp] = getepireadout(fov, nx, ny, gMax, slewMax, raster, fbesp, mb, sliceSep)
+%
+% Inputs:
+%  fov       cm
+%  nx, ny    matrix size
+%  gMax      Gauss/cm
+%  slewMax   Gauss/cm/ms
+%  raster    ms
+%  fbesp     [2]  forbidden echo spacing range (ms)
+%  mb        (optional) SMS/multiband factor
+%  sliceSep  SMS slice separation (cm)
 
 dt = raster*1e-3;      % sec
 gamma = 4257.6;        % Hz/G
@@ -14,15 +25,14 @@ gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
 % Allow ramp sampling, and violate Nyquist slightly near kmax for now.
-gxslew = 0.8*slewMax;  % reduce PNS
-mxg = 1/(fov*gamma*dt);          % Gauss/cm
-gx1 = toppe.utils.trapwave2(area, mxg, gxslew, dt*1e3);
-esp = length(gx1)*dt*1e3;   % echo spacing (ms)
+mxg = 1/(fov*gamma*dt);    % Gauss/cm
+gx1 = toppe.utils.trapwave2(area, mxg, slewMax, dt*1e3);
+esp = length(gx1)*dt*1e3;  % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
 	% Reduce maxGrad until echo spacing is outside forbidden range
 	for s = 1:-0.02:0.1
 		mxg = s*gMax;
-		gx1 = toppe.utils.trapwave2(area, mxg, gxslew, dt*1e3);
+		gx1 = toppe.utils.trapwave2(area, mxg, slewMax, dt*1e3);
 		if length(gx1)*dt*1e3 > fbesp(2)
 			esp = length(gx1)*dt*1e3; 
 			break;
@@ -30,13 +40,6 @@ if esp > fbesp(1) & esp < fbesp(2)
 	end
 end
 gx1 = gx1(1:(end-1));  % remove 0 at end
-
-% check that Nyquist is supported everywhere along readout
-kx = gamma*dt*cumsum(gx1);
-minfov = 1/max(abs(diff(kx)));
-if minfov < fov
-	error('Nyquist violated along readout direction');
-end
 
 % y blip
 gyblip = toppe.utils.trapwave2(area/ny, gMax, slewMax, dt*1e3);
