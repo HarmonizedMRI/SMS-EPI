@@ -82,9 +82,6 @@ if exist('mb', 'var')
 		error('Please also specify slice separation (cm)');
 	end
 
-	gz = 0*[gpre -gx1 gx1 -gx1];
-	gz = [gz  -gzpre gz1];
-
 	% z blip/rewinder. Use one waveform for both and scale as needed.
 	kmax = 1/(2*sliceSep);   % cycles/cm
 	area = 2*kmax/gamma;        % G/cm * sec
@@ -104,6 +101,10 @@ if exist('mb', 'var')
 	gz3 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) -gzblipstart];
 	gz4 = [-gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) amp*gzblipstart];
 	gzlast = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend))]; 
+
+	% put it all together 
+	gz = 0*[gpre -gx1 gx1 -gx1];
+	gz = [gz  -gzpre gz1];
 
 	for iecho = 2:mb/2:ny
 		gz = [gz repmat(gz2, 1, mb/2-2) gz3 gz4];
