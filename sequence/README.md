@@ -9,16 +9,17 @@ See [Setup.md](Setup.md)
 ## Create sequences
 
 ```
->> fmri2depi;
->> makeSMSEPIfMRI('test');
+>> gre3d;      % for sensitivity maps (and B0 field mapping)
+>> fmri2depi;  % (optional) for calibration and comparison
+>> makesms;
 ```
 
 ## Create Pulseq and TOPPE scans 
 
 ```
->> makeSMSEPIfMRI;
+>> makesms;
 ```
-Creates `SMSEPIfMRI.seq` and `SMSEPIfMRI.tgz`.
+Creates `smsepi.seq` and `smsepi.tar`.
 
 GE users:
 Untar `SMSEPIfMRI.tgz` in /usr/g/bin/ and scan with the `toppev4` interpreter.
