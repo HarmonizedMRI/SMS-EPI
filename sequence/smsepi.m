@@ -14,49 +14,53 @@ nx = seq.nx; ny = seq.ny;   % matrix size
 gamma = system.ge.gamma;    % Hz/Gauss
 dt = system.ge.raster;      % sec
 
-% slice-selective excitation
+% SMS excitation
 ex.flip = 30;        % flip angle (degrees)
 ex.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 ex.ftype = 'ls';     
 ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
-ex.nSpoilCycles = 8;   % number of cycles of gradient spoiling across slice thickness
 ex.sliceSep = seq.slThick*6;     % center-to-center separation between SMS slices (cm)
-mbFactor = 6;          % sms/multiband factor (number of simultaneous slices)
-
-nslices = 6;
-if mod(nslices, mbFactor) > 0
-		error('Number of slices must be multiple of MB factor');
-end
+mb = 6;          % sms/multiband factor (number of simultaneous slices)
 
 % timing
-delay.postrf = 1;    % (ms) delay after RF pulse. Determines TE. 
+delay.postrf = 5;    % (ms) delay after RF pulse. Determines TE. 
 scandur = 1*20;       % seconds
 tr = 300;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
-SLICES = [1:2:(nslices/mbFactor) 2:2:(nslices/mbFactor)];   % slice ordering (minimize slice crosstalk)
+% slice ordering
+nshots = round(ex.sliceSep/seq.slThick);    % number of TRs for contiguous slice coverage
+SHOTS = [1:2:nshots 2:2:nshots];    % slice ordering (minimize slice crosstalk)
+
+nslices = mb*nshots;
+zfov = seq.slThick*nslices;
 
 fbesp = system.ge.forbiddenEspRange;   % ms
 
 %% SMS excitation module
 sys = system.ge;
-sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
-[ex.rf, ex.g] = makesmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mbFactor, ex.sliceSep, ...
-	'ofname', 'tipdown.mod', ...
+sys.maxSlew = 10;   % G/cm/ms. Reduce PNS during slice rephaser.
+[ex.rf, ex.g, freq] = getsmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mb, ex.sliceSep, ...
 	'doSim', true, ...   % Plot simulated SMS slice profile
 	'type', ex.type, ...
 	'ftype', ex.ftype, ...
 	'system', sys);
 
+toppe.writemod('rf', ex.rf, 'gz', ex.g, ...
+	'system', system.ge, ...
+	'ofname', 'tipdown.mod' );
+
+freq = freq/ex.sliceSep*seq.slThick; % frequency offset for z shift of seq.slThick 
+
 %% EPI readout module
 mxs = system.ge.maxSlew;
-[gx, gy, gz] = getepireadout(fov, nx, ny, ...
+[gx, gy, gz, esp] = getepireadout(fov, nx, ny, ...
 	system.ge.maxGrad, mxs, dt*1e3, fbesp, ...
-	mbFactor, ex.sliceSep);
+	mb, ex.sliceSep);
 
 toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 	'system', system.ge, ...
-	'ofname', 'readout.mod');
+	'ofname', 'readout.mod' );
 
 %% Create modules.txt 
 % Entries are tab-separated
@@ -84,7 +88,7 @@ end
 delay.postreadout = tr-trseq;  % (ms) delay after readout
 
 % number of frames
-trvol = tr*nslices/mbFactor;  % ms
+trvol = tr*nshots;  % ms
 nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
 
 %% Create scanloop.txt
@@ -95,12 +99,13 @@ rf_spoil_seed = 117;
 
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
-	for isl = SLICES
+	for ish = SHOTS
 		% excitation
+		f = round((ish-0.5-nshots/2)*freq);  % Frequency offset (Hz) for slice shift)
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
-			'textra', delay.postrf); %, ...
-			%'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
+			'textra', delay.postrf, ...
+			'RFoffset', f );  % Hz (slice selection)
 
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
@@ -118,7 +123,20 @@ for ifr = 1:nframes
 end
 toppe.write2loop('finish');
 
-%tar('smsepi.tar', {'*.txt', '*.mod', '*.m'});
+figure; toppe.plotseq(1, 2, 'drawpause', false);
+
+tar('smsepi.tar', {'*.txt', '*.mod', '*.m'});
+
+fprintf('Created SMS EPI TOPPE files (smsepi.tar)\n');
+fprintf('Matrix: [%d %d %d]; %.2f cm iso resolution; FOV: [%.1f %.1f %.1f] cm\n', ...
+	nx, ny, nslices, fov/nx, fov, fov, zfov);
+fprintf('SMS factor: %d; SMS slice separation: %.2f cm\n', mb, ex.sliceSep);
+fprintf('Sequence TR: %.1f ms; Volume (frame) TR: %.1f ms\n', tr, trvol);
+%fprintf('Number of 2D multislice (non-SMS) calibration frames at beginning of scan: %d\n', nframes);
+fprintf('Number of frames: %d\n', nframes);
+
+return;
+
 
 % simulate and plot slice profile
 m0 = [0 0 1];        % initial magnetization
