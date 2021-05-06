@@ -125,4 +125,6 @@ if exist('mb', 'var')
 	subplot(122); hold on; plot(T,kz,'b'); hold off;
 	legend('kx', 'ky', 'kz'); ylabel('cycles/cm'); xlabel('time (ms)');
 
+else
+	gz = [];
 end

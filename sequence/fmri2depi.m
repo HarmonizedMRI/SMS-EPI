@@ -14,6 +14,7 @@ isCalScan = false;    % measure kspace and B0 eddy current using Duyn's method
 fov = seq.fov;              % cm
 nx = seq.nx; ny = seq.ny;   % matrix size
 gamma = system.ge.gamma;    % Hz/Gauss
+dt = system.ge.raster;      % sec
 
 % slice-selective excitation
 ex.flip = 45;        % flip angle (degrees)
@@ -23,7 +24,7 @@ ex.tbw = 6;          % time-bandwidth product
 ex.dur = 4;          % msec
 ex.nSpoilCycles = 8;   %  number of cycles of gradient spoiling across slice thickness
 
-dly.postrf = 1;        % (ms) delay after RF pulse. Determines TE. 
+delay.postrf = 5;        % (ms) delay after RF pulse. Determines TE. 
 
 if isCalScan
 	ex.thick = 0.3;    % slice thickness (cm)
@@ -34,8 +35,8 @@ if isCalScan
 else
 	ex.thick = seq.slThick;    % slice thickness (cm)
 	ex.spacing = ex.thick;  % center-to-center slice separation (cm)
-	nslices = nx;      
-	scandur = 90;      % seconds
+	nslices = 36;      % to match smsepi.m      
+	scandur = 20;      % seconds
 	tr = 100;          % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 end
 
@@ -62,29 +63,37 @@ end
 
 %% EPI readout
 mxs = system.ge.maxSlew;
-[gx, gy] = getepireadout(fov, nx, ny, ...
+[gx, gy, ~, esp] = getepireadout(fov, nx, ny, ...
 	system.ge.maxGrad, mxs, dt*1e3, fbesp);
 
 toppe.writemod('gx', gx, 'gy', gy, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod');
 
+%% Gradient spoiler
+mxs = 8;  % Gauss/cm/ms. Lower to reduce PNS.
+mxg = system.ge.maxGrad;  % Gauss/cm
+gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, 0, mxs, mxg);
+toppe.writemod('gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod', 'system', system.ge);
+
 %% Create modules.txt 
 % Entries are tab-separated
 modFileText = ['' ...
 'Total number of unique cores\n' ...
-'2\n' ...
+'3\n' ...
 'fname	duration(us)	hasRF?	hasDAQ?\n' ...
 'tipdown.mod	0	1	0\n' ...
-'readout.mod	0	0	1' ];
+'readout.mod	0	0	1\n' ...
+'spoil.mod	0	0	0' ];
 fid = fopen('modules.txt', 'wt');
 fprintf(fid, modFileText);
 fclose(fid);
 
 %% Calculate delay to achieve desired TR
 toppe.write2loop('setup', 'version', 3);
-toppe.write2loop('tipdown.mod', 'textra', dly.postrf);
+toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
 toppe.write2loop('readout.mod');
+toppe.write2loop('spoil.mod');
 toppe.write2loop('finish');
 trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
 if tr < trseq
@@ -92,13 +101,13 @@ if tr < trseq
 	fprintf('Using minimum tr (%.1f ms)\n', round(trseq));
 end
 	
-dly.postreadout = tr-trseq;  % (ms) delay after readout
+delay.postreadout = tr-trseq;  % (ms) delay after readout
 
 % number of frames
 trvol = tr*nslices;  % ms
 nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
-if nframes < 11
-	error('number of frames <= no. of calibration frames (10)');
+if nframes < 6
+	error('number of frames must be greater than no. of calibration frames (5)');
 end
 
 
@@ -112,26 +121,26 @@ rf_spoil_seed = 117;
 toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
 for ifr = 1:nframes
 	% Calibration data:
-	% frame(s)       gy    gx
-	% 1, nframes-4   off   positive
-	% 2, nframes-3   off   negative
-	% 3, nframes-2   on    positive
-	% 4, nframes-1   on    negative
-	% 5, nframes     off   off
+	% frame  gy    gx
+	% 1      off   positive
+	% 2      off   negative
+	% 3      on    positive
+	% 4      on    negative
+	% 5      off   off
 
 	% turn off gy for odd/even echo calibration frames
-	gyamp = 1.0 - any(ifr == [1 nframes-4 2 nframes-3 5 nframes]);
+	gyamp = 1.0 - any(ifr == [1 2 5]);
 
 	% flip gx for odd/even echo calibration
-	% turn off for frames [5 nframes]
-	gxamp = (-1)^any(ifr == [2 nframes-3 4 nframes-1]);
-	gxamp = gxamp*(1.0 - any(ifr == [5 nframes]));
+	% turn off for frames 
+	gxamp = (-1)^any(ifr == [2 4]);
+	gxamp = gxamp*(1.0 - any(ifr == [5]));
 
 	for isl = SLICES
 		% excitation
 	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
-			'textra', dly.postrf, ...
+			'textra', delay.postrf, ...
 			'RFoffset', round((isl-0.5-nslices/2)*ex.freq) );  % Hz (slice selection)
 
 	 	% readout
@@ -140,8 +149,13 @@ for ifr = 1:nframes
 			'Gamplitude', [gxamp gyamp 0]', ...
 			'DAQphase', rfphs, ...
 			'slice', isl, 'echo', 1, 'view', ifr, ...  
-			'textra', dly.postreadout, ...
 			'dabmode', 'on');
+
+		% spoiler
+		% set sign of gx/gy so they add to readout gradient first moment
+		toppe.write2loop('spoil.mod', ...
+			'textra', delay.postreadout, ...
+			'Gamplitude', [sign(sum(gx)) sign(sum(gy)) 0]');
 
 		% update rf phase (RF spoiling)
 		rfphs = rfphs + (rf_spoil_seed/180 * pi)*rf_spoil_seed_cnt ;  % radians
@@ -151,6 +165,17 @@ end
 toppe.write2loop('finish');
 
 tar('epi.tar', {'*.txt', '*.mod', '*.m'});
+
+fprintf('Created EPI TOPPE files (epi.tar)\n');
+fprintf('Matrix: [%d %d %d]; %.2f cm iso resolution; FOV: [%.1f %.1f %.1f] cm\n', ...
+	nx, ny, nslices, fov/nx, fov, fov, nslices*seq.slThick);
+fprintf('Sequence TR: %.1f ms; Volume (frame) TR: %.1f ms\n', tr, trvol);
+fprintf('Echo spacing: %.3f ms\n', esp);
+fprintf('Number of frames: %d\n', nframes);
+fprintf('To set TE, change delay.postrf in this script (currently set to %.1f ms)\n', delay.postrf);
+fprintf('To plot first TR:       >> toppe.plotseq(1, 3, ''drawpause'', false);\n');
+fprintf('To ''play'' sequence:     >> toppe.playseq(3);       \n');
+fprintf('To plot all .mod files: >> toppe.plotmod(''all''); \n');
 
 return;
 

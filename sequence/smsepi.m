@@ -149,7 +149,7 @@ fprintf('Sequence TR: %.1f ms; Volume (frame) TR: %.1f ms\n', tr, trvol);
 fprintf('Echo spacing: %.3f ms\n', esp);
 fprintf('Number of frames: %d\n', nframes);
 fprintf('To set TE, change delay.postrf in this script (currently set to %.1f ms)\n', delay.postrf);
-fprintf('To plot first TR:       >> toppe.plotseq(1, numModulesPerTR, ''drawpause'', false);\n');
+fprintf('To plot first TR:       >> toppe.plotseq(1, 3, ''drawpause'', false);\n');
 fprintf('To ''play'' sequence:     >> toppe.playseq(3);       \n');
 fprintf('To plot all .mod files: >> toppe.plotmod(''all''); \n');
 
