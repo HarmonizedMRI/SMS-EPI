@@ -61,35 +61,13 @@ else
 end
 
 %% EPI readout
-readouttrap;  % creates gpre and gx1. Also used in smsepi.m
+mxs = system.ge.maxSlew;
+[gx, gy] = getepireadout(fov, nx, ny, ...
+	system.ge.maxGrad, mxs, dt*1e3, fbesp);
 
-% put it all together and write to readout.mod
-gx = [gpre -gx1 gx1 -gx1];
-gy = 0*gx;
-gx = [gx 0*gpre  gx1];
-gy = [gy  -gpre  gy1];
-for iecho = 2:(ny-1)
-	gx = [gx gx1*(-1)^(iecho+1)];
-	gy = [gy gyn];
-end
-gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
-gy = [gy gylast 0];
-gx = toppe.utils.makeGElength(gx(:));
-gy = toppe.utils.makeGElength(gy(:));
 toppe.writemod('gx', gx, 'gy', gy, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod');
-
-% plot kspace
-[~,gx,gy] = toppe.readmod('readout.mod');
-kx = gamma*dt*cumsum(gx);
-ky = gamma*dt*cumsum(gy);
-figure;
-subplot(121); plot(kx,ky,'b.'); axis equal;
-xlabel('kx (cycles/cm)'); ylabel('ky (cycles/cm)');
-T = dt*1e3*(1:length(kx));
-subplot(122); hold off; plot(T,kx,'r'); hold on; plot(T,ky,'g'); hold off;
-legend('kx', 'ky'); ylabel('cycles/cm'); xlabel('time (ms)');
 
 %% Create modules.txt 
 % Entries are tab-separated
