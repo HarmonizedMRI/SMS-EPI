@@ -1,6 +1,7 @@
-function [gx, gy, gz] = getepireadout(fov, nx, ny, mb, gmax, slewmax, raster)
+function [gx, gy, gz] = getepireadout(fov, nx, ny, mb, sliceSep, gMax, slewMax, raster, fbesp)
 
-dt = raster;      % sec
+dt = raster*1e-3;      % sec
+gamma = 4257.6;        % Hz/G
 
 res = fov/nx;          % spatial resolution (cm)
 kmax = 1/(2*res);      % cycles/cm
@@ -8,19 +9,19 @@ area = 2*kmax/gamma;     % G/cm * sec (area of each readout trapezoid)
 
 % x/y prephaser
 % reduce slew to reduce PNS
-gpre = toppe.utils.trapwave2(area/2, gmax, 0.8*slewmax/sqrt(2), dt*1e3);
+gpre = toppe.utils.trapwave2(area/2, gMax, 0.8*slewMax/sqrt(2), dt*1e3);
 gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
 % Allow ramp sampling, and violate Nyquist slightly near kmax for now.
-gxslew = 0.8*slewmax;  % reduce PNS
+gxslew = 0.8*slewMax;  % reduce PNS
 mxg = 1/(fov*gamma*dt);          % Gauss/cm
 gx1 = toppe.utils.trapwave2(area, mxg, gxslew, dt*1e3);
 esp = length(gx1)*dt*1e3;   % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
 	% Reduce maxGrad until echo spacing is outside forbidden range
 	for s = 1:-0.02:0.1
-		mxg = s*gmax;
+		mxg = s*gMax;
 		gx1 = toppe.utils.trapwave2(area, mxg, gxslew, dt*1e3);
 		if length(gx1)*dt*1e3 > fbesp(2)
 			esp = length(gx1)*dt*1e3; 
@@ -38,7 +39,7 @@ if minfov < fov
 end
 
 % y blip
-gyblip = toppe.utils.trapwave2(area/ny, gmax, slewmax, dt*1e3);
+gyblip = toppe.utils.trapwave2(area/ny, gMax, slewMax, dt*1e3);
 
 % gy waveform for 1st/last and other echoes
 imax = find(gyblip == max(gyblip));
@@ -49,19 +50,19 @@ gyn = [gyblipend zeros(1,length(gx1)-length(gyblipend)-length(gyblipstart)) gybl
 gylast = [gyblipend zeros(1,length(gx1)-length(gyblipend))]; % last echo
 
 % z blip/rewinder. Use one waveform for both and scale as needed.
-kmax = 1/(2*ex.sliceSep);   % cycles/cm
+kmax = 1/(2*sliceSep);   % cycles/cm
 area = 2*kmax/gamma;        % G/cm * sec
-gzblip = toppe.utils.trapwave2(area, gmax, slewmax, dt*1e3);
+gzblip = toppe.utils.trapwave2(area, gMax, slewMax, dt*1e3);
 
 % z prewinder
-gzpre = [(mbFactor/2-1/2)/2*gzblip zeros(1,length(gpre)-length(gzblip))];
+gzpre = [(mb/2-1/2)/2*gzblip zeros(1,length(gpre)-length(gzblip))];
 gzpre = [gzblip/2 zeros(1,length(gpre)-length(gzblip))];
 
 % gz waveforms for the various echoes
 imax = find(gzblip == max(gzblip));
 gzblipstart = gzblip(1:imax(1));  % first half of blip
 gzblipend = gzblip(imax(2):end);
-amp = 1/(mbFactor/2-1);  % amplitude of one delta_kz step (scale gzblip by amp)
+amp = 1/(mb/2-1);  % amplitude of one delta_kz step (scale gzblip by amp)
 gz1 = [zeros(1,length(gx1)-length(gzblipstart)) amp*gzblipstart]; % first echo
 gz2 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) amp*gzblipstart];
 gz3 = [amp*gzblipend zeros(1,length(gx1)-length(gzblipend)-length(gzblipstart)) -gzblipstart];
@@ -82,8 +83,8 @@ for iecho = 2:(ny-1)
 end
 gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
 gy = [gy gylast 0];
-for iecho = 2:mbFactor/2:ny
-	gz = [gz repmat(gz2, 1, mbFactor/2-2) gz3 gz4];
+for iecho = 2:mb/2:ny
+	gz = [gz repmat(gz2, 1, mb/2-2) gz3 gz4];
 end
 gz = [gz gzlast 0];
 
