@@ -63,10 +63,10 @@ toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 	'ofname', 'readout.mod' );
 
 %% Gradient spoiler
-mxs = 10;  % Gauss/cm/ms. Lower to reduce PNS.
+mxs = 8;  % Gauss/cm/ms. Lower to reduce PNS.
 mxg = system.ge.maxGrad;  % Gauss/cm
 gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, 0, mxs, mxg);
-toppe.writemod('gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod');
+toppe.writemod('gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod', 'system', system.ge);
 
 %% Create modules.txt 
 % Entries are tab-separated
@@ -124,11 +124,10 @@ for ifr = 1:nframes
 			'dabmode', 'on');
 		
 		% spoiler
-		% set sign of gx so it adds to readout gradient first moment
-		kx = sum(gx);
+		% set sign of gx/gy so they add to readout gradient first moment
 		toppe.write2loop('spoil.mod', ...
 			'textra', delay.postreadout, ...
-			'Gamplitude', [sign(sum(gx)) 1 0]');
+			'Gamplitude', [sign(sum(gx)) sign(sum(gy)) 0]');
 
 		% update rf phase (RF spoiling)
 		rfphs = rfphs + (rf_spoil_seed/180 * pi)*rf_spoil_seed_cnt ;  % radians
@@ -147,8 +146,11 @@ fprintf('Matrix: [%d %d %d]; %.2f cm iso resolution; FOV: [%.1f %.1f %.1f] cm\n'
 	nx, ny, nslices, fov/nx, fov, fov, zfov);
 fprintf('SMS factor: %d; SMS slice separation: %.2f cm\n', mb, ex.sliceSep);
 fprintf('Sequence TR: %.1f ms; Volume (frame) TR: %.1f ms\n', tr, trvol);
-%fprintf('Number of 2D multislice (non-SMS) calibration frames at beginning of scan: %d\n', nframes);
 fprintf('Number of frames: %d\n', nframes);
+fprintf('To set TE, change delay.postrf in this script (currently set to %.1f ms)\n', delay.postrf);
+fprintf('To plot first TR:       >> toppe.plotseq(1, numModulesPerTR, ''drawpause'', false);\n');
+fprintf('To ''play'' sequence:     >> toppe.playseq(3);       \n');
+fprintf('To plot all .mod files: >> toppe.plotmod(''all''); \n');
 
 return;
 
