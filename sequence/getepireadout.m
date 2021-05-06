@@ -1,4 +1,4 @@
-function [gx, gy, gz] = getepireadout(fov, nx, ny, gMax, slewMax, raster, fbesp, mb, sliceSep)
+function [gx, gy, gz, esp] = getepireadout(fov, nx, ny, gMax, slewMax, raster, fbesp, mb, sliceSep)
 
 dt = raster*1e-3;      % sec
 gamma = 4257.6;        % Hz/G

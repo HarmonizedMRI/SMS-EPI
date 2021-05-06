@@ -1,5 +1,5 @@
-function [rf, g] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
-% function [rf, g] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
+function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
+% function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
 %
 % Create SMS rf and gradient waveforms 
 %
@@ -18,6 +18,7 @@ function [rf, g] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, vara
 % Outputs
 %   rf    [nt 1]   Complex RF waveform (Gauss). Raster/dwell/sample time is 4us.
 %   g     [nt 1]   Slice-select gradient (Gauss/cm)
+%   freq  [1]      Frequency offset (Hz) corresponding to sliceSep
 
 if strcmp(flip, 'test')
 	sub_test();
@@ -26,7 +27,7 @@ end
 
 % parse inputs
 arg.doSim        = false;
-arg.writeModFile = true;
+arg.writeModFile = false;
 arg.system       = toppe.systemspecs; 
 arg.ofname       = 'tipdown.mod';
 arg.type         = 'ex';               % 'ex': 90 excitation; 'st' = small-tip
@@ -51,9 +52,15 @@ dt = arg.system.raster;           % sample (dwell) time (sec)
 t = [dt:dt:(dt*length(rf1))]';
 for sl = 1:nSlices
 	sliceOffset = (-nSlices/2 + 0.5 + sl-1) * sliceSep;   % cm
-	freq = arg.system.gamma*gPlateau*sliceOffset;   % Hz
-	rf = rf + rf1.*exp(1i*2*pi*freq*t)*exp(1i*PHS(sl));
+	f = arg.system.gamma*gPlateau*sliceOffset;   % Hz
+	rf = rf + rf1.*exp(1i*2*pi*f*t)*exp(1i*PHS(sl));
 end
+
+freq = arg.system.gamma*gPlateau*sliceSep;   % Hz
+
+% pad to 4-sample boundary
+rf = toppe.utils.makeGElength(rf);   
+g = toppe.utils.makeGElength(g);
 
 % simulate and plot slice profile
 if arg.doSim
