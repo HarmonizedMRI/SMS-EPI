@@ -24,7 +24,7 @@ ex.sliceSep = seq.slThick*6;     % center-to-center separation between SMS slice
 mb = 6;          % sms/multiband factor (number of simultaneous slices)
 
 % timing
-delay.postrf = 5;    % (ms) delay after RF pulse. Determines TE. 
+delay.postrf = 5.0;    % (ms) delay after RF pulse. Determines TE. 
 scandur = 1*20;       % seconds
 tr = 300;             % (ms) If tr < minimum seq tr, minimum tr is calculated and used
 
