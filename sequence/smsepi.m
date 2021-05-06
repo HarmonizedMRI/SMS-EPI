@@ -37,7 +37,7 @@ zfov = seq.slThick*nslices;
 
 fbesp = system.ge.forbiddenEspRange;   % ms
 
-%% SMS excitation module
+%% SMS excitation waveforms
 sys = system.ge;
 sys.maxSlew = 10;   % G/cm/ms. Reduce PNS during slice rephaser.
 [ex.rf, ex.g, freq] = getsmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mb, ex.sliceSep, ...
@@ -46,29 +46,33 @@ sys.maxSlew = 10;   % G/cm/ms. Reduce PNS during slice rephaser.
 	'ftype', ex.ftype, ...
 	'system', sys);
 
+% write TOPPE module
 toppe.writemod('rf', ex.rf, 'gz', ex.g, ...
 	'system', system.ge, ...
 	'ofname', 'tipdown.mod' );
 
 freq = freq/ex.sliceSep*seq.slThick; % frequency offset for z shift of seq.slThick 
 
-%% EPI readout module
+%% EPI readout waveforms
 mxs = system.ge.maxSlew;
 [gx, gy, gz, esp] = getepireadout(fov, nx, ny, ...
 	system.ge.maxGrad, mxs, dt*1e3, fbesp, ...
 	mb, ex.sliceSep);
 
+% write TOPPE module
 toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 	'system', system.ge, ...
 	'ofname', 'readout.mod' );
 
-%% Gradient spoiler
+%% Gradient spoiler waveform
 mxs = 8;  % Gauss/cm/ms. Lower to reduce PNS.
 mxg = system.ge.maxGrad;  % Gauss/cm
 gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, 0, mxs, mxg);
+
+% write TOPPE module
 toppe.writemod('gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod', 'system', system.ge);
 
-%% Create modules.txt 
+%% Create modules.txt for TOPPE 
 % Entries are tab-separated
 modFileText = ['' ...
 'Total number of unique cores\n' ...
@@ -98,6 +102,48 @@ delay.postreadout = tr-trseq;  % (ms) delay after readout
 % number of frames
 trvol = tr*nshots;  % ms
 nframes = 2*ceil(scandur*1e3/trvol/2);  % force to be even
+
+%% Prepare Pulseq sequence object and waveforms
+
+if 0
+% Create a new Pulseq sequence object
+seq = mr.Sequence(siemens.system);         
+
+% Create waveforms suitable for Pulseq by converting units and interpolating.
+% Discard zeros at beginning and end of rf waveform.
+I = find(abs(ex.rf) == 0);
+iStart = find(diff(I)>1) + 1;
+iStop = I(iStart+1);
+siemens.ex.rf = pulsegeq.rf2pulseq(ex.rf(iStart:iStop), ge.system.raster, seq);  % Gauss -> Hz; 4us -> 1us.
+siemens.ex.rfdelay = roundtoraster(iStart * ge.system.raster, siemens.system.gradRasterTime);
+siemens.ex.gdelay = max(0, siemens.system.rfDeadTime - siemens.ex.rfdelay);
+siemens.ex.g  = pulsegeq.g2pulseq(ex.g, ge.system.raster, seq);    % Gauss/cm -> Hz/m; 4us -> 10us
+siemens.acq.gx = pulsegeq.g2pulseq(acq.gx, ge.system.raster, seq); % readout gradient
+siemens.acq.gy = pulsegeq.g2pulseq(acq.gy, ge.system.raster, seq); % phase-encode gradient
+siemens.acq.gz = pulsegeq.g2pulseq(acq.gz, ge.system.raster, seq); % partition-encode gradient
+
+tmp.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, 'system', siemens.system, 'delay', siemens.ex.rfdelay);
+tmp.readout = mr.makeArbitraryGrad('z', siemens.acq.gx, siemens.system);
+tr_min = mr.calcDuration(tmp.rf) + mr.calcDuration(tmp.readout);   % sec
+siemens.delay = roundtoraster(TR*1e-3-tr_min, siemens.system.gradRasterTime);       % sec
+
+% Create Pulseq adc object
+[~,~,~,~,~,paramsint16] = toppe.readmod('readout.mod');
+nPre = paramsint16(1);  % number of samples in gradient pre-winder and ramp to plateau
+nPlateau = paramsint16(2);
+acq.preDelay = nPre*ge.system.raster;            % sec
+acq.flat = nPlateau*ge.system.raster;            % duration of flat portion of readout (sec)
+siemens.acq.N = 2*round(acq.flat/siemens.system.gradRasterTime/2);   % number of readout samples (Siemens)
+siemens.acq.dur = siemens.acq.N*siemens.system.gradRasterTime;
+pulseq.adc = mr.makeAdc(siemens.acq.N, 'Duration', siemens.acq.dur, 'Delay', acq.preDelay, 'system', siemens.system);
+
+% Create other Pulseq objects that don't need updating in scan loop (except phase)
+pulseq.acq.gx = mr.makeArbitraryGrad('x', siemens.acq.gx, siemens.system); 
+pulseq.ex.rf = mr.makeArbitraryRf(siemens.ex.rf, ex.flip/180*pi, ...
+	'system', siemens.system, 'delay', siemens.ex.rfdelay);
+pulseq.ex.g  = mr.makeArbitraryGrad('z', siemens.ex.g, siemens.system, 'delay', siemens.ex.gdelay);
+end
+
 
 %% Create scanloop.txt
 % rf spoiling isn't really needed since T2 << TR but why not
