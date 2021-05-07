@@ -100,7 +100,7 @@ t2 = 50e-3*ones(size(imask));   % sec. T2 of ball phantom is about 50ms
 fmap = 0*ones(size(imask));     % Hz
 xinit = zeros(size(imask));
 
-tol = 1e-6; 
+tol = 1e-5; 
 
 A = Gsms(KZ, Z, sens, imask); nitmax = 100;
 tic; [xhat,res] = cgnr_jfn(A, dcart(:), xinit(imask), nitmax, tol); toc;
