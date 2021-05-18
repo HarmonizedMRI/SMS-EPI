@@ -25,8 +25,8 @@ gpre = gpre(1:(end-1)); % remove 0 at end
 
 % readout trapezoid
 % Allow ramp sampling, and violate Nyquist slightly near kmax for now.
-mxg = 1/(fov*gamma*dt);    % Gauss/cm
-gx1 = toppe.utils.trapwave2(area, mxg, slewMax, dt*1e3);
+gMax = min(1/(fov*gamma*dt), gMax);    % Gauss/cm
+gx1 = toppe.utils.trapwave2(area, gMax, slewMax, dt*1e3);
 esp = length(gx1)*dt*1e3;  % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
 	% Reduce maxGrad until echo spacing is outside forbidden range
