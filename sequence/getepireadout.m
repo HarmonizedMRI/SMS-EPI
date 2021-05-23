@@ -8,8 +8,17 @@ function [gx, gy, gz, esp] = getepireadout(fov, nx, ny, gMax, slewMax, raster, f
 %  slewMax   Gauss/cm/ms
 %  raster    ms
 %  fbesp     [2]  forbidden echo spacing range (ms)
-%  mb        (optional) SMS/multiband factor
+%  mb        (optional) SMS/multiband factor (even integer).
 %  sliceSep  SMS slice separation (cm)
+
+if exist('mb', 'var')
+	if mod(mb,2)
+		error('MB factor must be an even integer');
+	end
+	if ~exist('sliceSep', 'var')
+		error('Must specify slice separation (cm)');
+	end
+end
 
 dt = raster*1e-3;      % sec
 gamma = 4257.6;        % Hz/G
@@ -80,10 +89,6 @@ legend('kx', 'ky'); ylabel('cycles/cm'); xlabel('time (ms)');
 
 if exist('mb', 'var')
 	%% Add z blips (CAIPI)
-
-	if ~exist('sliceSep', 'var')
-		error('Please also specify slice separation (cm)');
-	end
 
 	% z blip/rewinder. Use one waveform for both and scale as needed.
 	kmax = 1/(2*sliceSep);   % cycles/cm

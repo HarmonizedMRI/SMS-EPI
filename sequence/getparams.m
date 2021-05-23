@@ -2,11 +2,11 @@ function [seq, system] = getparams
 %
 % Define common acquisition parameters and system hardware parameters
 
-seq.nx = 64; seq.ny = seq.nx;   % matrix size
-seq.fov = 25.6;                 % in-plane fov (cm)
+seq.nx = 92; seq.ny = seq.nx;   % matrix size
+seq.fov = 22.08;                 % in-plane fov (cm)
 seq.slThick = seq.fov/seq.nx;   % isotropic voxels
 
-seq.nSpoilCycles = 2;           % lower bound on number of cycles of gradient spoiling across voxel (applied to x and y)
+seq.nSpoilCycles = 1.5;           % lower bound on number of cycles of gradient spoiling across voxel (applied to x and y)
 
 % Scan plane prescription (rotation and slice offset)
 if 0
