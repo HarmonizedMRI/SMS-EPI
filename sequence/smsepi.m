@@ -39,7 +39,7 @@ fbesp = system.ge.forbiddenEspRange;   % ms
 
 %% SMS excitation waveforms
 sys = system.ge;
-sys.maxSlew = 10;   % G/cm/ms. Reduce PNS during slice rephaser.
+sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
 [ex.rf, ex.g, freq] = getsmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mb, ex.sliceSep, ...
 	'doSim', true, ...   % Plot simulated SMS slice profile
 	'type', ex.type, ...
@@ -54,7 +54,7 @@ toppe.writemod('rf', ex.rf, 'gz', ex.g, ...
 freq = freq/ex.sliceSep*seq.slThick; % frequency offset for z shift of seq.slThick 
 
 %% EPI readout waveforms
-mxs = system.ge.maxSlew;
+mxs = 0.55*system.ge.maxSlew;
 [gx, gy, gz, esp] = getepireadout(fov, nx, ny, ...
 	system.ge.maxGrad, mxs, dt*1e3, fbesp, ...
 	mb, ex.sliceSep);
@@ -65,7 +65,7 @@ toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
 	'ofname', 'readout.mod' );
 
 %% Gradient spoiler waveform
-mxs = 8;  % Gauss/cm/ms. Lower to reduce PNS.
+mxs = 7;  % Gauss/cm/ms. Lower to reduce PNS.
 mxg = system.ge.maxGrad;  % Gauss/cm
 gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, 0, mxs, mxg);
 
