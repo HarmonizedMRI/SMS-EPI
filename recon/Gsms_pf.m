@@ -17,8 +17,12 @@ function A = Gsms_pf(KZ, Z, sens, imask, imlo, varargin)
 %
 % Test function: test_Gsms.m
 
+% default options
 arg.zmap = [];
 arg.ti = [];
+arg.pf = 3/4;
+
+% parse vararg inputs
 arg = vararg_pair(arg, varargin);
 
 if ~isempty(arg.zmap) & isempty(arg.ti)
@@ -62,7 +66,7 @@ end
 
 A = fatrix2('arg', arg, ...
 	'idim', [arg.np], ...             % size of x
-	'odim', [arg.nx*arg.ny*3/4*arg.nc], ...      % size of A*x
+	'odim', [arg.nx*arg.ny*arg.pf*arg.nc], ...      % size of A*x
 	'forw', @A_forw, 'back', @A_back);
 	%'mask', true(arg.np,1), ...
 
@@ -99,7 +103,7 @@ function y = A_forw(arg, x)
 	end
 
 	% PF sampling
-	y = y(:, (end/2-arg.ny/4+1):end, :);
+	%y = y(:, (end/2-arg.ny/4+1):end, :);
 	
 	y = y(:);
 return
@@ -107,9 +111,10 @@ return
 function x = A_back(arg, y)
 
 	% zero-fill to full size (conjugate of PF sampling)
-	tmp = reshape(y, [arg.nx arg.ny*3/4 arg.nc]);
-	y = zeros(arg.nx, arg.ny, arg.nc);
-	y(:, (end/2-arg.ny/4+1):end, :) = tmp;
+	tmp = reshape(y, [arg.nx arg.ny*arg.pf arg.nc]);
+	%y = zeros(arg.nx, arg.ny, arg.nc);
+	%y(:, (end/2-arg.ny/4+1):end, :) = tmp;
+	y = tmp;
 
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
