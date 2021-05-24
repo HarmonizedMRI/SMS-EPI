@@ -71,8 +71,8 @@ yfull = y;
 KZfull = KZ;
 %y = y(:, (end/2-ny/4+1):end, :);
 %KZ = KZ((end/2-ny/4+1):end);
-y = y(:, 5:end, :);
-KZ = KZ(:, 5:end, :);
+y = y(:, 17:end, :);
+KZ = KZ(:, 17:end, :);
 
 % low-res image (central fully sampled) for phase estimation. Assumes 3/4 PF.
 imlo = 0*xtrue;                 % low-res image phase estimate
@@ -88,7 +88,7 @@ imlo = exp(1i*angle(imlo));
 % first recon using zero-filling to get a decent initialization
 fprintf('Reconstructing...\n');
 
-A = Gsms(KZfull, Z, sens, imask); nitmax = 10;
+A = Gsms(KZfull, Z, sens, imask); nitmax = 1;
 xinit = zeros(size(imask));
 tol = 1e-6;
 tic; [xhat1,res1] = cgnr_jfn(A, yfull(:), xinit(imask), nitmax, tol); toc;
@@ -96,7 +96,7 @@ xhat1 = embed(xhat1, imask);
 
 %xinit = zeros(size(imask));
 xinit = xhat1 .* conj(imlo);
-A = Gsms_pf(KZ, Z, sens, imask, imlo, 'pf', 0.9375); nitmax = 10;
+A = Gsms_pf(KZ, Z, sens, imask, imlo, 'pf', size(y,2)/ny); nitmax = 20;
 tol = 1e-6;
 tic; [xhat2,res2] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat2 = embed(xhat2, imask);
