@@ -74,7 +74,7 @@ esp = 0.52e-3;  % echo spacing (sec)
 ti = (0:(ny-1))*esp;
 t2 = 50e-3*ones(size(imask));   % sec
 fmap = 0*ones(size(imask));     % Hz
-A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
+%A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
 %tic; [xhat,res] = cgnr_jfn(A, y(:), xhat, nitmax, tol); toc;
 
 %W = 1; C = 0;
