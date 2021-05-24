@@ -35,7 +35,7 @@ end
 
 % add some phase
 [xg,yg,zg] = ndgrid((0.5:n)/(n/2)-1, (0.5:n)/(n/2)-1, (0.5:nz)/(nz/2)-1);
-th = exp(1i*pi/2*(xg.^2 + yg + zg.^1)); % + 1i*pi/2*0.3*abs(xtrue)/max(abs(xtrue(:))) ); 
+th = exp(1i*pi*(xg.^2 + yg + zg.^1)); % + 1i*pi/2*0.5*abs(xtrue)/max(abs(xtrue(:))) ); 
 xtrue = xtrue.*th;
 
 [nx ny nz] = size(xtrue);
@@ -69,40 +69,39 @@ y = y + randn(size(y))*mean(abs(y(:)))/3;
 % PF sampling
 yfull = y;
 KZfull = KZ;
-%y = y(:, (end/2-ny/4+1):end, :);
-%KZ = KZ((end/2-ny/4+1):end);
-y = y(:, 17:end, :);
-KZ = KZ(:, 17:end, :);
+y = y(:, (ny/4+1):end, :);
+KZ = KZ(:, (ny/4+1):end, :);
 
-% low-res image (central fully sampled) for phase estimation. Assumes 3/4 PF.
+% low-res image (central fully sampled) for phase estimation
 imlo = 0*xtrue;                 % low-res image phase estimate
 for iz = 1:nz
-	imlo(:,:,iz) = toppe.utils.imfltfermi(xtrue(:,:,iz), nx/2, nx/4, 'circ');
+	imlo(:,:,iz) = toppe.utils.imfltfermi(xtrue(:,:,iz), nx/2-nx/8, nx/8, 'circ');
 %	d = fftshift(fft2(fftshift(xtrue(:,:,iz))));
 %	d([1:(end/2-nx/4) (end/2+nx/4+1):end], [1:(end/2-ny/4) (end/2+ny/4+1):end]) = 0; 
 %	imlo(:,:,iz) = fftshift(ifft2(fftshift(d))); 
 end
 imlo = exp(1i*angle(imlo));
+imlo = ones(size(imlo));
 
 % reconstruct
 % first recon using zero-filling to get a decent initialization
 fprintf('Reconstructing...\n');
 
-A = Gsms(KZfull, Z, sens, imask); nitmax = 1;
-xinit = zeros(size(imask));
-tol = 1e-6;
-tic; [xhat1,res1] = cgnr_jfn(A, yfull(:), xinit(imask), nitmax, tol); toc;
-xhat1 = embed(xhat1, imask);
-
+%A = Gsms(KZfull, Z, sens, imask); nitmax = 10;
 %xinit = zeros(size(imask));
-xinit = xhat1 .* conj(imlo);
+%tol = 1e-6;
+%tic; [xhat1,res1] = cgnr_jfn(A, yfull(:), xinit(imask), nitmax, tol); toc;
+%xhat1 = embed(xhat1, imask);
+
+xinit = zeros(size(imask));
+%xinit = xhat1 .* conj(imlo);
 A = Gsms_pf(KZ, Z, sens, imask, imlo, 'pf', size(y,2)/ny); nitmax = 20;
 tol = 1e-6;
 tic; [xhat2,res2] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat2 = embed(xhat2, imask);
 
-subplot(131); im(xhat1)
-subplot(132); im(xhat2)
-subplot(133); plot([res1 res2], 'o-');
+%subplot(131); im(xhat1)
+subplot(121); im(xhat2)
+subplot(122); plot([res2], 'o-');
 
 return;
