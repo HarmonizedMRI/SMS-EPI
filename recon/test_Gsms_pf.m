@@ -69,8 +69,10 @@ y = y + randn(size(y))*mean(abs(y(:)))/3;
 % PF sampling
 yfull = y;
 KZfull = KZ;
-y = y(:, (end/2-ny/4+1):end, :);
-KZ = KZ((end/2-ny/4+1):end);
+%y = y(:, (end/2-ny/4+1):end, :);
+%KZ = KZ((end/2-ny/4+1):end);
+y = y(:, 5:end, :);
+KZ = KZ(:, 5:end, :);
 
 % low-res image (central fully sampled) for phase estimation. Assumes 3/4 PF.
 imlo = 0*xtrue;                 % low-res image phase estimate
@@ -94,9 +96,9 @@ xhat1 = embed(xhat1, imask);
 
 %xinit = zeros(size(imask));
 xinit = xhat1 .* conj(imlo);
-A = Gsms_pf(KZfull, Z, sens, imask, imlo, 'pf', 1); nitmax = 10;
+A = Gsms_pf(KZ, Z, sens, imask, imlo, 'pf', 0.9375); nitmax = 10;
 tol = 1e-6;
-tic; [xhat2,res2] = cgnr_jfn(A, yfull(:), xinit(imask), nitmax, tol); toc;
+tic; [xhat2,res2] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 xhat2 = embed(xhat2, imask);
 
 subplot(131); im(xhat1)

@@ -14,8 +14,9 @@ function A = Gsms_pf(KZ, Z, sens, imask, imlo, varargin)
 % zmap     [nx ny mb]      relax_map + 2i*pi*field_map (as in Gmri.m)
 %                          included as a exp(-zmap * ti(ky)) term
 % ti       [ny]            echo times (at center of each echo in EPI train)
+% pf       float           Partial Fourier factor. Default = 3/4
 %
-% Test function: test_Gsms.m
+% Test function: test_Gsms_pf.m
 
 % default options
 arg.zmap = [];
@@ -36,6 +37,8 @@ arg.imask = imask;
 arg.imlo = imlo;
 
 [arg.nx arg.ny arg.mb] = size(imask);
+
+arg.pfskip = arg.ny*(1-arg.pf);  % number ky encodes to skip (at beginning of echo train)
 
 arg.nc = size(arg.sens,4);
 arg.np = sum(arg.imask(:));    % number of spatial positions (voxels)
@@ -93,28 +96,32 @@ function y = A_forw(arg, x)
 	x = x .* arg.imlo;
 
 	% sensitivity coils and kz encoding
-	y = zeros(arg.nx, arg.ny, arg.nc);   % full k-space
+	y = zeros(arg.nx, arg.ny-arg.pfskip, arg.nc);
 	for ic = 1:arg.nc
 		for ikzl = 1:length(arg.kzlevels)
 			xsum = sum(arg.ekzz(:,:,:,ikzl) .* arg.sens(:,:,:,ic) .* x, 3);
 			tmp = fftshift(fft2(fftshift(xsum)));
-			y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
+			y(:,arg.pegroup{ikzl},ic) = tmp(:, arg.pfskip + arg.pegroup{ikzl}); 
 		end
 	end
 
 	% PF sampling
-	%y = y(:, (end/2-arg.ny/4+1):end, :);
+	%if arg.pf < 1
+	%	y = y(:, (arg.ny*(1-arg.pf)+1):end, :);
+	%end
 	
 	y = y(:);
+
 return
+
 
 function x = A_back(arg, y)
 
 	% zero-fill to full size (conjugate of PF sampling)
-	tmp = reshape(y, [arg.nx arg.ny*arg.pf arg.nc]);
-	%y = zeros(arg.nx, arg.ny, arg.nc);
+	tmp = reshape(y, [arg.nx arg.ny-arg.pfskip arg.nc]);
+	y = zeros(arg.nx, arg.ny, arg.nc);
+	y(:, (arg.pfskip+1):end, :) = tmp;
 	%y(:, (end/2-arg.ny/4+1):end, :) = tmp;
-	y = tmp;
 
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
@@ -122,7 +129,8 @@ function x = A_back(arg, y)
 		for ikzl = 1:length(arg.kzlevels)
 			% P^H
 			y1 = zeros(arg.nx, arg.ny);
-			y1(:,arg.pegroup{ikzl}) = y(:,arg.pegroup{ikzl},ic);
+			yinds = arg.ny*(1-arg.pf) + arg.pegroup{ikzl};
+			y1(:, yinds) = y(:, yinds, ic);
 
 			% F^H
 			x1 = fftshift(ifft2(fftshift(y1)));
@@ -133,5 +141,6 @@ function x = A_back(arg, y)
 	end
 	x = x .* conj(arg.imlo);
 	x = x(arg.imask);  % [arg.np]
+
 return;
 
