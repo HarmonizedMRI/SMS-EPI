@@ -1,5 +1,5 @@
-function A = Gsms_pf(KZ, Z, sens, imask, varargin)
-% function A = Gsms_pf(KZ, Z, sens, imask, varargin)
+function A = Gsms_pf(KZ, Z, sens, imask, imlo, varargin)
+% function A = Gsms_pf(KZ, Z, sens, imask, imlo, varargin)
 %
 % SMS EPI system matrix. Assumes 3/4 partial fourier (in ky)
 %
@@ -8,6 +8,7 @@ function A = Gsms_pf(KZ, Z, sens, imask, varargin)
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
 % imask    [nx ny mb]      image support (logical)
+% imlo     [nx ny mb]      low-res image 
 %
 % Options:
 % zmap     [nx ny mb]      relax_map + 2i*pi*field_map (as in Gmri.m)
@@ -28,6 +29,7 @@ arg.KZ = KZ;
 arg.Z = Z;
 arg.sens = sens;
 arg.imask = imask;
+arg.imlo = imlo;
 
 [arg.nx arg.ny arg.mb] = size(imask);
 
@@ -82,17 +84,10 @@ return
 %
 function y = A_forw(arg, x)
 	x = embed(x, arg.imask);  % [nx ny mb]
-	th = 0*x;                 % low-res image phase estimate
-	[nx ny nz] = size(x);
 
 	% multiply by low-res phase image
-	for iz = 1:size(x,3)
-		d = fftshift(fft2(fftshift(x(:,:,iz))));
-		d((end/2-nx/2+1):(end/2+nx/2), (end/2-ny/2+1):(end/2+ny/2)) = 0;
-		iml = fftshift(ifft2(fftshift(d))); 
-		x(:,:,iz) = x .* exp(1i*angle(iml));
-	end
-	
+	x = x .* arg.imlo;
+
 	% remaining forward operations 
 	y = zeros(arg.nx, arg.ny, arg.nc);
 	for ic = 1:arg.nc
@@ -122,7 +117,9 @@ function x = A_back(arg, y)
 		end
 		x = x + xc;
 	end
-	x = real_nonneg(x(arg.imask));  % [arg.np]
+	x = x .* conj(arg.imlo);
+	%x = real(x);
+	x = x(arg.imask);  % [arg.np]
 return;
 
 function b = real_nonneg(a)

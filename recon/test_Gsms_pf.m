@@ -25,21 +25,25 @@ n = imsize(1);
 nz = imsize(3);
 clear xtrue
 for iz = 2:(nz-1)
-	xtrue(:,:,iz) = phantom(n) * (-1)^(iz+1) * iz/nz;
+	xtrue(:,:,iz) = phantom(n) * iz/nz; % * (-1)^(iz+1) * iz/nz;
 end
-xtrue(n/4:3*n/4,n/4:3*n/4,1) = 1;
+xtrue(n/4:3*n/4,n/4:3*n/4,1) = 0.25;
 xtrue(n/4:3*n/4,n/4:3*n/4,iz+1) = 0.5;
 for iz = 1:nz
 	xtrue(:,:,iz) = imrotate(xtrue(:,:,iz), 90*(iz-1));
 end
-xtrue = xtrue.*exp(1i*pi/2*xtrue);  % make it complex
+
+% add some smooth phase
+[xg,yg,zg] = ndgrid((0.5:n)/(n/2)-1, (0.5:n)/(n/2)-1, (0.5:nz)/(nz/2)-1);
+th = exp(1i*pi/2*(xg.^2 + yg + zg.^1)); 
+xtrue = xtrue.*th;
 
 [nx ny nz] = size(xtrue);
 
 % object support
 ss = sqrt(sum(abs(sens).^2,4));
-imask = ss > 0.05*max(ss(:));
 imask = true(imsize);
+imask = ss > 0.05*max(ss(:));
 
 % synthesize noisy EPI sms data (Cartesian)
 skip = 1;
@@ -60,27 +64,37 @@ for ic = 1:ncoils
 end
 y = y + randn(size(y))*mean(abs(y(:)))/3;
 
+% low-res image (central fully sampled) for phase estimation. Assumes 3/4 PF.
+[nx ny nz] = size(xtrue);
+imlo = 0*xtrue;                 % low-res image phase estimate
+for iz = 1:nz
+	imlo(:,:,iz) = toppe.utils.imfltfermi(xtrue(:,:,iz), nx/2, nx/4, 'circ');
+%	d = fftshift(fft2(fftshift(xtrue(:,:,iz))));
+%	d([1:(end/2-nx/4) (end/2+nx/4+1):end], [1:(end/2-ny/4) (end/2+ny/4+1):end]) = 0; 
+%	imlo(:,:,iz) = fftshift(ifft2(fftshift(d))); 
+end
+imlo = exp(1i*angle(imlo));
+
 % reconstruct
-% first recon w/o zmap to get a decent initialization
-% the use dummy zmap for now, just to test recon speed
+% first recon using zero-filling to get a decent initialization
 fprintf('Reconstructing...\n');
 
 A = Gsms(KZ, Z, sens, imask); nitmax = 10;
 xinit = zeros(size(imask));
 tol = 1e-6;
-tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
+tic; [xhat1,res1] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 
-esp = 0.52e-3;  % echo spacing (sec)
-ti = (0:(ny-1))*esp;
-t2 = 50e-3*ones(size(imask));   % sec
-fmap = 0*ones(size(imask));     % Hz
-A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
-%tic; [xhat,res] = cgnr_jfn(A, y(:), xhat, nitmax, tol); toc;
+xhat1 = embed(xhat1, imask);
 
-%W = 1; C = 0;
-%xhat = qpwls_pcg1(xinit(imask), A, W, y(:), C, 'niter', 250);  % runs but doesn't find the right solution
+xinit = zeros(size(imask));
+xinit = xhat1 .* conj(imlo);
+A = Gsms_pf(KZ, Z, sens, imask, imlo); nitmax = 20;
+tol = 1e-6;
+tic; [xhat,res2] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
+
 xhat = embed(xhat, imask);
-subplot(121); im(xhat)
-subplot(122); plot(res, 'o-');
+subplot(131); im(xhat1)
+subplot(132); im(xhat)
+subplot(133); plot([res1 res2], 'o-');
 
 return;
