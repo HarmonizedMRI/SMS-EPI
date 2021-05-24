@@ -64,8 +64,13 @@ for ic = 1:ncoils
 end
 y = y + randn(size(y))*mean(abs(y(:)))/3;
 
-% low-res image (central fully sampled) for phase estimation. Assumes 3/4 PF.
 [nx ny nz] = size(xtrue);
+
+% PF sampling
+y = y(:, (end/2-ny/4+1):end, :);
+KZ = KZ((end/2-ny/4+1):end);
+
+% low-res image (central fully sampled) for phase estimation. Assumes 3/4 PF.
 imlo = 0*xtrue;                 % low-res image phase estimate
 for iz = 1:nz
 	imlo(:,:,iz) = toppe.utils.imfltfermi(xtrue(:,:,iz), nx/2, nx/4, 'circ');
@@ -79,22 +84,24 @@ imlo = exp(1i*angle(imlo));
 % first recon using zero-filling to get a decent initialization
 fprintf('Reconstructing...\n');
 
-A = Gsms(KZ, Z, sens, imask); nitmax = 10;
-xinit = zeros(size(imask));
-tol = 1e-6;
-tic; [xhat1,res1] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
+%A = Gsms(KZ, Z, sens, imask); nitmax = 10;
+%xinit = zeros(size(imask));
+%tol = 1e-6;
+%tic; [xhat1,res1] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 
-xhat1 = embed(xhat1, imask);
+%xhat1 = embed(xhat1, imask);
 
 xinit = zeros(size(imask));
-xinit = xhat1 .* conj(imlo);
+%xinit = xhat1 .* conj(imlo);
 A = Gsms_pf(KZ, Z, sens, imask, imlo); nitmax = 20;
 tol = 1e-6;
 tic; [xhat,res2] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
 
 xhat = embed(xhat, imask);
-subplot(131); im(xhat1)
-subplot(132); im(xhat)
-subplot(133); plot([res1 res2], 'o-');
+subplot(121); im(xhat1)
+subplot(122); plot(res2, 'o-');
+%subplot(131); im(xhat1)
+%subplot(132); im(xhat)
+%subplot(133); plot([res1 res2], 'o-');
 
 return;

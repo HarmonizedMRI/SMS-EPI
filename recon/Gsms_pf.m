@@ -3,12 +3,12 @@ function A = Gsms_pf(KZ, Z, sens, imask, imlo, varargin)
 %
 % SMS EPI system matrix. Assumes 3/4 partial fourier (in ky)
 %
-% KZ       [ny]            (cycles/cm) kz encoding value along EPI train
+% KZ       [ny*pf]         (cycles/cm) kz encoding value along EPI train. pf = Partial Fourier factor (3/4)
 % Z        [mb]            (cm) slice offsets
 %                          mb = number of simultaneous slices (multiband factor)
 % sens     [nx ny mb nc]   coil sensitivity maps 
 % imask    [nx ny mb]      image support (logical)
-% imlo     [nx ny mb]      low-res image 
+% imlo     [nx ny mb]      imlo = exp(1i*th), where th = low-res image phase
 %
 % Options:
 % zmap     [nx ny mb]      relax_map + 2i*pi*field_map (as in Gmri.m)
@@ -62,7 +62,7 @@ end
 
 A = fatrix2('arg', arg, ...
 	'idim', [arg.np], ...             % size of x
-	'odim', [arg.nx*arg.ny*arg.nc], ...      % size of A*x
+	'odim', [arg.nx*arg.ny*3/4*arg.nc], ...      % size of A*x
 	'forw', @A_forw, 'back', @A_back);
 	%'mask', true(arg.np,1), ...
 
@@ -77,7 +77,7 @@ return
 %  x1, x2, ..., xmb = slice 1, 2, ..., mb. Mon-negative real.
 %  z1, z2, ..., zmb = z location for each slice (cm)
 %  kz(ky) = kz encoding (cycles/cm) for the ky^th phase encode
-%  th_l = exp(1i*angle(imgl)), where imgl = phase image from central 1/2 of ky-space
+%  th_l = angle(imgl)), where imgl = phase image from central 1/2 of ky-space (assuming PF = 3/4)
 %  S: coil sensitivity for coil c
 %  F: 2D FFT
 %  P_ky: picks out the y^th phase encode
@@ -88,8 +88,8 @@ function y = A_forw(arg, x)
 	% multiply by low-res phase image
 	x = x .* arg.imlo;
 
-	% remaining forward operations 
-	y = zeros(arg.nx, arg.ny, arg.nc);
+	% sensitivity coils and kz encoding
+	y = zeros(arg.nx, arg.ny, arg.nc);   % full k-space
 	for ic = 1:arg.nc
 		for ikzl = 1:length(arg.kzlevels)
 			xsum = sum(arg.ekzz(:,:,:,ikzl) .* arg.sens(:,:,:,ic) .* x, 3);
@@ -97,11 +97,20 @@ function y = A_forw(arg, x)
 			y(:,arg.pegroup{ikzl},ic) = tmp(:,arg.pegroup{ikzl}); 
 		end
 	end
+
+	% PF sampling
+	y = y(:, (end/2-arg.ny/4+1):end, :);
+	
 	y = y(:);
 return
 
 function x = A_back(arg, y)
-	y = reshape(y, [arg.nx arg.ny arg.nc]);
+
+	% zero-fill to full size (conjugate of PF sampling)
+	tmp = reshape(y, [arg.nx arg.ny*3/4 arg.nc]);
+	y = zeros(arg.nx, arg.ny, arg.nc);
+	y(:, (end/2-arg.ny/4+1):end, :) = tmp;
+
 	x = zeros(arg.nx, arg.ny, arg.mb);
 	for ic = 1:arg.nc
 		xc = zeros(arg.nx, arg.ny, arg.mb);
@@ -118,11 +127,6 @@ function x = A_back(arg, y)
 		x = x + xc;
 	end
 	x = x .* conj(arg.imlo);
-	%x = real(x);
 	x = x(arg.imask);  % [arg.np]
 return;
-
-function b = real_nonneg(a)
-	b = max(real(a), 0);
-return
 
