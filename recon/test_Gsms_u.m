@@ -38,8 +38,9 @@ xtrue = xtrue.*exp(1i*pi/2*xtrue);  % make it complex
 
 % object support
 ss = sqrt(sum(abs(sens).^2,4));
-imask = ss > 0.05*max(ss(:));
 imask = true(imsize);
+imask = ss > 0.05*max(ss(:));
+xtrue(~imask) = 0;
 
 % synthesize noisy EPI sms data (Cartesian)
 skip = 1;
@@ -62,7 +63,7 @@ y = y + randn(size(y))*mean(abs(y(:)))/3;
 
 % undersample
 nc = ny/8;  % half-width of dense center 
-IY = round([1:2:(ny/2-nc) (ny/2-nc+1):(ny/2+nc) (ny/2+nc+1):2:ny]);
+IY = round([1:3:(ny/2-nc) (ny/2-nc+1):(ny/2+nc) (ny/2+nc+1):3:ny]);
 % IY = [(ny/2-ny/4+1):ny];   % partial Fourier
 y = y(:, IY, :);
 KZ = KZ(IY);
@@ -72,22 +73,16 @@ KZ = KZ(IY);
 % the use dummy zmap for now, just to test recon speed
 fprintf('Reconstructing...\n');
 
-A = Gsms_u(KZ, IY, Z, sens, imask); nitmax = 20;
+A = Gsms_u(KZ, IY, Z, sens, imask); %nitmax = 20;
 xinit = zeros(size(imask));
 tol = 1e-6;
 tic; [xhat,res] = cgnr_jfn(A, y(:), xinit(imask), nitmax, tol); toc;
-
-esp = 0.52e-3;  % echo spacing (sec)
-ti = (0:(ny-1))*esp;
-t2 = 50e-3*ones(size(imask));   % sec
-fmap = 0*ones(size(imask));     % Hz
-%A = Gsms(KZ, Z, sens, imask, 'zmap', 1./t2 + 2i*pi*fmap, 'ti', ti); nitmax = 10;
-%tic; [xhat,res] = cgnr_jfn(A, y(:), xhat, nitmax, tol); toc;
-
 %W = 1; C = 0;
-%xhat = qpwls_pcg1(xinit(imask), A, W, y(:), C, 'niter', 250);  % runs but doesn't find the right solution
+%xhat = qpwls_pcg1(xinit(imask), A, W, y(:), C, 'niter', nitmax);  % runs but doesn't find the right solution
+
 xhat = embed(xhat, imask);
-subplot(121); im(xhat)
-subplot(122); plot(res, 'o-');
+im(xhat);
+%subplot(121); im(xhat)
+%subplot(122); plot(res, 'o-');
 
 return;
