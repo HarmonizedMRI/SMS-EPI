@@ -12,7 +12,7 @@ function [gx, gy, gz, gpre, esp, gx1, kz] = getcaipiepireadout(fov, imSize, Ry, 
 %  pf_ky     [1]    Partial Fourier factor (along ky). 
 %  gMax      Gauss/cm
 %  slewRead  [1 3]  max slew along x/y/z gradient axis (Gauss/cm/ms)
-%  slewPre   [1]
+%  slewPre   [1] max slew during prephasing gradient trapezoid (Gauss/cm/ms)
 %  raster    ms
 %  fbesp     [2] forbidden echo spacing range (ms)
 %
@@ -32,6 +32,10 @@ end
 
 if mod(Rz, 1)
     error('Rz must be a positive integer')
+end
+
+if pf_ky < 0.5 | pf_ky > 1.0
+    error('Partial Fourier factor must be in the range [0.5 1.0]');
 end
 
 nx = imSize(1); ny = imSize(2); nz = imSize(3);

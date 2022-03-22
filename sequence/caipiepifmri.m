@@ -12,6 +12,10 @@
 % Outputs:
 %  TOPPE scan files        modules.txt, scanloop.txt, tipdown.mod, and readout.mod
 
+if ~strcmp(scanType, '3D') & ~strcmp(scanType, 'SMS')
+    error('Supported scan types: 3D, SMS');
+end
+
 %% Set hardware limits (for design and detailed timing calculations).
 % 'maxSlew' and 'maxGrad' options can be < scanner limit, and can vary across .mod files. 
 sys.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
@@ -27,22 +31,35 @@ sys.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 seq.imSize = [80 80 30];
 seq.fov = 0.24*seq.imSize;    % cm
 seq.nFrames = 20;  % fMRI frames
-seq.rf.textra = 15;   % ms. Determines TE.
-seq.flip = 15;  % flip angle (degrees)
+seq.rf.textra = 10;   % ms. Determines TE. TODO: specify TE
 seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
 
-% EPI CAIPI undersampling factors
+seq.voxelSize = seq.fov./seq.imSize;
+
+% TODO: specify TR
+
+% EPI CAIPI sampling parameters
 seq.Ry = 1; 
-seq.pf_ky = 0.7;
+seq.pf_ky = 0.7;  % Partial Fourier factor
 seq.Rz = 6;
 seq.Delta = 6;  % kz step size (multiples of 1/fov(3))
 
-% slab/SMS excitation
-seq.rf.slabThick = 0.8*seq.fov(3); % to avoid wrap-around in z
-seq.rf.tbw = 12;
-seq.rf.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
-seq.rf.ftype = 'min'; % minimum-phase SLR pulse is well suited for 3D slab excitation
-seq.rf.dur = 1.5;  % ms
+% slab excitation pulse parameters
+seq.slab.flip = 15;  % flip angle (degrees)
+seq.slab.thick = 0.8*seq.fov(3); % to avoid wrap-around in z
+seq.slab.tbw = 12;
+seq.slab.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
+seq.slab.ftype = 'min'; % minimum-phase SLR pulse is well suited for 3D slab excitation
+seq.slab.dur = 1.5;  % ms
+
+% SMS excitation pulse parameters
+seq.sms.flip = 30;        % flip angle (degrees)
+seq.sms.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
+seq.sms.ftype = 'ls';     
+seq.sms.tbw = 6;          % time-bandwidth product
+seq.sms.dur = 4;          % msec
+seq.sms.mb = 6;          % sms/multiband factor (number of simultaneous slices)
+seq.sms.sliceSep = seq.voxelSize(3)*seq.sms.mb;   % center-to-center separation between SMS slices (cm)
 
 if isCalScan
     nFrames = 20;
@@ -81,13 +98,31 @@ fid = fopen('modules.txt', 'wt');
 fprintf(fid, modFileText);
 fclose(fid);
 
-%% Slab excitation
-toppe.utils.rf.makeslr(seq.flip, seq.rf.slabThick, ...
-    seq.rf.tbw, seq.rf.dur, nz*seq.nSpoilCycles, sys.ge, ...
-    'type', seq.rf.type, ...     % 'st' = small-tip. 'ex' = 90 degree design
-    'ftype', seq.rf.ftype, ...  
-    'spoilDerate', 0.5, ...
-    'ofname', 'tipdown.mod');
+
+%% Slab/SMS excitation
+if strcmp(scanType, 'SMS')
+    tmp = sys.ge;
+    tmp.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
+    [ex.rf, ex.g, freq] = getsmspulse(seq.sms.flip, seq.voxelSize(3), seq.sms.tbw, seq.sms.dur, ...
+        seq.sms.mb, seq.sms.sliceSep, tmp, ...
+	    'doSim', true, ...   % Plot simulated SMS slice profile
+	    'type', seq.sms.type, ...
+	    'ftype', seq.sms.ftype);
+
+    toppe.writemod(sys.ge, 'rf', ex.rf, 'gz', ex.g, ...
+	    'ofname', 'tipdown.mod' );
+
+    freq = freq/seq.sms.sliceSep*seq.voxelSize(3); % frequency offset for z shift of seq.slThick 
+else
+    % slab select
+    toppe.utils.rf.makeslr(seq.slab.flip, seq.slab.thick, ...
+        seq.slab.tbw, seq.slab.dur, nz*seq.nSpoilCycles, sys.ge, ...
+        'type', seq.slab.type, ...     % 'st' = small-tip. 'ex' = 90 degree design
+        'ftype', seq.slab.ftype, ...  
+        'spoilDerate', 0.5, ...
+        'ofname', 'tipdown.mod');
+end
+
 
 %% Readout 
 [gx, gy, gz, gpre, esp, gx1, kz] = getcaipiepireadout(seq.fov, seq.imSize, ...
@@ -124,16 +159,22 @@ for ifr = 1:nFrames
     %a_gx = (-1)^(isCalScan*(ifr+1));
     a_gx = (-1)^(ifr+1);
 
-    % z encoding loop
+    % z encoding / SMS slice shift loop
     for ii = 1:length(IZ)  
 
         iz = IZ(ii);
 
-        a_gz = (1-isCalScan)*((iz-1+0.5)-nz/2)/(nz/2);
+        if strcmp(scanType, 'SMS')
+		    f = round((ii-0.5-length(IZ)/2)*freq);  % frequency offset (Hz) for slice shift
+            a_gz = 0;
+        else
+            f = 0;
+            a_gz = (1-isCalScan)*((iz-1+0.5)-nz/2)/(nz/2);
+        end
 
         % rf excitation
         toppe.write2loop('tipdown.mod', sys.ge, ...
-            'textra', seq.rf.textra, ...
+            'RFoffset', f, ...
             'RFphase', rfphs);
 
         % readout 
