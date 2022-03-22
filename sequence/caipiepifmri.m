@@ -1,4 +1,4 @@
-function [seq, sys] = epi3d(scanType, isCalScan)
+%function [seq, sys] = caipiepifmri(scanType, isCalScan)
 % 3D/SMS CAIPI EPI fMRI scan in TOPPE
 % Implements sequence in Narsude et al MRM 2016, 
 % "Three-Dimensional Echo Planar Imaging with Controlled
@@ -12,10 +12,37 @@ function [seq, sys] = epi3d(scanType, isCalScan)
 % Outputs:
 %  TOPPE scan files        modules.txt, scanloop.txt, tipdown.mod, and readout.mod
 
-[seq, sys] = getparams;
-nx = seq.imSize(1);
-ny = seq.imSize(2);
-nz = seq.imSize(3);
+%% Set hardware limits (for design and detailed timing calculations).
+% 'maxSlew' and 'maxGrad' options can be < scanner limit, and can vary across .mod files. 
+sys.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
+    'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...
+    'myrfdel', 200, ...  % psd_rf_wait
+    'daqdel', 100, ...   % psd_grd_wait
+    'timessi', 100, ...
+    'gradient', 'xrm');  % MR750 scanner. Used to plot PNS profile in toppe.plotmod()
+
+
+%% Sequence parameters
+
+seq.imSize = [80 80 30];
+seq.fov = 0.24*seq.imSize;    % cm
+seq.nFrames = 20;  % fMRI frames
+seq.rf.textra = 15;   % ms. Determines TE.
+seq.flip = 15;  % flip angle (degrees)
+seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
+
+% EPI CAIPI undersampling factors
+seq.Ry = 1; 
+seq.pf_ky = 0.7;
+seq.Rz = 6;
+seq.Delta = 6;  % kz step size (multiples of 1/fov(3))
+
+% slab/SMS excitation
+seq.rf.slabThick = 0.8*seq.fov(3); % to avoid wrap-around in z
+seq.rf.tbw = 12;
+seq.rf.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
+seq.rf.ftype = 'min'; % minimum-phase SLR pulse is well suited for 3D slab excitation
+seq.rf.dur = 1.5;  % ms
 
 if isCalScan
     nFrames = 20;
@@ -28,6 +55,10 @@ end
 % slew rates for waveform design (G/cm/ms)
 slewRead = [11 15 15];
 slewPre = 8;
+
+nx = seq.imSize(1);
+ny = seq.imSize(2);
+nz = seq.imSize(3);
 
 if mod(ny,seq.Ry) > 0
     error('ny/Ry must be an integer');
@@ -51,16 +82,19 @@ fprintf(fid, modFileText);
 fclose(fid);
 
 %% Slab excitation
-toppe.utils.rf.makeslr(seq.epi.flip, seq.rf.slabThick, ...
-    seq.rf.tbw, seq.rf.dur, nz*seq.epi.nSpoilCycles, sys.ge, ...
+toppe.utils.rf.makeslr(seq.flip, seq.rf.slabThick, ...
+    seq.rf.tbw, seq.rf.dur, nz*seq.nSpoilCycles, sys.ge, ...
     'type', seq.rf.type, ...     % 'st' = small-tip. 'ex' = 90 degree design
     'ftype', seq.rf.ftype, ...  
     'spoilDerate', 0.5, ...
     'ofname', 'tipdown.mod');
 
 %% Readout 
-[gx, gy, gz, gpre, esp, gx1, kz] = getcaipiepireadout(seq.fov, seq.imSize, seq.Ry, seq.Rz, seq.Delta, ...
-    sys.ge.maxGrad, slewRead, slewPre, sys.ge.raster*1e3, sys.ge.forbiddenEspRange);
+[gx, gy, gz, gpre, esp, gx1, kz] = getcaipiepireadout(seq.fov, seq.imSize, ...
+    seq.Ry, seq.pf_ky, ...
+    seq.Rz, seq.Delta, ...
+    sys.ge.maxGrad, slewRead, slewPre, ...
+    sys.ge.raster*1e3, sys.ge.forbiddenEspRange);
 
 toppe.writemod(sys.ge, ...
     'gx', gpre.x, 'gy', gpre.y, 'gz', gpre.z, ...
@@ -127,6 +161,8 @@ fprintf('\n');
 
 save gx1 gx1
 save kz kz
+
+return;
 
 %% Create 'sequence stamp' file for TOPPE.
 % This file is listed in the 5th row in toppeN.entry
