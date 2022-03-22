@@ -8,11 +8,11 @@
 %% Sequence parameters
 
 % parameters common to all sequences in this folder (SMS/2D EPI, 3D GRE coil calibration scan)
-[seq, system] = getparams;
+[seq, sys] = getparams;
 fov = seq.fov;              % in-plane field of view (cm)
 nx = seq.nx; ny = seq.ny;   % matrix size
-gamma = system.ge.gamma;    % Hz/Gauss
-dt = system.ge.raster;      % sec
+gamma = sys.ge.gamma;    % Hz/Gauss
+dt = sys.ge.raster;      % sec
 
 % SMS excitation
 ex.flip = 30;        % flip angle (degrees)
@@ -35,42 +35,39 @@ SHOTS = [1:2:nshots 2:2:nshots];    % slice ordering (minimize slice crosstalk)
 nslices = mb*nshots;
 zfov = seq.slThick*nslices;
 
-fbesp = system.ge.forbiddenEspRange;   % ms
+fbesp = sys.ge.forbiddenEspRange;   % ms
 
 %% SMS excitation waveforms
-sys = system.ge;
-sys.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
-[ex.rf, ex.g, freq] = getsmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mb, ex.sliceSep, ...
+tmp = sys.ge;
+tmp.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
+[ex.rf, ex.g, freq] = getsmspulse(ex.flip, seq.slThick, ex.tbw, ex.dur, mb, ex.sliceSep, tmp, ...
 	'doSim', true, ...   % Plot simulated SMS slice profile
 	'type', ex.type, ...
-	'ftype', ex.ftype, ...
-	'system', sys);
+	'ftype', ex.ftype);
 
 % write TOPPE module
-toppe.writemod('rf', ex.rf, 'gz', ex.g, ...
-	'system', system.ge, ...
+toppe.writemod(sys.ge, 'rf', ex.rf, 'gz', ex.g, ...
 	'ofname', 'tipdown.mod' );
 
 freq = freq/ex.sliceSep*seq.slThick; % frequency offset for z shift of seq.slThick 
 
 %% EPI readout waveforms
-mxs = 0.55*system.ge.maxSlew;
+mxs = 0.55*sys.ge.maxSlew;
 [gx, gy, gz, esp] = getepireadout(fov, nx, ny, ...
-	system.ge.maxGrad, mxs, dt*1e3, fbesp, ...
+	sys.ge.maxGrad, mxs, dt*1e3, fbesp, ...
 	mb, ex.sliceSep);
 
 % write TOPPE module
-toppe.writemod('gx', gx, 'gy', gy, 'gz', gz, ...
-	'system', system.ge, ...
+toppe.writemod(sys.ge, 'gx', gx, 'gy', gy, 'gz', gz, ...
 	'ofname', 'readout.mod' );
 
 %% Gradient spoiler waveform
 mxs = 7;  % Gauss/cm/ms. Lower to reduce PNS.
-mxg = system.ge.maxGrad;  % Gauss/cm
-gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, 0, mxs, mxg);
+mxg = sys.ge.maxGrad;  % Gauss/cm
+gcrush = toppe.utils.makecrusher(seq.nSpoilCycles, seq.slThick, sys.ge, 0, mxs, mxg);
 
 % write TOPPE module
-toppe.writemod('gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod', 'system', system.ge);
+toppe.writemod(sys.ge, 'gx', gcrush, 'gy', gcrush, 'ofname', 'spoil.mod');
 
 %% Create modules.txt for TOPPE 
 % Entries are tab-separated
@@ -86,12 +83,12 @@ fprintf(fid, modFileText);
 fclose(fid);
 
 %% Calculate delay to achieve desired TR
-toppe.write2loop('setup', 'version', 3);
-toppe.write2loop('tipdown.mod', 'textra', delay.postrf);
-toppe.write2loop('readout.mod');
-toppe.write2loop('spoil.mod');
-toppe.write2loop('finish');
-trseq = toppe.getTRtime(1,2)*1e3;    % sequence TR (ms)
+toppe.write2loop('setup', sys.ge, 'version', 3);
+toppe.write2loop('tipdown.mod', sys.ge, 'textra', delay.postrf);
+toppe.write2loop('readout.mod', sys.ge);
+toppe.write2loop('spoil.mod', sys.ge);
+toppe.write2loop('finish', sys.ge);
+trseq = toppe.getTRtime(1,2,sys.ge)*1e3;    % sequence TR (ms)
 if tr < trseq
 	tr = trseq;
 	fprintf('Using minimum tr (%.1f ms)\n', round(trseq));
@@ -151,19 +148,20 @@ rfphs = 0;              % radians
 rf_spoil_seed_cnt = 0;
 rf_spoil_seed = 117;
 
-toppe.write2loop('setup', 'version', 3);   % Initialize scanloop.txt
+toppe.write2loop('setup', sys.ge, 'version', 4);   % Initialize scanloop.txt
 for ifr = 1:nframes
 	for ish = SHOTS
 		% excitation
-		f = round((ish-0.5-nshots/2)*freq);  % Frequency offset (Hz) for slice shift)
-	  	toppe.write2loop('tipdown.mod', 'RFamplitude', 1.0, ...
+		f = round((ish-0.5-nshots/2)*freq);  % frequency offset (Hz) for slice shift
+	  	toppe.write2loop('tipdown.mod', sys.ge, ...
+            'RFamplitude', 1.0, ...
 			'RFphase', rfphs, ...
 			'textra', delay.postrf, ...
-			'RFoffset', f );  % Hz (slice selection)
+			'RFoffset', f );  % shift all slices
 
 	 	% readout
 		% data is stored in 'slice', 'echo', and 'view' indeces. Will change to ScanArchive in future.
-		toppe.write2loop('readout.mod', ...
+		toppe.write2loop('readout.mod', sys.ge, ...
 			'Gamplitude', [1 1 1]', ...
 			'DAQphase', rfphs, ...
 			'slice', ish, 'echo', 1, 'view', ifr, ...  
@@ -171,7 +169,7 @@ for ifr = 1:nframes
 		
 		% spoiler
 		% set sign of gx/gy so they add to readout gradient first moment
-		toppe.write2loop('spoil.mod', ...
+		toppe.write2loop('spoil.mod', sys.ge, ...
 			'textra', delay.postreadout, ...
 			'Gamplitude', [sign(sum(gx)) sign(sum(gy)) 0]');
 
@@ -180,10 +178,10 @@ for ifr = 1:nframes
 		rf_spoil_seed_cnt = rf_spoil_seed_cnt + 1;
 	end
 end
-toppe.write2loop('finish');
+toppe.write2loop('finish', sys.ge);
 
 numModulesPerTR = 3;
-figure; toppe.plotseq(1, numModulesPerTR, 'drawpause', false);
+figure; toppe.plotseq(1, numModulesPerTR, sys.ge, 'drawpause', false);
 
 tar('smsepi.tar', {'*.txt', '*.mod', '*.m'});
 
@@ -195,8 +193,8 @@ fprintf('Sequence TR: %.1f ms; Volume (frame) TR: %.1f ms\n', tr, trvol);
 fprintf('Echo spacing: %.3f ms\n', esp);
 fprintf('Number of frames: %d\n', nframes);
 fprintf('To set TE, change delay.postrf in this script (currently set to %.1f ms)\n', delay.postrf);
-fprintf('To plot first TR:       >> toppe.plotseq(1, 3, ''drawpause'', false);\n');
-fprintf('To ''play'' sequence:     >> toppe.playseq(3);       \n');
+fprintf('To plot first TR:       >> toppe.plotseq(1, 3, sys.ge, ''drawpause'', false);\n');
+fprintf('To display scan loop:     >> toppe.playseq(3, sys.ge);       \n');
 fprintf('To plot all .mod files: >> toppe.plotmod(''all''); \n');
 
 return;
