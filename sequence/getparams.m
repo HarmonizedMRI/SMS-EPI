@@ -26,7 +26,7 @@ end
 % maxSlew can be less than physical limit (for reducing PNS)
 system.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 	'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...  
-	'maxRf', 0.25, 'rfUnit', 'Gauss');
+	'maxRF', 0.25, 'rfUnit', 'Gauss');
 system.ge.forbiddenEspRange = [0.41 0.51];    % (ms) Forbidden echo spacings (mechanical resonance). See /usr/g/bin/epiesp.dat
 system.ge.toppe.myrfdel = 78;        % rf/gradient delay (us) ( = psd_rf_wait). Inside scanner: 78. Outside scanner: 94.
 system.ge.toppe.daqdel  = 84;        % daq/gradient delay (us) (= psd_grd_wait). Inside scanner: 84. Outside scanner: 100.

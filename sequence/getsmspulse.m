@@ -1,5 +1,5 @@
-function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
-% function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, varargin)
+function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
+% function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
 %
 % Create SMS rf and gradient waveforms 
 %
@@ -13,7 +13,6 @@ function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep
 %
 % Input options
 %  doSim          bool      Simulate and plot slice profile? Default = false.
-%  system         struct    Scanner hardware limits, see systemspecs.m
 %
 % Outputs
 %   rf    [nt 1]   Complex RF waveform (Gauss). Raster/dwell/sample time is 4us.
@@ -28,7 +27,6 @@ end
 % parse inputs
 arg.doSim        = false;
 arg.writeModFile = false;
-arg.system       = toppe.systemspecs; 
 arg.ofname       = 'tipdown.mod';
 arg.type         = 'ex';               % 'ex': 90 excitation; 'st' = small-tip
 arg.ftype        = 'ls';
@@ -36,10 +34,9 @@ arg = toppe.utils.vararg_pair(arg, varargin);
 
 % design the 'unit' (base) pulse
 nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added at beginning of waveform in makeslr()
-[rf1,g] = toppe.utils.rf.makeslr(flip, slThick, tbw, dur, nSpoilCycles, ...
+[rf1,g] = toppe.utils.rf.makeslr(flip, slThick, tbw, dur, nSpoilCycles, sys, ...
 	'type', arg.type, ...   
 	'ftype', arg.ftype, ...  
-	'system', arg.system, ...
 	'ofname', arg.ofname, ...
 	'writeModFile', false);
 
@@ -48,19 +45,19 @@ PHS = getsmsphase(nSlices);  % Phase of the various subpulses (rad). From Wong e
 bw = tbw/dur*1e3;          % pulse bandwidth (Hz)
 gPlateau = max(g);       % gradient amplitude during RF excitation (Gauss/cm)
 rf = 0*rf1;
-dt = arg.system.raster;           % sample (dwell) time (sec) 
+dt = sys.raster;           % sample (dwell) time (sec) 
 t = [dt:dt:(dt*length(rf1))]';
 for sl = 1:nSlices
 	sliceOffset = (-nSlices/2 + 0.5 + sl-1) * sliceSep;   % cm
-	f = arg.system.gamma*gPlateau*sliceOffset;   % Hz
+	f = sys.gamma*gPlateau*sliceOffset;   % Hz
 	rf = rf + rf1.*exp(1i*2*pi*f*t)*exp(1i*PHS(sl));
 end
 
-freq = arg.system.gamma*gPlateau*sliceSep;   % Hz
+freq = sys.gamma*gPlateau*sliceSep;   % Hz
 
 % pad to 4-sample boundary
-rf = toppe.utils.makeGElength(rf);   
-g = toppe.utils.makeGElength(g);
+rf = toppe.makeGElength(rf);   
+g = toppe.makeGElength(g);
 
 % simulate and plot slice profile
 if arg.doSim
@@ -96,10 +93,9 @@ end
 % write to TOPPE .mod file
 if arg.writeModFile
 	% wrap waveforms in toppe.utils.makeGElength() to make sure they are on a 4-sample (16 us) boundary
-	toppe.writemod('rf', toppe.utils.makeGElength(rf), ...
+	toppe.writemod(sys, 'rf', toppe.utils.makeGElength(rf), ...
 		'gz', toppe.utils.makeGElength(g), ...
-		'ofname', arg.ofname, ...
-		'system', arg.system);
+		'ofname', arg.ofname);
 
 	% Plot .mod file. Note PNS waveform (can easily exceed 80%/100% threshold).
 	%toppe.plotmod('tipdown.mod');

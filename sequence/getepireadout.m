@@ -74,8 +74,8 @@ end
 gx = [gx gx1*(-1)^(iecho+2) 0];  % add zero at end
 gy = [gy gylast 0];
 
-gx = toppe.utils.makeGElength(gx(:));
-gy = toppe.utils.makeGElength(gy(:));
+gx = toppe.makeGElength(gx(:));
+gy = toppe.makeGElength(gy(:));
 
 % plot k-space
 kx = gamma*dt*cumsum(gx);
@@ -123,7 +123,7 @@ if exist('mb', 'var')
 	gz = gz(1:length(gx));
 	gz((end-round(length(gzlast)/2)+1):end) = 0;
 
-	gz = toppe.utils.makeGElength(gz(:));
+	gz = toppe.makeGElength(gz(:));
 
 	% plot kspace
 	kz = gamma*dt*cumsum(gz);
