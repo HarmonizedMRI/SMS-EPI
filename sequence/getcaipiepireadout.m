@@ -75,6 +75,16 @@ nBlipMax = max([nyBlip nzBlip]);
 mxg = min(1/(fov(1)*gamma*dt*1e-3), gMax);    % Gauss/cm
 gx1 = toppe.utils.trapwave2(area, mxg, slewRead(1), dt);
 
+% Extend readout plateau to make room for turns
+gx1orig = gx1;
+nExtend = 0; % number of samples to add in middle of gx1
+area1 = sum(gx1(ceil(nBlipMax/2):(end-ceil(nBlipMax/2))))*dt*1e-3;   % G/cm/s
+while area1 < area
+    nExtend = nExtend + 1;
+    gx1 = [gx1orig(1:ceil(end/2)) max(gx1)*ones(1,nExtend) gx1orig((ceil(end/2)+1):end)];
+    area1 = sum(gx1(ceil(nBlipMax/2):(end-ceil(nBlipMax/2))))*dt*1e-3;   % G/cm/s
+end
+
 % Reduce peak gradient until echo spacing is outside forbidden range
 esp = length(gx1)*dt;  % echo spacing (ms)
 if esp > fbesp(1) & esp < fbesp(2)
@@ -86,16 +96,6 @@ if esp > fbesp(1) & esp < fbesp(2)
             break;
         end
     end
-end
-
-% if needed, extend readout plateau to make room for turns
-gx1orig = gx1;
-nExtend = 0; % number of samples to add in middle of gx1
-area1 = sum(gx1(ceil(nBlipMax/2):(end-ceil(nBlipMax/2))))*dt*1e-3;   % G/cm/s
-while area1 < area
-    nExtend = nExtend + 1;
-    gx1 = [gx1orig(1:ceil(end/2)) max(gx1)*ones(1,nExtend) gx1orig((ceil(end/2)+1):end)];
-    area1 = sum(gx1(ceil(nBlipMax/2):(end-ceil(nBlipMax/2))))*dt*1e-3;   % G/cm/s
 end
 
 % remove 0 at end in preparation for assembling into echo train
@@ -133,12 +133,14 @@ areax = sum(gx1)*dt*1e-3;   % G/cm * sec
 gpre.x = toppe.utils.trapwave2(areax/2, gMax, slewPre, dt);
 gpre.y = toppe.utils.trapwave2(area/2-dky/Ry/gamma/2, gMax, slewPre, dt);
 gpre.y = [gpre.y(:); zeros(length(gpre.x)-length(gpre.y), 1)]; % make same length
+gpre.z = toppe.utils.trapwave2(area/2-dky/Ry/gamma/2, gMax, slewPre, dt);
 %gpre = gpre(1:(end-1)); % remove 0 at end
 gpre.x = toppe.makeGElength(gpre.x(:)); % make length multiple of 4
 gpre.y = toppe.makeGElength(gpre.y(:));
 gpre.z = gpre.y; % isotropic resolution
 
 % plot k-space. Add prephaser for plotting purposes only.
+figure;
 gxf = [-gpre.x; gx];
 gyf = [-gpre.y; gy];
 gzf = [-gpre.y; gz];
@@ -150,8 +152,6 @@ xlabel('kx (cycles/cm)'); ylabel('ky (cycles/cm)');
 T = dt*1e3*(1:length(kxp));
 subplot(122); hold off; plot(T,kxp,'r'); hold on; plot(T,kyp,'g'); plot(T,kzp,'b'); hold off;
 legend('kx', 'ky', 'kz'); ylabel('cycles/cm'); xlabel('time (ms)');
-
-% get time matrix
 
 return
 

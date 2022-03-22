@@ -1,4 +1,4 @@
-%function [seq, sys] = caipiepifmri(scanType, isCalScan)
+function [seq, sys] = caipiepifmri(scanType)
 % 3D/SMS CAIPI EPI fMRI scan in TOPPE
 % Implements sequence in Narsude et al MRM 2016, 
 % "Three-Dimensional Echo Planar Imaging with Controlled
@@ -7,7 +7,6 @@
 %
 % Inputs:
 %  scanType    '3D' or 'SMS'
-%  isCalScan   true: EPI calibration scan, i.e., turn off gy/gz blips and acquire a few reps
 %
 % Outputs:
 %  TOPPE scan files        modules.txt, scanloop.txt, tipdown.mod, and readout.mod
@@ -28,15 +27,16 @@ sys.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 
 %% Sequence parameters
 
-seq.imSize = [80 80 30];
+seq.imSize = [90 90 30];
 seq.fov = 0.24*seq.imSize;    % cm
-seq.nFrames = 20;  % fMRI frames
-seq.rf.textra = 10;   % ms. Determines TE. TODO: specify TE
-seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
-
 seq.voxelSize = seq.fov./seq.imSize;
 
-% TODO: specify TR
+seq.nFrames = 20;  % number of fMRI frames
+seq.nCalFrames = 4;  % Odd/even echo calibration frames (ky and kz-encoding turned off)
+
+seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
+
+% TODO: specify TR and TE
 
 % EPI CAIPI sampling parameters
 seq.Ry = 1; 
@@ -60,14 +60,6 @@ seq.sms.tbw = 6;          % time-bandwidth product
 seq.sms.dur = 4;          % msec
 seq.sms.mb = 6;          % sms/multiband factor (number of simultaneous slices)
 seq.sms.sliceSep = seq.voxelSize(3)*seq.sms.mb;   % center-to-center separation between SMS slices (cm)
-
-if isCalScan
-    nFrames = 20;
-    TRextra = 100;  % ms
-else
-    nFrames = seq.nFrames;
-    TRextra = 0;
-end
 
 % slew rates for waveform design (G/cm/ms)
 slewRead = [11 15 15];
@@ -149,15 +141,16 @@ toppe.write2loop('setup', sys.ge, 'version', 4);   % Initialize scanloop.txt
 IZ = 1:seq.Rz:nz;
 
 % temporal loop
-for ifr = 1:nFrames 
+for ifr = 1:(seq.nCalFrames  + seq.nFrames)
+
+    isCalScan = (ifr < seq.nCalFrames + 1);
 
     % shift ky sampling pattern (for Ry = 2, this corresponds to UNFOLD)
     %iy = (1 + (-1)^(ifr))/2 + 1;   % 1 or 2
     %a_gy = ((iy-1+0.5)-ny/2)/(ny/2);
     a_gy = (1-isCalScan)*((1-1+0.5)-ny/2)/(ny/2);
 
-    %a_gx = (-1)^(isCalScan*(ifr+1));
-    a_gx = (-1)^(ifr+1);
+    a_gx = (-1)^(ifr+1); % alternate so we can combine frames to simulate flyback EPI
 
     % z encoding / SMS slice shift loop
     for ii = 1:length(IZ)  
@@ -186,10 +179,8 @@ for ifr = 1:nFrames
             'DAQphase', rfphs, ...
             'slice', ii, 'view', ifr);
 
-        % make gradients per TR constant (to achieve steady state)
-        %a_gy_reph = ((iy-1+0.5)-ny/2)/(ny/2) - ((1-1+0.5)-ny/2)/(ny/2);
+        % make net gradient area per TR constant (to achieve steady state)
         toppe.write2loop('prephase.mod', sys.ge, ...
-            'textra', TRextra, ...
             'Gamplitude', [0 -a_gy -a_gz]');
 
         % update rf phase (RF spoiling)
