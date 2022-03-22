@@ -27,7 +27,7 @@ sys.ge = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
 
 %% Sequence parameters
 
-seq.imSize = [90 90 30];
+seq.imSize = [80 80 40];
 seq.fov = 0.24*seq.imSize;    % cm
 seq.voxelSize = seq.fov./seq.imSize;
 
@@ -39,10 +39,11 @@ seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
 % TODO: specify TR and TE
 
 % EPI CAIPI sampling parameters
-seq.Ry = 1; 
-seq.pf_ky = 0.7;  % Partial Fourier factor
-seq.Rz = 6;
-seq.Delta = 6;  % kz step size (multiples of 1/fov(3))
+mb = 4;      % sms/multiband factor (number of simultaneous slices)
+seq.Ry = 1;       % acceleration factor
+seq.pf_ky = 1.0;  % Partial Fourier factor
+seq.Rz = mb;
+seq.Delta = mb;  % kz step size (multiples of 1/fov(3))
 
 % slab excitation pulse parameters
 seq.slab.flip = 15;  % flip angle (degrees)
@@ -58,8 +59,7 @@ seq.sms.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 seq.sms.ftype = 'ls';     
 seq.sms.tbw = 6;          % time-bandwidth product
 seq.sms.dur = 4;          % msec
-seq.sms.mb = 6;          % sms/multiband factor (number of simultaneous slices)
-seq.sms.sliceSep = seq.voxelSize(3)*seq.sms.mb;   % center-to-center separation between SMS slices (cm)
+seq.sms.sliceSep = seq.fov(3)/mb;   % center-to-center separation between SMS slices (cm)
 
 % slew rates for waveform design (G/cm/ms)
 slewRead = [11 15 15];
@@ -96,7 +96,7 @@ if strcmp(scanType, 'SMS')
     tmp = sys.ge;
     tmp.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
     [ex.rf, ex.g, freq] = getsmspulse(seq.sms.flip, seq.voxelSize(3), seq.sms.tbw, seq.sms.dur, ...
-        seq.sms.mb, seq.sms.sliceSep, tmp, ...
+        mb, seq.sms.sliceSep, tmp, ...
 	    'doSim', true, ...   % Plot simulated SMS slice profile
 	    'type', seq.sms.type, ...
 	    'ftype', seq.sms.ftype);
@@ -104,7 +104,7 @@ if strcmp(scanType, 'SMS')
     toppe.writemod(sys.ge, 'rf', ex.rf, 'gz', ex.g, ...
 	    'ofname', 'tipdown.mod' );
 
-    freq = freq/seq.sms.sliceSep*seq.voxelSize(3); % frequency offset for z shift of seq.slThick 
+    freq = freq/seq.sms.sliceSep*seq.voxelSize(3); % frequency offset for z shift of seq.voxelSize(3)
 else
     % slab select
     toppe.utils.rf.makeslr(seq.slab.flip, seq.slab.thick, ...
@@ -155,14 +155,12 @@ for ifr = 1:(seq.nCalFrames  + seq.nFrames)
     % z encoding / SMS slice shift loop
     for ii = 1:length(IZ)  
 
-        iz = IZ(ii);
-
         if strcmp(scanType, 'SMS')
 		    f = round((ii-0.5-length(IZ)/2)*freq);  % frequency offset (Hz) for slice shift
             a_gz = 0;
         else
             f = 0;
-            a_gz = (1-isCalScan)*((iz-1+0.5)-nz/2)/(nz/2);
+            a_gz = (1-isCalScan)*((IZ(ii)-1+0.5)-nz/2)/(nz/2);
         end
 
         % rf excitation
