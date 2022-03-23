@@ -1,7 +1,8 @@
 function [gx, gy, gz, gpre, esp, gx1, kz] = getcaipiepireadout(fov, imSize, Ry, pf_ky, Rz, Delta, gMax, slewRead, slewPre, raster, fbesp)
 %
 % Created 3D EPI CAIPI readout waveform.
-% To generated single-echo GRE readout, use Ry = imSize(2)
+% For now, assumes isotropic resolution.
+% To generate single-echo GRE readout, use Ry = imSize(2)
 %
 % Inputs:
 %  fov       [1 3]  cm
@@ -133,8 +134,6 @@ areax = sum(gx1)*dt*1e-3;   % G/cm * sec
 gpre.x = toppe.utils.trapwave2(areax/2, gMax, slewPre, dt);
 gpre.y = toppe.utils.trapwave2(area/2-dky/Ry/gamma/2, gMax, slewPre, dt);
 gpre.y = [gpre.y(:); zeros(length(gpre.x)-length(gpre.y), 1)]; % make same length
-gpre.z = toppe.utils.trapwave2(area/2-dky/Ry/gamma/2, gMax, slewPre, dt);
-%gpre = gpre(1:(end-1)); % remove 0 at end
 gpre.x = toppe.makeGElength(gpre.x(:)); % make length multiple of 4
 gpre.y = toppe.makeGElength(gpre.y(:));
 gpre.z = gpre.y; % isotropic resolution
@@ -144,12 +143,12 @@ figure;
 gxf = [-gpre.x; gx];
 gyf = [-gpre.y; gy];
 gzf = [-gpre.y; gz];
-kxp = gamma*dt*cumsum(gxf);
-kyp = gamma*dt*cumsum(gyf);
-kzp = gamma*dt*cumsum(gzf);
+kxp = gamma*dt*1e-3*cumsum(gxf);
+kyp = gamma*dt*1e-3*cumsum(gyf);
+kzp = gamma*dt*1e-3*cumsum(gzf);
 subplot(121); plot(kxp,kyp,'b.'); axis equal;
 xlabel('kx (cycles/cm)'); ylabel('ky (cycles/cm)');
-T = dt*1e3*(1:length(kxp));
+T = dt*(1:length(kxp));
 subplot(122); hold off; plot(T,kxp,'r'); hold on; plot(T,kyp,'g'); plot(T,kzp,'b'); hold off;
 legend('kx', 'ky', 'kz'); ylabel('cycles/cm'); xlabel('time (ms)');
 
