@@ -1,9 +1,12 @@
 function [seq, sys] = caipiepifmri(scanType)
 % 3D/SMS CAIPI EPI fMRI scan in TOPPE
-% Implements sequence in Narsude et al MRM 2016, 
-% "Three-Dimensional Echo Planar Imaging with Controlled
-% Aliasing: A Sequence for High Temporal Resolution
-% Functional MRI"
+%
+% 3D version implements sequence in Narsude et al MRM 2016, 
+% "Three-Dimensional Echo Planar Imaging with Controlled Aliasing:
+% A Sequence for High Temporal Resolution Functional MRI"
+%
+% SMS version is similar except partition-encode replaced
+% by z shift of excited slices.
 %
 % Inputs:
 %  scanType    '3D' or 'SMS'
@@ -79,15 +82,13 @@ end
 GEfilePath = ''; %'/usr/g/bin/'; 
 
 %% modules.txt. Entries are tab-separated
-modFileText = ['' ...
-'Total number of unique cores\n' ...
-'3\n' ...
-'fname  duration(us)    hasRF?  hasDAQ?\n' ...
-'tipdown.mod\t0\t1\t0\n' ...
-'prephase.mod\t0\t0\t0\n' ...
-'readout.mod\t0\t0\t1' ];
 fid = fopen('modules.txt', 'wt');
-fprintf(fid, modFileText);
+fprintf(fid, 'Total number of unique cores\n');
+fprintf(fid, '%d\n', 3);
+fprintf(fid, 'fname  duration(us)    hasRF?  hasDAQ?\n');
+fprintf(fid, '%s\t0\t1\t0\n', 'tipdown.mod');
+fprintf(fid, '%s\t0\t0\t0\n', 'prephase.mod');
+fprintf(fid, '%s\t0\t0\t1\n', 'readout.mod');
 fclose(fid);
 
 
@@ -192,15 +193,13 @@ fprintf('\n');
 save gx1 gx1
 save kz kz
 
-return;
-
 %% Create 'sequence stamp' file for TOPPE.
 % This file is listed in the 5th row in toppeN.entry
 % NB! The file toppeN.entry must exist in the folder from where this script is called.
 toppe.preflightcheck('toppeN.entry', 'seqstamp.txt', sys.ge);
 
 %% create tar file
-system('tar czf ~/tmp/scan,epi3d.tgz toppeN.entry seqstamp.txt modules.txt scanloop.txt *.mod epi3d.m getparams.m getepireadout.m gx1.mat kz.mat');
+system('tar czf ~/tmp/scan.tgz toppeN.entry seqstamp.txt modules.txt scanloop.txt *.mod gx1.mat kz.mat');
 
 %tar('epi3d.tar', {entryFile, 'modules.txt', 'scanloop.txt', 'seqstamp.txt', ...
 %    'tipdown.mod', 'prephase.mod', 'readout.mod', ...
