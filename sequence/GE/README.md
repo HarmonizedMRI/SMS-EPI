@@ -1,9 +1,42 @@
-# SMS/3D EPI fMRI sequence
+# SMS/3D EPI fMRI sequence for GE
 
-# Create scan files for GE
+## Create the TOPPE sequence files
+
+Here we use the TOPPE library to create a set of scan files
+that can be executed on GE scanners.
+
+These files can also be converted to Pulseq format 
+using the function `ge2seq.m` in the [https://github.com/toppeMRI/PulseGEq](PulseGEq) toolbox (WIP),
+for execution on Siemens scanners.
 
 ```
->> [seq,sys] = caipiepifmri('SMS');  % or '3D'
->> toppe.plotseq(1,8,sys.ge);
->> toppe.playseq(4,sys.ge, 'tpause', 0.2);
+>> [~,sys] = caipiepifmri('SMS');  % or '3D'
 ```
+
+This creates the file 'cef.tar', that contains the following scan files:
+```
+      toppeN.entry
+      seqstamp.txt
+      scanloop.txt
+      modules.txt
+      .mod files
+```
+ These files are described here: https://github.com/toppeMRI/toppe/blob/main/Files.md
+
+These files are also written to the current Matlab working folder,
+which allows you to plot the scan simply by typing:
+```
+>> toppe.plotseq(1,8,sys.ge);                % plot first 8 module executions
+>> toppe.playseq(4,sys.ge, 'tpause', 0.2);   % loop through the entire scan
+```
+
+## Image reconstruction
+
+![Under (re)construction!](underreconstruction.jpg)
+
+
+<!--
+To create small jpg file (Linux):
+inkscape -C -o underreconstruction.png underreconstruction.svg 
+convert -quality 30 underreconstruction.png underreconstruction.jpg
+-->
