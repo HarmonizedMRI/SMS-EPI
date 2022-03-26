@@ -243,11 +243,6 @@ toppe.preflightcheck('toppeN.entry', 'seqstamp.txt', sys);
 %% create tar file
 system('tar cf cef.tar toppeN.entry seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat');
 
-%tar('epi3d.tar', {entryFile, 'modules.txt', 'scanloop.txt', 'seqstamp.txt', ...
-%    'tipdown.mod', 'prephase.mod', 'readout.mod', ...
-%    'epi3d.m', 'getparams.m', 'getepireadout.m', ...
-%    'gx1.mat', 'kz.mat'});
-
 fprintf(sprintf('\nRename the .entry file and place in /usr/g/research/pulseq/ on scanner host.\n'));
 fprintf(sprintf('  (For example, name it ''toppe10.entry'' and set user CV1 = 10 when prescribing the scan.)\n'));
 fprintf(sprintf('Place all other files in %s on scanner host.\n', filePath));
