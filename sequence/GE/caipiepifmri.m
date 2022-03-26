@@ -1,5 +1,7 @@
-function [seq, sys] = caipiepifmri(scanType)
-% 3D/SMS CAIPI EPI fMRI scan in TOPPE
+function [seq, sys, gx1, kz] = caipiepifmri(scanType)
+% function caipiepifmri(scanType)
+%
+% Creat 3D/SMS CAIPI EPI fMRI scan in TOPPE
 %
 % 3D version implements sequence in Narsude et al MRM 2016, 
 % "Three-Dimensional Echo Planar Imaging with Controlled Aliasing:
@@ -12,7 +14,20 @@ function [seq, sys] = caipiepifmri(scanType)
 %  scanType    '3D' or 'SMS'
 %
 % Outputs:
-%  TOPPE scan files        modules.txt, scanloop.txt, tipdown.mod, and readout.mod
+% This script creates the file 'cef.tar', that contains
+% the following scan files:
+%      toppeN.entry
+%      seqstamp.txt
+%      scanloop.txt
+%      modules.txt
+%      .mod files
+% These files are described here: https://github.com/toppeMRI/toppe/blob/main/Files.md
+% These files are also written to the current Matlab working folder,
+% which allows you to plot the scan right away.
+%
+% Example usage:
+%   >> [~,sys] = caipiepifmri('SMS');
+%   >> toppe.playseq(4,sys, 'tpause', 0.2);
 
 if ~strcmp(scanType, '3D') & ~strcmp(scanType, 'SMS')
     error('Supported scan types: 3D, SMS');
@@ -210,7 +225,7 @@ save kz kz
 toppe.preflightcheck('toppeN.entry', 'seqstamp.txt', sys.ge);
 
 %% create tar file
-system('tar cf smsepi.tar toppeN.entry seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat');
+system('tar cf cef.tar toppeN.entry seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat');
 
 %tar('epi3d.tar', {entryFile, 'modules.txt', 'scanloop.txt', 'seqstamp.txt', ...
 %    'tipdown.mod', 'prephase.mod', 'readout.mod', ...
