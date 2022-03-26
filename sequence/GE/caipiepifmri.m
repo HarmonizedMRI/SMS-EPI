@@ -210,7 +210,7 @@ save kz kz
 toppe.preflightcheck('toppeN.entry', 'seqstamp.txt', sys.ge);
 
 %% create tar file
-system('tar czf ~/tmp/scan.tgz toppeN.entry seqstamp.txt modules.txt scanloop.txt *.mod gx1.mat kz.mat');
+system('tar cf smsepi.tar toppeN.entry seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat');
 
 %tar('epi3d.tar', {entryFile, 'modules.txt', 'scanloop.txt', 'seqstamp.txt', ...
 %    'tipdown.mod', 'prephase.mod', 'readout.mod', ...
