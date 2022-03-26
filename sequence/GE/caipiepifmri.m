@@ -3,6 +3,12 @@ function [seq, sys, gx1, kz] = caipiepifmri(scanType)
 %
 % Creat 3D/SMS CAIPI EPI fMRI scan in TOPPE
 %
+% Make a copy of this file and edit as needed to set things like
+%   system hardware limits
+%   FOV and matrix size
+%   multi-band factor
+%   etc
+%
 % 3D version implements sequence in Narsude et al MRM 2016, 
 % "Three-Dimensional Echo Planar Imaging with Controlled Aliasing:
 % A Sequence for High Temporal Resolution Functional MRI"
@@ -13,7 +19,7 @@ function [seq, sys, gx1, kz] = caipiepifmri(scanType)
 % Inputs:
 %  scanType    '3D' or 'SMS'
 %
-% Outputs:
+% Output:
 % This script creates the file 'cef.tar', that contains
 % the following scan files:
 %      toppeN.entry
@@ -29,28 +35,29 @@ function [seq, sys, gx1, kz] = caipiepifmri(scanType)
 %   >> [~,sys] = caipiepifmri('SMS');
 %   >> toppe.playseq(4,sys, 'tpause', 0.2);
 
-if ~strcmp(scanType, '3D') & ~strcmp(scanType, 'SMS')
-    error('Supported scan types: 3D, SMS');
-end
 
-%% Set hardware limits (for design and detailed timing calculations).
-% 'maxSlew' and 'maxGrad' options can be < scanner limit, and can vary across .mod files. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% EDIT THIS SECTION AS NEEDED
+
+% Set hardware limits (for design and detailed timing calculations).
+% 'maxSlew' and 'maxGrad' options can be < scanner limit, 
+% and can vary across .mod files. 
 sys = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
     'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...
     'myrfdel', 200, ...  % psd_rf_wait
     'daqdel', 100, ...   % psd_grd_wait
     'timessi', 100, ...
-    'gradient', 'xrm');  % MR750 scanner. Used to plot PNS profile in toppe.plotmod()
+    'gradient', 'hrmb');  
 
-
-%% Sequence parameters
+% location of scan files on scanner host
+filePath = '/usr/g/research/pulseq/hmri/SMS-EPI/';
 
 seq.imSize = [80 80 40];
 seq.fov = 0.24*seq.imSize;    % cm
 seq.voxelSize = seq.fov./seq.imSize;
 
 seq.nFrames = 20;  % number of fMRI frames
-seq.nCalFrames = 4;  % Odd/even echo calibration frames (ky and kz-encoding turned off)
+seq.nCalFrames = 4;  % Odd/even echo calibration frames (ky and kz-encoding off)
 
 seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
 
@@ -80,8 +87,16 @@ seq.sms.dur = 4;          % msec
 seq.sms.sliceSep = seq.fov(3)/mb;   % center-to-center separation between SMS slices (cm)
 
 % slew rates for waveform design (G/cm/ms)
-slewRead = [11 15 15];
-slewPre = 8;
+slewRead = [11 15 15];  % x/y/z max slew for EPI train
+slewPre = 8;            % for prewinder trapezoid
+
+%% DONE WITH CUSTOM EDITS 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+if ~strcmp(scanType, '3D') & ~strcmp(scanType, 'SMS')
+    error('Supported scan types: 3D, SMS');
+end
 
 nx = seq.imSize(1);
 ny = seq.imSize(2);
@@ -95,7 +110,7 @@ if mod(nz,seq.Rz) > 0
 end
 
 
-%% Create modules.txt  and toppeN.entry files
+%% Create modules.txt and toppeN.entry
 
 % Entries are tab-separated
 fid = fopen('modules.txt', 'wt');
@@ -109,7 +124,7 @@ fclose(fid);
 
 % The entry file can be edited by hand as needed after copying to scanner
 fid = fopen('toppeN.entry', 'wt');
-fprintf(fid, '/usr/g/research/pulseq/hmri/SMS-EPI/\n');  
+fprintf(fid, '%s\n', filePath);  
 fprintf(fid, 'modules.txt\n');
 fprintf(fid, 'scanloop.txt\n');
 fprintf(fid, '%s\n', 'tipdown.mod');
@@ -158,10 +173,11 @@ toppe.writemod(sys, ...
     'gx', gx, 'gy', gy, 'gz', gz, ...
     'ofname', 'readout.mod' );
 
+
 %% Scan loop
 rfphs = 0;              % radians
 rf_spoil_seed_cnt = 0;
-rf_spoil_seed = 117;
+rf_spoil_seed = 117;    % RF-spoiling phase increment factor
 
 toppe.write2loop('setup', sys, 'version', 4);   % Initialize scanloop.txt
 
@@ -232,5 +248,6 @@ system('tar cf cef.tar toppeN.entry seqstamp.txt scanloop.txt modules.txt *.mod 
 %    'epi3d.m', 'getparams.m', 'getepireadout.m', ...
 %    'gx1.mat', 'kz.mat'});
 
-%fprintf(sprintf('\nPlace %s in /usr/g/research/pulseq/ on scanner host.\n', entryFile));
-%fprintf(sprintf('Place all other files in %s on scanner host.\n', filePath));
+fprintf(sprintf('\nRename the .entry file and place in /usr/g/research/pulseq/ on scanner host.\n'));
+fprintf(sprintf('  (For example, name it ''toppe10.entry'' and set user CV1 = 10 when prescribing the scan.)\n'));
+fprintf(sprintf('Place all other files in %s on scanner host.\n', filePath));
