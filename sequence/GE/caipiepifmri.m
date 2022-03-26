@@ -79,9 +79,10 @@ if mod(nz,seq.Rz) > 0
     error('nz/Rz must be an integer');
 end
 
-GEfilePath = ''; %'/usr/g/bin/'; 
 
-%% modules.txt. Entries are tab-separated
+%% Create modules.txt  and toppeN.entry files
+
+% Entries are tab-separated
 fid = fopen('modules.txt', 'wt');
 fprintf(fid, 'Total number of unique cores\n');
 fprintf(fid, '%d\n', 3);
@@ -89,6 +90,16 @@ fprintf(fid, 'fname  duration(us)    hasRF?  hasDAQ?\n');
 fprintf(fid, '%s\t0\t1\t0\n', 'tipdown.mod');
 fprintf(fid, '%s\t0\t0\t0\n', 'prephase.mod');
 fprintf(fid, '%s\t0\t0\t1\n', 'readout.mod');
+fclose(fid);
+
+% The entry file can be edited by hand as needed after copying to scanner
+fid = fopen('toppeN.entry', 'wt');
+fprintf(fid, '/usr/g/research/pulseq/hmri/SMS-EPI/\n');  
+fprintf(fid, 'modules.txt\n');
+fprintf(fid, 'scanloop.txt\n');
+fprintf(fid, '%s\n', 'tipdown.mod');
+fprintf(fid, '%s\n', 'readout.mod');
+fprintf(fid, 'seqstamp.txt');
 fclose(fid);
 
 
