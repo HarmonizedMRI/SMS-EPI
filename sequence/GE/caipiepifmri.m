@@ -3,12 +3,6 @@ function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 %
 % Creat 3D/SMS CAIPI EPI fMRI scan in TOPPE
 %
-% Make a copy of this file and edit as needed to set things like
-%   system hardware limits
-%   FOV and matrix size
-%   multi-band factor
-%   etc
-%
 % 3D version implements sequence in Narsude et al MRM 2016, 
 % "Three-Dimensional Echo Planar Imaging with Controlled Aliasing:
 % A Sequence for High Temporal Resolution Functional MRI"
@@ -17,7 +11,7 @@ function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 % by z shift of excited slices.
 %
 % Inputs:
-%  scanType    '3D' or 'SMS'
+%  scanType   string   '3D' or 'SMS'
 %  N          [1 3]    matrix size
 %  FOV        [1 3]    field of view (cm)
 %  flip       [1 1]    flip angle (degrees)
