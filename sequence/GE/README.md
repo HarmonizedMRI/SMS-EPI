@@ -23,6 +23,10 @@ which allows you to plot the scan simply by typing:
 >> toppe.playseq(4,sys.ge, 'tpause', 0.2);   % loop through the entire scan
 ```
 
+<!-- 
+![Example sequence timing diagram](seq.png)
+-->
+
 These files can also be **converted to Pulseq format** 
 using the function `ge2seq.m` in the [https://github.com/toppeMRI/PulseGEq](PulseGEq) toolbox (WIP),
 for execution on Siemens scanners.
