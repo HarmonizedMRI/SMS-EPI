@@ -3,7 +3,7 @@
 ## Create the sequence files
 
 ```
->> [~,sys] = caipiepifmri('SMS');  % or '3D'
+>> [~,sys] = caipiepifmri('SMS', N, FOV, flip, nFrames, 'mb', 6);  % or '3D'
 ```
 
 This creates the file 'cef.tar' (in the Matlab working directory), that contains the following scan files:
