@@ -21,7 +21,7 @@ function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 % 
 %
 % Output:
-% This script creates the file 'cef.tar', that contains
+% This script creates the file 'fmri.tar', that contains
 % the following scan files:
 %      toppeN.entry
 %      seqstamp.txt
@@ -38,7 +38,7 @@ function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 
 %% Set defaults for keyword arguments and replace if provided
 arg.entryFile = 'toppeN.entry';
-arg.filePath = '/usr/g/research/pulseq/hmri/cefmri/';  % location of scan files on scanner host
+arg.filePath = '/usr/g/research/pulseq/fmri/';  % location of scan files on scanner host
 arg.rfSpoilSeed = 117;         % RF spoiling phase increment factor (degrees)
 arg.mb = 4;        % sms/multiband factor (number of simultaneous slices)
 arg.Ry = 1;        % y acceleration factor
@@ -47,6 +47,8 @@ arg.Rz = arg.mb;      % z acceleration factor
 arg.Delta = arg.mb;   % kz step size (multiples of 1/fov(3))
 arg.nCalFrames = 4;   % Odd/even echo calibration frames (ky and kz-encoding off)
 arg.doSim = true;     % Plot simulated SMS slice profile
+arg.alternateReadout = false;  % flip sign of gx gradient every time-frame
+arg.nSpoilCycles = 2;   % number of cycles/voxel of gradient spoiling along z
 
 % Hardware limits (for design and detailed timing calculations).
 % 'maxSlew' and 'maxGrad' options can be < scanner limit, 
@@ -65,16 +67,22 @@ arg = toppe.utils.vararg_pair(arg, varargin);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EDIT THIS SECTION AS NEEDED
 
-seq.nSpoilCycles = 2;   % number of cycles of gradient spoiling along z
-
 % TODO: specify TR and TE
 
-% slab excitation pulse parameters
-seq.slab.thick = 0.8*FOV(3); % to avoid wrap-around in z
-seq.slab.tbw = 12;
-seq.slab.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
-seq.slab.ftype = 'min'; % minimum-phase SLR pulse is well suited for 3D slab excitation
-seq.slab.dur = 1.5;  % ms
+% slab/slice excitation pulse parameters
+if N(3) > 1  % 3D
+    seq.slab.thick = 0.8*FOV(3); % to avoid wrap-around in z
+    seq.slab.tbw = 8;
+    seq.slab.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
+    seq.slab.ftype = 'min'; % minimum-phase SLR pulse is well suited for 3D slab excitation
+    seq.slab.dur = 1.5;  % ms
+else
+    seq.slab.thick = FOV(3); 
+    seq.slab.tbw = 8;
+    seq.slab.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
+    seq.slab.ftype = 'ls'; % minimum-phase SLR pulse is well suited for 3D slab excitation
+    seq.slab.dur = 1.5;  % ms
+end
 
 % SMS excitation pulse parameters
 seq.sms.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
@@ -143,7 +151,7 @@ if strcmp(scanType, 'SMS')
 else
     % slab select
     toppe.utils.rf.makeslr(flip, seq.slab.thick, ...
-        seq.slab.tbw, seq.slab.dur, nz*seq.nSpoilCycles, arg.sys, ...
+        seq.slab.tbw, seq.slab.dur, nz*arg.nSpoilCycles, arg.sys, ...
         'type', seq.slab.type, ...     % 'st' = small-tip. 'ex' = 90 degree design
         'ftype', seq.slab.ftype, ...  
         'spoilDerate', 0.5, ...
@@ -185,7 +193,11 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
     %a_gy = ((iy-1+0.5)-ny/2)/(ny/2);
     a_gy = (1-isCalScan)*((1-1+0.5)-ny/2)/(ny/2);
 
-    a_gx = (-1)^(ifr+1); % alternate so we can combine frames to simulate flyback EPI
+    if ~isCalScan & arg.alternateReadout
+        a_gx = (-1)^(ifr+1); % alternate so we can combine frames to simulate flyback EPI
+    else
+        a_gx = 1;
+    end
 
     % z encoding / SMS slice shift loop
     for ii = 1:length(IZ)  
@@ -233,6 +245,6 @@ save kz kz
 toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
 %% create tar file
-system(sprintf('tar cf cef.tar %s seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat', arg.entryFile));
+system(sprintf('tar cf fmri.tar %s seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat', arg.entryFile));
 
 toppe.utils.scanmsg(arg.entryFile);
