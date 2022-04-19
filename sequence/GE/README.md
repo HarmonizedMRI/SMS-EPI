@@ -1,12 +1,15 @@
 # SMS/3D EPI fMRI sequence for GE
 
+Create 3D/SMS EPI fMRI sequence using the TOPPE library.
+
+
 ## Create the sequence files
 
 ```
 >> [~,sys] = caipiepifmri('SMS', N, FOV, flip, nFrames, 'mb', 6);  % or '3D'
 ```
 
-This creates the file 'cef.tar' (in the Matlab working directory), that contains the following scan files:
+This creates the file 'fmri.tar' (in the Matlab working directory), that contains the following scan files:
 ```
   toppeN.entry
   seqstamp.txt
