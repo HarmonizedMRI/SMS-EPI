@@ -1,5 +1,5 @@
-function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
-% function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
+function epiInfo = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
+% function epiInfo = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 %
 % Creat 3D/SMS CAIPI EPI fMRI scan in TOPPE
 %
@@ -20,8 +20,10 @@ function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 % Optional keywords arguments with defaults:
 % 
 %
-% Output:
-% This script creates the file 'fmri.tar', that contains
+% Outputs:
+%  epiInfo    struct with various information needed for reconstruction
+% 
+% In addition, this script creates the file 'fmri.tar', that contains
 % the following scan files:
 %      toppeN.entry
 %      seqstamp.txt
@@ -33,7 +35,7 @@ function [gx1, kz] = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 % which allows you to plot the scan right away.
 %
 % Example usage:
-%   >> [~,sys] = caipiepifmri('SMS');
+%   >>  = caipiepifmri('SMS');
 %   >> toppe.playseq(4,sys, 'tpause', 0.2);
 
 %% Set defaults for keyword arguments and replace if provided
@@ -166,8 +168,6 @@ end
     arg.sys.maxGrad, slewRead, slewPre, ...
     arg.sys.raster*1e3, arg.sys.forbiddenEspRange);
 
-save readoutInfo gx gpre N FOV gx1 % needed for calibration and reconstruction
-
 toppe.writemod(arg.sys, ...
     'gx', gpre.x, 'gy', gpre.y, 'gz', gpre.z, ...
     'ofname', 'prephase.mod' );
@@ -238,9 +238,6 @@ end
 toppe.write2loop('finish', arg.sys);
 fprintf('\n');
 
-save gx1 gx1
-save kz kz
-
 %% Create 'sequence stamp' file for TOPPE.
 % This file is listed in the 5th row in entryFile
 % NB! The file entryFile must exist in the folder from where this script is called.
@@ -250,3 +247,12 @@ toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 system(sprintf('tar cf fmri.tar %s seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat', arg.entryFile));
 
 toppe.utils.scanmsg(arg.entryFile);
+
+
+%% Return struct needed for recon
+epiInfo.N = N;
+epiInfo.FOV = FOV;
+epiInfo.gpre = gpre;  % x prewinder (G/cm)
+epiInfo.gx = gx;      % full echo train (G/cm)
+epiInfo.gx1 = gx1;    % one echo
+
