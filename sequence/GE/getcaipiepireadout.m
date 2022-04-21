@@ -1,4 +1,4 @@
-function [gx, gy, gz, gpre, esp, gx1, kz] = getcaipiepireadout(fov, imSize, Ry, pf_ky, Rz, Delta, gMax, slewRead, slewPre, raster, fbesp)
+function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(fov, imSize, Ry, pf_ky, Rz, Delta, gMax, slewRead, slewPre, raster, fbesp)
 %
 % Created 3D EPI CAIPI readout waveform.
 % For now, assumes isotropic resolution.
