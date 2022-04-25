@@ -255,5 +255,6 @@ epiInfo.FOV = FOV;
 epiInfo.gpre = gpre;  % x prewinder (G/cm)
 epiInfo.gx = gx;      % full echo train (G/cm)
 epiInfo.gx1 = gx1;    % one echo
+epiInfo.esp = esp;
 epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
 
