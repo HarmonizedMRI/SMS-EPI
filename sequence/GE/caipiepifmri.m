@@ -244,7 +244,7 @@ fprintf('\n');
 toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
 %% create tar file
-system(sprintf('tar cf fmri.tar %s seqstamp.txt scanloop.txt modules.txt *.mod gx1.mat kz.mat', arg.entryFile));
+system(sprintf('tar cf fmri.tar %s seqstamp.txt scanloop.txt modules.txt *.mod', arg.entryFile));
 
 toppe.utils.scanmsg(arg.entryFile);
 
