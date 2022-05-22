@@ -306,6 +306,9 @@ function sub_test()
     % and 'executes' the sequence.
     % The displayed sequence timing (determined by sys) should be exact.
     nModsPerTR = 4;
-    toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
+    reply = input('Display scan loop? Y/N [Y] ', 's');
+    if isempty(reply) | strcmp(upper(reply), 'Y')
+        toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
+    end
 
 return
