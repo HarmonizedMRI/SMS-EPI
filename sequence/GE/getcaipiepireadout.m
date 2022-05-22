@@ -1,7 +1,7 @@
 function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, varargin) 
-%function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, gMax, slewRead, slewPre, raster, fbesp)
+% function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, varargin) 
 %
-% Created 3D EPI CAIPI readout waveform.
+% Created 3D EPI CAIPI readout gradient waveform.
 % For now, assumes isotropic resolution.
 % Assumes gradient raster = ADC dwell time = 4us (for now).
 %
@@ -11,14 +11,14 @@ function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, im
 %  Ry        [1]    ky acceleration factor
 %  Rz        [1]    kz acceleration factor
 %  pf_ky     [1]    Partial Fourier factor (along ky). 
-%  CaipiShiftZ  [1]    size of kz step (integer multiples of 1/FOV(3))). Must be > 0.
+%  CaipiShiftZ  [1]    size of kz step (integer multiples of 1/FOV(3))). 
 % 
 % Optional keyword arguments
-%  gMax      [1]    Gauss/cm
-%  slewRead  [1 3]  max slew along x/y/z gradient axis (Gauss/cm/ms)
-%  slewPre   [1] max slew during prephasing gradient trapezoid (Gauss/cm/ms)
-%  fbesp     [2] forbidden echo spacing range (ms)
-%  plot      boolean    plot k-space? Default: false
+%  gMax      [1]       nax gradient (Gauss/cm). Default: 20
+%  slewRead  [1 3]     max slew along x/y/z gradient axis (Gauss/cm/ms). Default: [12 15 15]
+%  slewPre   [1]       max slew during prephasing gradient trapezoid (Gauss/cm/ms). Default: 12
+%  fbesp     [1 2]     forbidden echo spacing range (ms). Default: [0.41 0.51]
+%  plot      boolean   plot k-space? Default: false
 %
 % Outputs:
 %  gx     x readout waveform (G/cm), without prephaser at beginning
@@ -41,9 +41,9 @@ if CaipiShiftZ < 1 | rem(CaipiShiftZ,1)
 end
 
 % Set keyword argument defaults and parse input
-arg.gMax = 20;      % Peak gradient amplitude (Gauss/cm)
-arg.slewRead = [15 15 15];  % Limit slew rate to this value (Gauss/cm/ms), to control PNS.
-arg.slewPre = 12;   % Limit slew rate to this value (Gauss/cm/ms) during prewinder.
+arg.gMax = 5;              % Peak gradient amplitude (Gauss/cm)
+arg.slewRead = [11 15 15];  % Limit slew rate to this value (Gauss/cm/ms), to control PNS.
+arg.slewPre = 10;   % Limit slew rate to this value (Gauss/cm/ms) during prewinder.
 arg.fbesp = [0.41 0.51]; % forbidden echo spacing range (ms)
 arg.plot = false;
 arg.SegmentationFactor = 1;

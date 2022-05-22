@@ -1,7 +1,7 @@
-function epiInfo = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
-% function epiInfo = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
+function epiInfo = caipiepifmri(scanType, FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, varargin)
+% function epiInfo = caipiepifmri(scanType, FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, varargin)
 %
-% Creat 3D/SMS CAIPI EPI fMRI scan in TOPPE
+% Creat 3D/SMS CAIPI EPI fMRI sequence in TOPPE format.
 %
 % 3D version implements sequence in Narsude et al MRM 2016, 
 % "Three-Dimensional Echo Planar Imaging with Controlled Aliasing:
@@ -11,14 +11,15 @@ function epiInfo = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 % by z shift of excited slices.
 %
 % Inputs:
-%  scanType   string   '3D' or 'SMS'
-%  N          [1 3]    matrix size
-%  FOV        [1 3]    field of view (cm)
-%  flip       [1 1]    flip angle (degrees)
-%  nFrames    [1 1]    number of time frames
-%
-% Optional keywords arguments with defaults:
-% 
+%  scanType    string   '3D' or 'SMS'
+%  FOV         [1 3]    field of view (cm)
+%  imSize      [1 3]    image volume matrix size
+%  Ry          [1]      ky acceleration factor (can be non-integer)
+%  pf_ky       [1]      Partial Fourier factor (along ky). Range is [0.7 1.0].
+%  Rz          [1]      kz acceleration factor (integer)
+%  CaipiShiftZ [1]      size of kz step (integer multiples of 1/FOV(3))). Must be > 0.
+%  flip        [1 1]    flip angle (degrees)
+%  nFrames     [1 1]    number of time frames
 %
 % Outputs:
 %  epiInfo    struct with various information needed for reconstruction
@@ -38,19 +39,26 @@ function epiInfo = caipiepifmri(scanType, N, FOV, flip, nFrames, varargin)
 %   >>  = caipiepifmri('SMS');
 %   >> toppe.playseq(4,sys, 'tpause', 0.2);
 
+if strcmp(scanType, 'test')
+    sub_test();
+    return
+end
+
 %% Set defaults for keyword arguments and replace if provided
 arg.entryFile = 'toppeN.entry';
 arg.filePath = '/usr/g/research/pulseq/fmri/';  % location of scan files on scanner host
 arg.rfSpoilSeed = 117;         % RF spoiling phase increment factor (degrees)
-arg.mb = 4;        % sms/multiband factor (number of simultaneous slices)
-arg.Ry = 1;        % y acceleration factor
-arg.pf_ky = 1.0;   % Partial Fourier factor
-arg.Rz = arg.mb;      % z acceleration factor
-arg.Delta = arg.mb;   % kz step size (multiples of 1/fov(3))
+arg.mb = Rz;        % sms/multiband factor (number of simultaneous slices)
 arg.nCalFrames = 4;   % Odd/even echo calibration frames (ky and kz-encoding off)
 arg.doSim = true;     % Plot simulated SMS slice profile
 arg.alternateReadout = false;  % flip sign of gx gradient every time-frame
 arg.nSpoilCycles = 2;   % number of cycles/voxel of gradient spoiling along z
+
+% EPI train parameters
+arg.epiGMax = 5;               % peak gradient amplitude (Gauss/cm)
+arg.epiSlewRead = [11 15 15];  % Limit slew rate to this value (Gauss/cm/ms), to control PNS.
+arg.epiSlewPre = 10;           % Limit slew rate to this value (Gauss/cm/ms) during prewinder.
+arg.forbiddenEspRange = [0.41 0.51];  % forbidden echo spacing range (ms)
 
 % Hardware limits (for design and detailed timing calculations).
 % 'maxSlew' and 'maxGrad' options can be < scanner limit, 
@@ -72,7 +80,7 @@ arg = toppe.utils.vararg_pair(arg, varargin);
 % TODO: specify TR and TE
 
 % slab/slice excitation pulse parameters
-if N(3) > 1  % 3D
+if imSize(3) > 1  % 3D
     seq.slab.thick = 0.8*FOV(3); % to avoid wrap-around in z
     seq.slab.tbw = 8;
     seq.slab.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
@@ -104,16 +112,16 @@ if ~strcmp(scanType, '3D') & ~strcmp(scanType, 'SMS')
     error('Supported scan types: 3D, SMS');
 end
 
-seq.voxelSize = FOV./N;
+seq.voxelSize = FOV./imSize;
 
-nx = N(1);
-ny = N(2);
-nz = N(3);
+nx = imSize(1);
+ny = imSize(2);
+nz = imSize(3);
 
-if mod(ny,arg.Ry) > 0
+if mod(ny, Ry) 
     error('ny/Ry must be an integer');
 end
-if mod(nz,arg.Rz) > 0
+if mod(nz, Rz)
     error('nz/Rz must be an integer');
 end
 
@@ -152,21 +160,24 @@ if strcmp(scanType, 'SMS')
     freq = freq/seq.sms.sliceSep*seq.voxelSize(3); % frequency offset for z shift of seq.voxelSize(3)
 else
     % slab select
+    tmp = arg.sys;
+    tmp.maxSlew = 10;   % G/cm/ms. Reduce PNS during slice rephaser.
     toppe.utils.rf.makeslr(flip, seq.slab.thick, ...
-        seq.slab.tbw, seq.slab.dur, nz*arg.nSpoilCycles, arg.sys, ...
+        seq.slab.tbw, seq.slab.dur, nz*arg.nSpoilCycles, tmp, ...
         'type', seq.slab.type, ...     % 'st' = small-tip. 'ex' = 90 degree design
         'ftype', seq.slab.ftype, ...  
-        'spoilDerate', 0.5, ...
+        'spoilDerate', 1.0, ...
         'ofname', 'tipdown.mod');
 end
 
 
 %% Readout 
-[gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, N, ...
-    arg.Ry, arg.pf_ky, ...
-    arg.Rz, arg.Delta, ...
-    arg.sys.maxGrad, slewRead, slewPre, ...
-    arg.sys.raster*1e3, arg.sys.forbiddenEspRange);
+[gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, ...
+    Ry, pf_ky, Rz, CaipiShiftZ, ...
+    'gMax', arg.epiGMax, ...
+    'slewRead', arg.epiSlewRead, ...
+    'slewPre', arg.epiSlewPre, ...
+    'fbesp', arg.forbiddenEspRange);
 
 toppe.writemod(arg.sys, ...
     'gx', gpre.x, 'gy', gpre.y, 'gz', gpre.z, ...
@@ -183,7 +194,7 @@ rfSpoilSeed_cnt = 0;
 
 toppe.write2loop('setup', arg.sys, 'version', 4);   % Initialize scanloop.txt
 
-IZ = 1:arg.Rz:nz;
+IZ = 1:Rz:nz;
 
 % temporal loop
 for ifr = 1:(arg.nCalFrames  + nFrames)
@@ -241,7 +252,7 @@ fprintf('\n');
 %% Create 'sequence stamp' file for TOPPE.
 % This file is listed in the 5th row in entryFile
 % NB! The file entryFile must exist in the folder from where this script is called.
-toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
+%toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
 %% create tar file
 system(sprintf('tar cf fmri.tar %s seqstamp.txt scanloop.txt modules.txt *.mod', arg.entryFile));
@@ -250,7 +261,7 @@ toppe.utils.scanmsg(arg.entryFile);
 
 
 %% Return struct needed for recon
-epiInfo.N = N;
+epiInfo.imSize = imSize;
 epiInfo.FOV = FOV;
 epiInfo.gpre = gpre;  % x prewinder (G/cm)
 epiInfo.gx = gx;      % full echo train (G/cm)
@@ -258,3 +269,43 @@ epiInfo.gx1 = gx1;    % one echo
 epiInfo.esp = esp;
 epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
 
+return
+
+function sub_test()
+
+    % System hardware specs
+    sysGE = toppe.systemspecs('maxSlew', 20, 'slewUnit', 'Gauss/cm/ms', ...
+        'maxGrad', 5, 'gradUnit', 'Gauss/cm', ...
+        'myrfdel', 200, ...  % psd_rf_wait
+        'daqdel', 100, ...   % psd_grd_wait
+        'timessi', 100, ...
+        'gradient', 'hrmb');  
+
+    % sequence parameters
+    res = 0.275;  % cm
+    imSize = [80 80 60];
+    FOV = imSize*res;  % cm
+    Ry = 1;
+    pf_ky = 0.8;
+    Rz = 6;
+    CaipiShiftZ = 2;
+    flip = 15;
+    nFrames = 10;
+    
+    % create fMRI sequence. Writes TOPPE files to the current folder.
+    caipiepifmri('3D', FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, ...
+        'sys', sysGE, ...
+        'epiGMax', 5, ...
+        'epiSlewRead', [11 15 15], ...
+        'epiSlewPre', 10, ...
+        'forbiddenEspRange', [0.41 0.51]);
+
+    % Display scan loop
+    % The 'playseq' function acts a lot like the interpreter, i.e.,
+    % it reads modules.txt and scanloop.txt in the current working directory
+    % and 'executes' the sequence.
+    % The displayed sequence timing (determined by sys) should be exact.
+    nModsPerTR = 4;
+    toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
+
+return
