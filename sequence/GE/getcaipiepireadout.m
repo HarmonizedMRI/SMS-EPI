@@ -1,4 +1,6 @@
-function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(fov, imSize, Ry, pf_ky, Rz, Delta, gMax, slewRead, slewPre, raster, fbesp)
+function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(fov, imSize, Ry, pf_ky, Rz, CaipiShiftZ, raster, varargin) 
+% SegmentationFactor, gMax, slewRead, slewPre, raster, fbesp)
+%function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(fov, imSize, Ry, pf_ky, Rz, Delta, gMax, slewRead, slewPre, raster, fbesp)
 %
 % Created 3D EPI CAIPI readout waveform.
 % For now, assumes isotropic resolution.
@@ -25,6 +27,15 @@ function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(fov, im
 %  esp    echo spacing (ms)
 %  gx1    waveform for one echo (G/cm)
 %  kz     kz encoding indeces
+
+arg.SegmentationFactor = 1;
+arg.gMax = 20;      % Peak gradient amplitude (Gauss/cm)
+arg.slewRead = 10;  % Limit slew rate to this value (Gauss/cm/ms), to control PNS.
+
+arg = toppe.utils.vararg_pair(arg, varargin);
+
+
+Delta = CaipiShiftZ;
 
 % check inputs
 if mod(Delta,1) | Delta < 1
