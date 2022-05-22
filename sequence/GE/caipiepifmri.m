@@ -287,12 +287,12 @@ function sub_test()
     FOV = imSize*res;  % cm
     Ry = 1;
     pf_ky = 0.8;
-    Rz = 6;
+    Rz = 4;
     CaipiShiftZ = 2;
     flip = 15;
     nFrames = 10;
     
-    % create fMRI sequence. Writes TOPPE files to the current folder.
+    % create 3D EPI fMRI sequence. Writes TOPPE files to the current folder.
     caipiepifmri('3D', FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, ...
         'sys', sysGE, ...
         'epiGMax', 5, ...
@@ -306,7 +306,21 @@ function sub_test()
     % and 'executes' the sequence.
     % The displayed sequence timing (determined by sys) should be exact.
     nModsPerTR = 4;
-    reply = input('Display scan loop? Y/N [Y] ', 's');
+    reply = input('Display 3D EPI scan loop? Y/N [Y] ', 's');
+    if isempty(reply) | strcmp(upper(reply), 'Y')
+        toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
+    end
+    
+    % Create SMS EPI fMRI sequence
+    caipiepifmri('SMS', FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, ...
+        'sys', sysGE, ...
+        'epiGMax', 5, ...
+        'epiSlewRead', [11 15 15], ...
+        'epiSlewPre', 10, ...
+        'forbiddenEspRange', [0.41 0.51]);
+
+    nModsPerTR = 4;
+    reply = input('Display SMS EPI scan loop? Y/N [Y] ', 's');
     if isempty(reply) | strcmp(upper(reply), 'Y')
         toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
     end

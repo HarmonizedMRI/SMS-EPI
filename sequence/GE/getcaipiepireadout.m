@@ -188,4 +188,7 @@ function sub_test()
     [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, ...
         'plot', true) ;
 
+    load caipi
+    figure; im(mask);  % ky/kz sampling pattern
+
 return
