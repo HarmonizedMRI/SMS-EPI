@@ -47,6 +47,7 @@ arg.slewPre = 10;   % Limit slew rate to this value (Gauss/cm/ms) during prewind
 arg.fbesp = [0.41 0.51]; % forbidden echo spacing range (ms)
 arg.plot = false;
 arg.SegmentationFactor = 1;
+arg.caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
 
 arg = toppe.utils.vararg_pair(arg, varargin);
 
@@ -70,8 +71,9 @@ dkz = 1/FOV(3);        % kz spacing (cycles/cm) corresponding to CaipiShiftZ=1
 etl = ceil(pf_ky*ny/Ry);
 
 % kz-encode indeces for one echo train
-system(sprintf('python skippedcaipi_sampling.py %d %d %d %d %d %d', ...
-    Ry, Rz, CaipiShiftZ, 1, ny, nz));
+pyFile = [arg.caipiPythonPath '/skippedcaipi_sampling.py'];
+system(sprintf('python %s %d %d %d %d %d %d', ...
+    pyFile, Ry, Rz, CaipiShiftZ, 1, ny, nz));
 load caipi
 kz1 = double(indices(:,1)' + 1);
 %kz = [];
