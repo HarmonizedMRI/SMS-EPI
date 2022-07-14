@@ -73,7 +73,7 @@ etl = ceil(pf_ky*ny/Ry);
 % kz-encode indeces for one echo train
 pyFile = [arg.caipiPythonPath '/skippedcaipi_sampling.py'];
 system(sprintf('python %s %d %d %d %d %d %d', ...
-    pyFile, Ry, Rz, CaipiShiftZ, 1, ny, nz));
+    pyFile, ny, nz, Ry, Rz, CaipiShiftZ, 1));
 load caipi
 kz1 = double(indices(:,1)' + 1);
 %kz = [];
