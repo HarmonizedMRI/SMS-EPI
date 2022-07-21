@@ -156,6 +156,7 @@ if strcmp(scanType, 'SMS')
 	    'ftype', seq.sms.ftype);
 
     toppe.writemod(arg.sys, 'rf', ex.rf, 'gz', ex.g, ...
+        'nChop', [12 12], ...   % to make room for RF ringdown during conversion to Pulseq
 	    'ofname', 'tipdown.mod' );
 
     freq = freq/seq.sms.sliceSep*seq.voxelSize(3); % frequency offset for z shift of seq.voxelSize(3)
