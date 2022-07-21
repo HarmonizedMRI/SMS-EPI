@@ -155,8 +155,11 @@ if strcmp(scanType, 'SMS')
 	    'type', seq.sms.type, ...
 	    'ftype', seq.sms.ftype);
 
+    nomflip = 360 * arg.sys.gamma * abs(sum(ex.rf)) * 4e-6  % this seems problematic for SMS pulses
+
     toppe.writemod(arg.sys, 'rf', ex.rf, 'gz', ex.g, ...
-        'nChop', [12 12], ...   % to make room for RF ringdown during conversion to Pulseq
+        'nChop', [12 12], ...   % make room for RF ringdown during conversion to Pulseq
+        'nomflip', nomflip, ...    % for b1 scaling during conversion to Pulseq
 	    'ofname', 'tipdown.mod' );
 
     freq = freq/seq.sms.sliceSep*seq.voxelSize(3); % frequency offset for z shift of seq.voxelSize(3)
