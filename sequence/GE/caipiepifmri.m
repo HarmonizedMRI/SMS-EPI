@@ -54,6 +54,8 @@ arg.doSim = true;     % Plot simulated SMS slice profile
 arg.alternateReadout = false;  % flip sign of gx gradient every time-frame
 arg.nSpoilCycles = 2;   % number of cycles/voxel of gradient spoiling along z
 arg.caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
+arg.fatsat       = true;         % add fat saturation pulse?
+arg.fatFreqSign = +1;            % sign of fatsat pulse frequency offset
 
 % EPI train parameters
 arg.epiGMax = 5;               % peak gradient amplitude (Gauss/cm)
@@ -130,10 +132,14 @@ end
 %% Create modules.txt and entryFile
 
 % Entries are tab-separated
+nModules = 3 + arg.fatsat;
 fid = fopen('modules.txt', 'wt');
 fprintf(fid, 'Total number of unique cores\n');
-fprintf(fid, '%d\n', 3);
+fprintf(fid, '%d\n', nModules);
 fprintf(fid, 'fname  duration(us)    hasRF?  hasDAQ?\n');
+if arg.fatsat
+    fprintf(fid, '%s\t0\t1\t0\n', 'fatsat.mod');
+end
 fprintf(fid, '%s\t0\t1\t0\n', 'tipdown.mod');
 fprintf(fid, '%s\t0\t0\t0\n', 'prephase.mod');
 fprintf(fid, '%s\t0\t0\t1\n', 'readout.mod');
@@ -143,6 +149,19 @@ fclose(fid);
 % This can be edited by hand as needed after copying to scanner.
 toppe.writeentryfile(arg.entryFile, ...
     'filePath', arg.filePath);
+
+
+%% fat sat module
+fatsat.flip    = 90;
+fatsat.slThick = 1000;       % dummy value (determines slice-select gradient, but we won't use it; just needs to be large to reduce dead time before+after rf pulse)
+fatsat.tbw     = 2.0;        % time-bandwidth product
+fatsat.dur     = 4.5;        % pulse duration (ms)
+
+b1 = toppe.utils.rf.makeslr(fatsat.flip, fatsat.slThick, fatsat.tbw, fatsat.dur, 1e-6, arg.sys, ...
+    'type', 'ex', ...    % fatsat pulse is a 90 so is of type 'ex', not 'st' (small-tip)
+    'writeModFile', false);
+b1 = toppe.makeGElength(b1);
+toppe.writemod(arg.sys, 'rf', b1, 'ofname', 'fatsat.mod', 'desc', 'fat sat pulse');
 
 
 %% Slab/SMS excitation
@@ -229,6 +248,18 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
             a_gz = (1-isCalScan)*((IZ(ii)-1+0.5)-nz/2)/(nz/2);
         end
 
+        % fat sat
+        if(arg.fatsat)
+            fatChemShift = 3.5;  % fat/water chemical shift (ppm)
+            fatFreq = arg.fatFreqSign*arg.sys.gamma*1e4*arg.sys.B0*fatChemShift*1e-6;  % Hz
+            toppe.write2loop('fatsat.mod', arg.sys, ...
+                'RFoffset', round(fatFreq), ...   % Hz
+                'RFphase', rfphs);         % radians
+
+            rfphs = rfphs + (arg.rfSpoilSeed/180*pi)*rfSpoilSeed_cnt ;  % radians
+            rfSpoilSeed_cnt = rfSpoilSeed_cnt + 1;
+        end
+
         % rf excitation
         toppe.write2loop('tipdown.mod', arg.sys, ...
             'RFoffset', f, ...
@@ -301,6 +332,7 @@ function sub_test()
     % create 3D EPI fMRI sequence. Writes TOPPE files to the current folder.
     caipiepifmri('3D', FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, ...
         'sys', sysGE, ...
+        'fatsat', true, ...
         'epiGMax', 5, ...
         'epiSlewRead', [11 15 15], ...
         'epiSlewPre', 10, ...
@@ -311,7 +343,7 @@ function sub_test()
     % it reads modules.txt and scanloop.txt in the current working directory
     % and 'executes' the sequence.
     % The displayed sequence timing (determined by sys) should be exact.
-    nModsPerTR = 4;
+    nModsPerTR = 5;
     reply = input('Display 3D EPI scan loop? Y/N [Y] ', 's');
     if isempty(reply) | strcmp(upper(reply), 'Y')
         toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
@@ -320,12 +352,13 @@ function sub_test()
     % Create SMS EPI fMRI sequence
     caipiepifmri('SMS', FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, flip, nFrames, ...
         'sys', sysGE, ...
+        'fatsat', true, ...
         'epiGMax', 5, ...
         'epiSlewRead', [11 15 15], ...
         'epiSlewPre', 10, ...
         'forbiddenEspRange', [0.41 0.51]);
 
-    nModsPerTR = 4;
+    nModsPerTR = 5;
     reply = input('Display SMS EPI scan loop? Y/N [Y] ', 's');
     if isempty(reply) | strcmp(upper(reply), 'Y')
         toppe.playseq(nModsPerTR, sysGE, 'nTRskip', 1, 'tpause', 0.1);
