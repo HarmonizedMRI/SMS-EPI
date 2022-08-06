@@ -56,6 +56,7 @@ arg.nSpoilCycles = 2;   % number of cycles/voxel of gradient spoiling along z
 arg.caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
 arg.fatsat       = true;         % add fat saturation pulse?
 arg.fatFreqSign = +1;            % sign of fatsat pulse frequency offset
+arg.ofname = 'fmri.tar'          % output file name
 
 % EPI train parameters
 arg.epiGMax = 5;               % peak gradient amplitude (Gauss/cm)
@@ -290,7 +291,7 @@ fprintf('\n');
 %toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
 %% create tar file
-system(sprintf('tar cf fmri.tar %s seqstamp.txt scanloop.txt modules.txt *.mod', arg.entryFile));
+system(sprintf('tar cf %s %s seqstamp.txt scanloop.txt modules.txt *.mod', arg.ofname, arg.entryFile));
 
 toppe.utils.scanmsg(arg.entryFile);
 
