@@ -164,7 +164,7 @@ b1 = toppe.makeGElength(b1);
 toppe.writemod(arg.sys, 'rf', b1, 'ofname', 'fatsat.mod', 'desc', 'fat sat pulse');
 
 
-%% Slab/SMS excitation
+%% Slab/SMS excitation module
 if strcmp(scanType, 'SMS')
     tmp = arg.sys;
     tmp.maxSlew = 8;   % G/cm/ms. Reduce PNS during slice rephaser.
@@ -195,7 +195,7 @@ else
 end
 
 
-%% Readout 
+%% EPI readout module
 [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, ...
     Ry, pf_ky, Rz, CaipiShiftZ, ...
     'gMax', arg.epiGMax, ...
@@ -226,9 +226,7 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
     fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bFrame %d of %d', ifr, arg.nCalFrames + nFrames);
     isCalScan = (ifr < arg.nCalFrames + 1);
 
-    % shift ky sampling pattern (for Ry = 2, this corresponds to UNFOLD)
-    %iy = (1 + (-1)^(ifr))/2 + 1;   % 1 or 2
-    %a_gy = ((iy-1+0.5)-ny/2)/(ny/2);
+    % y readout prephaser gradient amplitude scaling (normalized)
     a_gy = (1-isCalScan)*((1-1+0.5)-ny/2)/(ny/2);
 
     if ~isCalScan & arg.alternateReadout
@@ -242,7 +240,7 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
 
         if strcmp(scanType, 'SMS')
 		    f = round((ii-0.5-length(IZ)/2)*freq);  % frequency offset (Hz) for slice shift
-            a_gz = 0;
+            a_gz = 0;  % prephaser amplitude
         else
             f = 0;
             a_gz = (1-isCalScan)*((IZ(ii)-1+0.5)-nz/2)/(nz/2);
@@ -308,6 +306,10 @@ epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
 
 return
 
+
+
+
+%% test function / example usage
 function sub_test()
 
     % System hardware specs
@@ -342,7 +344,8 @@ function sub_test()
     % The 'playseq' function acts a lot like the interpreter, i.e.,
     % it reads modules.txt and scanloop.txt in the current working directory
     % and 'executes' the sequence.
-    % The displayed sequence timing (determined by sys) should be exact.
+    % The displayed sequence timing (determined by sys) tries to exactly match
+    % what you'd see on the scanner.
     nModsPerTR = 5;
     reply = input('Display 3D EPI scan loop? Y/N [Y] ', 's');
     if isempty(reply) | strcmp(upper(reply), 'Y')
@@ -358,6 +361,7 @@ function sub_test()
         'epiSlewPre', 10, ...
         'forbiddenEspRange', [0.41 0.51]);
 
+    % Display scan loop
     nModsPerTR = 5;
     reply = input('Display SMS EPI scan loop? Y/N [Y] ', 's');
     if isempty(reply) | strcmp(upper(reply), 'Y')
