@@ -38,6 +38,7 @@ for execution on Siemens scanners.
 
 ![Under (re)construction!](underreconstruction.jpg)
 
+Scripts for loading data and gridding to cartesian grid are in utils/EPI.
 
 <!--
 Miscellaneous info
