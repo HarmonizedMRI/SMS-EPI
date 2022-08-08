@@ -14,7 +14,7 @@ function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, im
 %  CaipiShiftZ  [1]    size of kz step (integer multiples of 1/FOV(3))). 
 % 
 % Optional keyword arguments
-%  gMax      [1]       nax gradient (Gauss/cm). Default: 20
+%  gMax      [1]       nax gradient (Gauss/cm)
 %  slewRead  [1 3]     max slew along x/y/z gradient axis (Gauss/cm/ms). Default: [12 15 15]
 %  slewPre   [1]       max slew during prephasing gradient trapezoid (Gauss/cm/ms). Default: 12
 %  fbesp     [1 2]     forbidden echo spacing range (ms). Default: [0.41 0.51]
@@ -41,7 +41,7 @@ if CaipiShiftZ < 1 | rem(CaipiShiftZ,1)
 end
 
 % Set keyword argument defaults and parse input
-arg.gMax = 5;              % Peak gradient amplitude (Gauss/cm)
+arg.gMax = 10;              % Peak gradient amplitude (Gauss/cm)
 arg.slewRead = [11 15 15];  % Limit slew rate to this value (Gauss/cm/ms), to control PNS.
 arg.slewPre = 10;   % Limit slew rate to this value (Gauss/cm/ms) during prewinder.
 arg.fbesp = [0.41 0.51]; % forbidden echo spacing range (ms)
