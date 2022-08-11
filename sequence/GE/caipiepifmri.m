@@ -292,6 +292,7 @@ fprintf('\n');
 
 %% Return struct needed for recon
 epiInfo.imSize = imSize;
+epiInfo.pf_ky = pf_ky;
 epiInfo.FOV = FOV;
 epiInfo.gpre = gpre;  % x prewinder (G/cm)
 epiInfo.gx = gx;      % full echo train (G/cm)
