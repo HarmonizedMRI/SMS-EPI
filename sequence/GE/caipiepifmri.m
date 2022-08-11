@@ -291,13 +291,14 @@ fprintf('\n');
 %toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
 %% Return struct needed for recon
-epiInfo.imSize = imSize;
-epiInfo.pf_ky = pf_ky;
-epiInfo.FOV = FOV;
-epiInfo.gpre = gpre;  % x prewinder (G/cm)
-epiInfo.gx = gx;      % full echo train (G/cm)
-epiInfo.gx1 = gx1;    % one echo
-epiInfo.esp = esp;
+epiInfo.imSize   = imSize;
+epiInfo.pf_ky    = pf_ky;
+epiInfo.Ry       = Ry;
+epiInfo.FOV      = FOV;
+epiInfo.gpre     = gpre;  % x prewinder (G/cm)
+epiInfo.gx       = gx;      % full echo train (G/cm)
+epiInfo.gx1      = gx1;    % one echo
+epiInfo.esp      = esp;
 epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
 save epiInfo epiInfo
 
