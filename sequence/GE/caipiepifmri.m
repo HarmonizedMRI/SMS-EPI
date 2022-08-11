@@ -290,12 +290,6 @@ fprintf('\n');
 % NB! The file entryFile must exist in the folder from where this script is called.
 %toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
-%% create tar file
-system(sprintf('tar cf %s %s seqstamp.txt scanloop.txt modules.txt *.mod', arg.ofname, arg.entryFile));
-
-toppe.utils.scanmsg(arg.entryFile);
-
-
 %% Return struct needed for recon
 epiInfo.imSize = imSize;
 epiInfo.FOV = FOV;
@@ -304,6 +298,13 @@ epiInfo.gx = gx;      % full echo train (G/cm)
 epiInfo.gx1 = gx1;    % one echo
 epiInfo.esp = esp;
 epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
+save epiInfo epiInfo
+
+%% create tar file
+system(sprintf('tar cf %s %s seqstamp.txt scanloop.txt modules.txt *.mod epiInfo.mat', arg.ofname, arg.entryFile));
+
+toppe.utils.scanmsg(arg.entryFile);
+
 
 return
 
