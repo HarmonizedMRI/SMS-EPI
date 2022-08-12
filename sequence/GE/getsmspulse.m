@@ -1,5 +1,5 @@
-function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
-% function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
+function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
+% function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
 %
 % Create SMS rf and gradient waveforms 
 %
@@ -48,7 +48,7 @@ rf = 0*rf1;
 dt = sys.raster;           % sample (dwell) time (sec) 
 t = [dt:dt:(dt*length(rf1))]';
 for sl = 1:nSlices
-	sliceOffset = (-nSlices/2 + 0.5 + sl-1) * sliceSep;   % cm
+	sliceOffset = (-nSlices/2 + 0.5 + sl-1) * sliceSep   % cm
 	f = sys.gamma*gPlateau*sliceOffset;   % Hz
 	rf = rf + rf1.*exp(1i*2*pi*f*t)*exp(1i*PHS(sl));
 end
