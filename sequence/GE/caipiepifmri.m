@@ -55,7 +55,7 @@ arg.alternateReadout = false;  % flip sign of gx gradient every time-frame
 arg.nSpoilCycles = 2;   % number of cycles/voxel of gradient spoiling along z
 arg.caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
 arg.fatsat       = true;         % add fat saturation pulse?
-arg.fatFreqSign = +1;            % sign of fatsat pulse frequency offset
+arg.fatFreqSign = -1;            % sign of fatsat pulse frequency offset
 arg.ofname = 'fmri.tar'          % output file name
 
 % EPI train parameters
@@ -93,8 +93,8 @@ if imSize(3) > 1  % 3D
 else
     seq.slab.thick = FOV(3); 
     seq.slab.tbw = 8;
-    seq.slab.type = 'st';  % 'st' = small-tip. 'ex' = 90 degree design
-    seq.slab.ftype = 'ls'; % minimum-phase SLR pulse is well suited for 3D slab excitation
+    seq.slab.type = 'st'; 
+    seq.slab.ftype = 'ls'; 
     seq.slab.dur = 1.5;  % ms
 end
 
@@ -133,7 +133,7 @@ end
 %% Create modules.txt and entryFile
 
 % Entries are tab-separated
-nModules = 3 + arg.fatsat;
+nModules = 4 + arg.fatsat;
 fid = fopen('modules.txt', 'wt');
 fprintf(fid, 'Total number of unique cores\n');
 fprintf(fid, '%d\n', nModules);
@@ -144,6 +144,7 @@ end
 fprintf(fid, '%s\t0\t1\t0\n', 'tipdown.mod');
 fprintf(fid, '%s\t0\t0\t0\n', 'prephase.mod');
 fprintf(fid, '%s\t0\t0\t1\n', 'readout.mod');
+fprintf(fid, '%s\t0\t0\t0\n', 'spoiler.mod');
 fclose(fid);
 
 % Write entry file.
@@ -214,6 +215,13 @@ toppe.writemod(arg.sys, ...
     'ofname', 'readout.mod' );
 
 
+%% Spoiler (gradient crusher) module
+gspoil = toppe.utils.makecrusher(arg.nSpoilCycles, seq.voxelSize(1), arg.sys, 0, ...
+    0.7*arg.sys.maxSlew/sqrt(2), arg.sys.maxGrad/sqrt(2));
+toppe.writemod(arg.sys, 'ofname', 'spoiler.mod', ...
+    'gx', gspoil, 'gz', gspoil);
+
+
 %% Scan loop
 rfphs = 0;              % radians
 rfSpoilSeed_cnt = 0;
@@ -255,6 +263,8 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
                 'RFoffset', round(fatFreq), ...   % Hz
                 'RFphase', rfphs);         % radians
 
+            toppe.write2loop('spoiler.mod', arg.sys);
+
             rfphs = rfphs + (arg.rfSpoilSeed/180*pi)*rfSpoilSeed_cnt ;  % radians
             rfSpoilSeed_cnt = rfSpoilSeed_cnt + 1;
         end
@@ -277,6 +287,9 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
         toppe.write2loop('prephase.mod', arg.sys, ...
             'Gamplitude', [0 -a_gy -a_gz]');
 
+        % spoiler gradient
+        toppe.write2loop('spoiler.mod', arg.sys);
+
         % update rf phase (RF spoiling)
         rfphs = rfphs + (arg.rfSpoilSeed/180 * pi)*rfSpoilSeed_cnt ;  % radians
         rfSpoilSeed_cnt = rfSpoilSeed_cnt + 1;
@@ -290,20 +303,23 @@ fprintf('\n');
 % NB! The file entryFile must exist in the folder from where this script is called.
 %toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
+%% Return struct needed for recon
+epiInfo.imSize   = imSize;
+epiInfo.pf_ky    = pf_ky;
+epiInfo.Ry       = Ry;
+epiInfo.FOV      = FOV;
+epiInfo.gpre     = gpre;  % x prewinder (G/cm)
+epiInfo.gx       = gx;      % full echo train (G/cm)
+epiInfo.gx1      = gx1;    % one echo
+epiInfo.esp      = esp;
+epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
+save epiInfo epiInfo
+
 %% create tar file
-system(sprintf('tar cf %s %s seqstamp.txt scanloop.txt modules.txt *.mod', arg.ofname, arg.entryFile));
+system(sprintf('tar cf %s %s seqstamp.txt scanloop.txt modules.txt *.mod epiInfo.mat', arg.ofname, arg.entryFile));
 
 toppe.utils.scanmsg(arg.entryFile);
 
-
-%% Return struct needed for recon
-epiInfo.imSize = imSize;
-epiInfo.FOV = FOV;
-epiInfo.gpre = gpre;  % x prewinder (G/cm)
-epiInfo.gx = gx;      % full echo train (G/cm)
-epiInfo.gx1 = gx1;    % one echo
-epiInfo.esp = esp;
-epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
 
 return
 
