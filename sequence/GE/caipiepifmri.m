@@ -55,7 +55,7 @@ arg.alternateReadout = false;  % flip sign of gx gradient every time-frame
 arg.nSpoilCycles = 2;   % number of cycles/voxel of gradient spoiling along z
 arg.caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
 arg.fatsat       = true;         % add fat saturation pulse?
-arg.fatFreqSign = +1;            % sign of fatsat pulse frequency offset
+arg.fatFreqSign = -1;            % sign of fatsat pulse frequency offset
 arg.ofname = 'fmri.tar'          % output file name
 
 % EPI train parameters
