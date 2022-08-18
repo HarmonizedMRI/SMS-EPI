@@ -1,5 +1,5 @@
-function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
-% function [rf, g, freq] = makesmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
+function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
+% function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
 %
 % Create SMS rf and gradient waveforms 
 %
@@ -40,13 +40,17 @@ nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added
 	'ofname', arg.ofname, ...
 	'writeModFile', false);
 
+% find peak (for time reference)
+I = find(abs(rf1) == max(abs(rf1(:))));
+iPeak = mean(I) + 2;
+
 % Create SMS pulse
 PHS = getsmsphase(nSlices);  % Phase of the various subpulses (rad). From Wong et al, ISMRM 2012 p2209.
 bw = tbw/dur*1e3;          % pulse bandwidth (Hz)
 gPlateau = max(g);       % gradient amplitude during RF excitation (Gauss/cm)
 rf = 0*rf1;
 dt = sys.raster;           % sample (dwell) time (sec) 
-t = [dt:dt:(dt*length(rf1))]';
+t = [dt:dt:(dt*length(rf1))]' - (dt*iPeak);
 for sl = 1:nSlices
 	sliceOffset = (-nSlices/2 + 0.5 + sl-1) * sliceSep;   % cm
 	f = sys.gamma*gPlateau*sliceOffset;   % Hz
