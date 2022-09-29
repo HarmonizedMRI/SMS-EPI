@@ -1,4 +1,4 @@
-function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, varargin) 
+function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax, mask] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, varargin) 
 % function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, varargin) 
 %
 % Created 3D EPI CAIPI readout gradient waveform.
@@ -28,6 +28,7 @@ function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, im
 %  esp    echo spacing (ms)
 %  gx1    waveform for one echo (G/cm)
 %  kz     kz encoding indeces
+%  mask   ky/kz sampling mask
 %
 %  See caipiepifmri.m for how to use these outputs to construct a TOPPE fMRI scan.
 
@@ -158,6 +159,10 @@ gpre.x = toppe.makeGElength(gpre.x(:)); % make length multiple of 4
 gpre.y = toppe.makeGElength(gpre.y(:));
 gpre.z = gpre.y; % isotropic resolution
 
+% remove ky lines from mask to account for partial Fourier
+% mask is from caipi.mat (loaded above)
+mask(etl+1:end,:) = false;
+
 if arg.plot
     % plot k-space. Add prephaser for plotting purposes only.
     figure;
@@ -187,10 +192,9 @@ function sub_test()
     Rz = 6;
     CaipiShiftZ = 2;
 
-    [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, ...
+    [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax, mask] = getcaipiepireadout(FOV, imSize, Ry, pf_ky, Rz, CaipiShiftZ, ...
         'plot', true) ;
 
-    load caipi
     figure; im(mask);  % ky/kz sampling pattern
 
 return

@@ -198,7 +198,7 @@ end
 
 
 %% EPI readout module
-[gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, imSize, ...
+[gx, gy, gz, gpre, esp, gx1, kz, nBlipMax, mask] = getcaipiepireadout(FOV, imSize, ...
     Ry, pf_ky, Rz, CaipiShiftZ, ...
     'gMax', arg.epiGMax, ...
     'slewRead', arg.epiSlewRead, ...
@@ -313,6 +313,7 @@ epiInfo.gx       = gx;      % full echo train (G/cm)
 epiInfo.gx1      = gx1;    % one echo
 epiInfo.esp      = esp;
 epiInfo.nBlipMax = nBlipMax;  % number of samples durings turns
+epiInfo.mask     = mask; % ky/kz sampling mask
 save epiInfo epiInfo
 
 %% create tar file
