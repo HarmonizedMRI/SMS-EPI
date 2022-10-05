@@ -301,7 +301,7 @@ fprintf('\n');
 %% Create 'sequence stamp' file for TOPPE.
 % This file is listed in the 5th row in entryFile
 % NB! The file entryFile must exist in the folder from where this script is called.
-%toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
+toppe.preflightcheck(arg.entryFile, 'seqstamp.txt', arg.sys);
 
 %% Return struct needed for recon
 epiInfo.imSize   = imSize;
