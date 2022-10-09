@@ -30,6 +30,9 @@ function [gx, gy, gz, gpre, esp, gx1, kz, nBlipMax] = getcaipiepireadout(FOV, im
 %  kz     kz encoding indeces
 %
 %  See caipiepifmri.m for how to use these outputs to construct a TOPPE fMRI scan.
+%
+% Tips:
+%  Set line 81 to 'true' to run the caipi Python call manually (just needs to create caipi.mat)
 
 if strcmp(FOV, 'test')
     sub_test();
@@ -72,8 +75,14 @@ etl = ceil(pf_ky*ny/Ry);
 
 % kz-encode indeces for one echo train
 pyFile = [arg.caipiPythonPath '/skippedcaipi_sampling.py'];
-system(sprintf('python %s %d %d %d %d %d %d', ...
-    pyFile, ny, nz, Ry, Rz, CaipiShiftZ, 1));
+pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
+    pyFile, ny, nz, Ry, Rz, CaipiShiftZ, 1);
+fprintf('Run the following python command: %s\n', pyCmd);
+if false
+    input('Press any key to continue');
+else
+    system(pyCmd);
+end
 load caipi
 kz1 = double(indices(:,1)' + 1);
 %kz = [];
