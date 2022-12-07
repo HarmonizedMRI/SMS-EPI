@@ -228,7 +228,17 @@ rfSpoilSeed_cnt = 0;
 
 toppe.write2loop('setup', arg.sys, 'version', 4);   % Initialize scanloop.txt
 
-IZ = 1:Rz:nz;
+% interleaved slice ordering for SMS
+IZ = 1:Rz:nz; 
+if strcmp(scanType, 'SMS')
+    Nex = imSize(3)/Rz;  % number of excitations to cover one image volume
+    if ~mod(Nex,2)
+        warning('For better interleaving performance, imSize(3)/Rz should be odd');
+    end
+    II = [1:2:Nex 2:2:Nex];
+else
+    II = 1:length(IZ);
+end
 
 % temporal loop
 for ifr = 1:(arg.nCalFrames  + nFrames)
@@ -245,7 +255,7 @@ for ifr = 1:(arg.nCalFrames  + nFrames)
     end
 
     % z encoding / SMS slice shift loop
-    for ii = 1:length(IZ)  
+    for ii = II
 
         if strcmp(scanType, 'SMS')
 		    f = round((ii-0.5-length(IZ)/2)*freq);  % frequency offset (Hz) for slice shift
