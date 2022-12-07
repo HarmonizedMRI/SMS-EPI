@@ -229,13 +229,15 @@ rfSpoilSeed_cnt = 0;
 toppe.write2loop('setup', arg.sys, 'version', 4);   % Initialize scanloop.txt
 
 % interleaved slice ordering for SMS
+% if even number of shots, swap last two to reduce slice cross-talk 
 IZ = 1:Rz:nz; 
 if strcmp(scanType, 'SMS')
-    Nex = imSize(3)/Rz;  % number of excitations to cover one image volume
-    if ~mod(Nex,2)
-        warning('For better interleaving performance, imSize(3)/Rz should be odd');
-    end
+    Nex = length(IZ);  % number of excitations to cover one image volume
     II = [1:2:Nex 2:2:Nex];
+    if ~mod(Nex,2)  
+        l = length(II);
+        II = II([1:(l-2) l l-1]);
+    end
 else
     II = 1:length(IZ);
 end
