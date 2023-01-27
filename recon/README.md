@@ -42,7 +42,7 @@ This needs to be done just once per Julia session.
 Then the following will reconstruct an image
 given appropriate inputs:
 ```julia
-xhat = recon(data, mask, smap, resolution; outfile)
+xhat = recon(data, mask, smap; outfile)
 ```
 See the documentation for a description of the inputs.
 
