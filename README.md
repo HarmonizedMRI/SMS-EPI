@@ -9,4 +9,3 @@ Sequence prototype written with the TOPPE library: navigate to the [sequence/GE]
 
 FBIRN, single-channel head coil:
 ./sessions/fbirn\_um11Apr2021\_2depi/main.m
-
