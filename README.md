@@ -1,4 +1,11 @@
-# SMS-EPI
+# SMS-EPI fMRI
 
-Not yet released. Development is underway in the 
-['develop' branch](https://github.com/HarmonizedMRI/SMS-EPI/tree/develop).
+Sequence prototype written with the TOPPE library: navigate to the [sequence/GE](sequence/GE) directory.
+
+
+## Misc
+
+### 2D EPI example, with calibration data analysis
+
+FBIRN, single-channel head coil:
+./sessions/fbirn\_um11Apr2021\_2depi/main.m
