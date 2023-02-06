@@ -102,7 +102,7 @@ end
 seq.sms.type = 'st';      % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
 seq.sms.ftype = 'ls';     
 seq.sms.tbw = 6;          % time-bandwidth product
-seq.sms.dur = 4;          % msec
+seq.sms.dur = 8;          % msec
 seq.sms.sliceSep = FOV(3)/arg.mb;   % center-to-center separation between SMS slices (cm)
 
 % slew rates for waveform design (G/cm/ms)
@@ -147,7 +147,7 @@ fprintf(fid, '%s\t0\t0\t1\n', 'readout.mod');
 fprintf(fid, '%s\t0\t0\t0\n', 'spoiler.mod');
 fclose(fid);
 
-% Write entry file.
+% Write entry fil8.
 % This can be edited by hand as needed after copying to scanner.
 toppe.writeentryfile(arg.entryFile, ...
     'filePath', arg.filePath);
@@ -155,12 +155,13 @@ toppe.writeentryfile(arg.entryFile, ...
 
 %% fat sat module
 fatsat.flip    = 90;
-fatsat.slThick = 1000;       % dummy value (determines slice-select gradient, but we won't use it; just needs to be large to reduce dead time before+after rf pulse)
-fatsat.tbw     = 2.0;        % time-bandwidth product
-fatsat.dur     = 4.5;        % pulse duration (ms)
+fatsat.slThick = 1e5;       % dummy value (determines slice-select gradient, but we won't use it; just needs to be large to reduce dead time before+after rf pulse)
+fatsat.tbw     = 3.5;        % time-bandwidth product
+fatsat.dur     = 8.0;        % pulse duration (ms)
 
 b1 = toppe.utils.rf.makeslr(fatsat.flip, fatsat.slThick, fatsat.tbw, fatsat.dur, 1e-6, arg.sys, ...
     'type', 'ex', ...    % fatsat pulse is a 90 so is of type 'ex', not 'st' (small-tip)
+    'ftype', 'min', ...
     'writeModFile', false);
 b1 = toppe.makeGElength(b1);
 toppe.writemod(arg.sys, 'rf', b1, 'ofname', 'fatsat.mod', 'desc', 'fat sat pulse');
