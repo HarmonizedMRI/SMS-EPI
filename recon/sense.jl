@@ -19,8 +19,14 @@ Reconstruct Cartesian SMS data.
     indicating a .mat file
     that contains variables `data` and `mask`
     of the forms indicated above
-- `smap`: `Array` of size `(nx, ny, nz, nc)`
-  containing sensitivity maps for each coil
+- `smap`: Either
+  - `Array` of size `(nx, ny, nz, nc)`
+    containing sensitivity maps for each coil,
+    or
+  - `AbstractString` (e.g., `"path/to/sense.mat"`)
+    indicating a .mat file
+    that contains the variable `smap`
+    of the form indicated above
 
 # Options
 - `outfile = "recon.mat"`: `AbstractString` indicating
@@ -107,5 +113,11 @@ function recon(datafile::AbstractString, args...; kwargs...)
 
     d = matread(datafile)
     return recon(d["data"], d["mask"], args...; kwargs...)
+
+end
+
+function recon(data, Ω, smapfile::AbstractString; kwargs...)
+
+    return recon(data, Ω, matread(smapfile)["smap"]; kwargs...)
 
 end
