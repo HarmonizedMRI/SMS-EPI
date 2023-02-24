@@ -224,14 +224,14 @@ in your working directory
 (or `cd` to your working directory
 after starting Julia),
 and then run
-```julia-repl
-julia> include("setup.jl")
+```julia
+include("setup.jl")
 ```
 Next,
 call `recon`,
 passing in the appropriate inputs:
-```julia-repl
-julia> recon("frame010.mat", "sense.mat"; outfile = "recon010.mat");
+```julia
+recon("frame010.mat", "sense.mat"; outfile = "recon010.mat")
 ```
 The call to `recon` creates
 a file called `recon010.mat`
@@ -246,6 +246,6 @@ in whatever environment you desire,
 but this README will cover
 how to do so in Julia.
 It is as simple as calling `showrecon`:
-```julia-repl
-julia> showrecon("recon010.mat"; title = "SMS-EPI Reconstruction (mb = 6)")
+```julia
+showrecon("recon010.mat"; title = "SMS-EPI Reconstruction (mb = 6)")
 ```
