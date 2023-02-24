@@ -42,7 +42,7 @@ function [smap, spgr] = getsense(varargin)
     smap = bart('slice 4 0', sense); % Equivalently: smap = squeeze(sense(:,:,:,:,1));
 
     % Save results
-    if arg.outfile ~= ''
+    if ~isempty(arg.outfile)
         save(arg.outfile, 'smap', 'spgr', '-v7.3');
     end
 

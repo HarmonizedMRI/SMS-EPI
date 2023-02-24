@@ -105,7 +105,7 @@ function [data, mask] = readframe(frame, mb, varargin)
     end
 
     % Save results for later processing
-    if arg.outfile ~= ''
+    if ~isempty(arg.outfile)
         save(arg.outfile, 'data', 'mask', '-v7.3');
     end
 
