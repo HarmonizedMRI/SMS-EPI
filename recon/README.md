@@ -10,7 +10,9 @@ for reconstructing a 3D volume from SMS-EPI data.
 
 `recon` depends on two Julia packages:
 [MAT.jl](https://github.com/JuliaIO/MAT.jl) and
-[EPI3D.jl](https://github.com/HarmonizedMRI/3DEPI/tree/main/recon/sense).
+[EPI3D.jl](https://github.com/HarmonizedMRI/3DEPI/tree/main/recon/sense),
+and `showrecon` depends on one additional Julia package:
+[MIRTjim.jl](https://github.com/JeffFessler/MIRTjim.jl).
 In order to use EPI3D.jl,
 you must first download or clone the repository, e.g.,
 ```bash
@@ -20,7 +22,7 @@ The packages can be installed
 by doing the following from the Julia REPL:
 ```julia-repl
 julia> ] # enter Julia's package prompt
-pkg> add MAT
+pkg> add MAT MIRTjim
 
 pkg> dev path/to/3DEPI/recon/sense
 ```
@@ -29,7 +31,7 @@ to the location where you downloaded or cloned
 the 3DEPI repository.)
 
 
-### Usage
+### Reconstruction
 
 For each new Julia session,
 you must first `include` [sense.jl](sense.jl)
@@ -47,6 +49,24 @@ xhat = recon(data, mask, smap; outfile)
 See the documentation for a description of the inputs.
 
 
+## Display
+
+For each new Julia session,
+you must first `include` [showrecon.jl](showrecon.jl)
+to load the necessary packages
+and to define the function `showrecon`:
+```julia
+include("path/to/SMS-EPI/recon/showrecon.jl")
+```
+This needs to be done just once per Julia session.
+Then the following will display a reconstructed image
+given appropriate inputs:
+```julia
+showrecon(reconfile)
+```
+See the documentation for a description of the inputs.
+
+
 ### Documentation
 
 See the docstring in [sense.jl](sense.jl),
@@ -56,3 +76,4 @@ after `include`ing [sense.jl](sense.jl):
 julia> ? # enter Julia's help mode
 help?> recon
 ```
+(similarly for [showrecon.jl](showrecon.jl)).
