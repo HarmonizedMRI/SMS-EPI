@@ -2,11 +2,27 @@
 
 ## SENSE Reconstruction
 
-[sense.jl](sense.jl) defines the function `recon`
-for reconstructing a 3D volume from SMS-EPI data.
+[`sense.jl`](sense.jl) defines the function `recon`
+for reconstructing a 3D volume from SMS-EPI data
+using a SENSE-based image reconstruction method.
+This section of the README
+walks through how to use `recon`.
 
+### Dependencies
 
-### Getting Started
+First,
+make sure you have downloaded
+this [SMS-EPI](https://github.com/HarmonizedMRI/SMS-EPI)
+repository with, e.g., `git clone`:
+```bash
+$ git clone https://github.com/HarmonizedMRI/SMS-EPI
+```
+
+This reconstruction pipeline requires
+a working Julia installation.
+The latest version is recommended,
+though earlier versions likely would still work.
+You can [download the latest Julia version here](https://julialang.org/downloads/#current_stable_release).
 
 `recon` depends on two Julia packages:
 [MAT.jl](https://github.com/JuliaIO/MAT.jl) and
@@ -18,62 +34,140 @@ you must first download or clone the repository, e.g.,
 ```bash
 $ git clone https://github.com/HarmonizedMRI/3DEPI
 ```
-The packages can be installed
-by doing the following from the Julia REPL:
+To set up the Julia package environment,
+first start Julia
+in the directory
+in which you will be working.
+(If needed,
+create such a directory first.)
+Then set up dependencies
+by running the following:
 ```julia-repl
 julia> ] # enter Julia's package prompt
-pkg> add MAT MIRTjim
+(@v1.9) pkg> activate .
 
-pkg> dev path/to/3DEPI/recon/sense
+(working_dir) pkg> add MAT MIRTjim
+
+(working_dir) pkg> dev path/to/3DEPI/recon/sense
 ```
 (Make sure to change `path/to/`
 to the location where you downloaded or cloned
 the 3DEPI repository.)
 
+### Step 0: Preliminaries
 
-### Reconstruction
+Before starting,
+navigate to
+the directory
+that will serve as your workspace
+for the following.
+(This directory should be the same
+as the one used above
+to set up the Julia package environment.)
 
-For each new Julia session,
-you must first `include` [sense.jl](sense.jl)
-to load the necessary packages
-and to define the function `recon`:
+First,
+you will need files
+that contain the input
+`recon` expects.
+Specifically,
+`recon` needs the SMS-EPI k-space data `data`,
+a mask `mask` indicating the k-space locations
+of each of the data samples
+acquired using a CAIPI sampling scheme,
+and the coil sensitivity maps `smap`.
+These inputs can be given directly to `recon`,
+or they can be stored in .mat files
+to be loaded in `recon`.
+In the latter case,
+two .mat files are needed:
+one that stores `data` and `mask`,
+and another that stores `smap`.
+In this README,
+the two .mat files are
+`frame010.mat`
+and `sense.mat`.
+(These files can be generated, e.g.,
+by following the directions
+in the [README for preparing GE SMS-EPI data for reconstruction](GE).)
+
+Finally,
+create a Julia script
+that sets up the depenencies
+for your current session.
+The Julia script should contain
 ```julia
-include("path/to/SMS-EPI/recon/sense.jl")
+# Make sure the package environment is active
+import Pkg
+Pkg.activate(@__DIR__)
+
+# Load functions in the SMS-EPI repository
+include("path/to/HarmonizedMRI/SMS-EPI/recon/sense.jl") # TODO: Change to the correct path
+include("path/to/HarmonizedMRI/SMS-EPI/recon/showrecon.jl") # TODO: Change to the correct path
 ```
-This needs to be done just once per Julia session.
-Then the following will reconstruct an image
-given appropriate inputs:
+(make sure to update the paths).
+In this README,
+this script is called `setup.jl`.
+
+After collecting all the necessary files,
+your working directory should contain
+(at a minimum)
+the following files:
+```
+frame010.mat
+sense.mat
+setup.jl
+Project.toml
+Manifest.toml
+```
+(Note that the .toml files
+were created by the Julia package manager
+when setting up the dependencies.
+If these files are missing,
+go to the Dependencies section
+of this README
+and follow the instructions
+on how to set up the Julia package environment.)
+
+### Step 1: Reconstruction
+
+Start a Julia session
+in your working directory
+(or `cd` to your working directory
+after starting Julia),
+and then run
 ```julia
-xhat = recon(data, mask, smap; outfile)
+include("setup.jl")
 ```
-See the documentation for a description of the inputs.
-
-
-## Display
-
-For each new Julia session,
-you must first `include` [showrecon.jl](showrecon.jl)
-to load the necessary packages
-and to define the function `showrecon`:
+(Note that the above `include`
+needs to be done just once per Julia session.)
+Next,
+call `recon`,
+passing in the appropriate inputs:
 ```julia
-include("path/to/SMS-EPI/recon/showrecon.jl")
+recon("frame010.mat", "sense.mat"; outfile = "recon010.mat")
 ```
-This needs to be done just once per Julia session.
-Then the following will display a reconstructed image
-given appropriate inputs:
-```julia
-showrecon(reconfile)
-```
-See the documentation for a description of the inputs.
+The call to `recon` creates
+a file called `recon010.mat`
+containing the reconstructed image.
+See the documentation for a description of the inputs to `recon`.
 
+### Step 2: Visualization of the Reconstructed Image
+
+The following will display the reconstructed image:
+```julia
+showrecon("recon010.mat"; title = "SMS-EPI Reconstruction (mb = 2)")
+```
+See the documentation for a description of the inputs to `showrecon`.
 
 ### Documentation
 
-See the docstring in [sense.jl](sense.jl),
+See the docstrings in [`sense.jl`](sense.jl)
+and [`showrecon.jl`](showrecon.jl),
 or run the following from the Julia REPL
-after `include`ing [sense.jl](sense.jl):
+after running `include("setup.jl")`:
 ```julia-repl
 julia> ? # enter Julia's help mode
 help?> recon
+
+help?> showrecon
 ```
-(similarly for [showrecon.jl](showrecon.jl)).
