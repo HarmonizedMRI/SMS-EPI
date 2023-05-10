@@ -177,6 +177,14 @@ passing in the appropriate inputs:
 ```matlab
 >> getsense('pfile', 'P,b0.7', 'readoutFile', 'readout.mod', 'slices', 7:66);
 ```
+(The `'slices'` keyword argument
+is specified because `P,b0.7` contains data
+for 72 z phase encodes
+to account for slab profile effects,
+but the SMS-EPI data
+contains only 60 slices.
+Thus we want to compute sensitivity maps
+only for the middle 60 slices.)
 The call to `getsense` creates
 a file called `sense.mat`
 containing the sensitivity maps.
