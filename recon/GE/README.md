@@ -76,6 +76,7 @@ using a fMRI protocol
 with a multiband (mb) factor of 2.)
 P-files can be downloaded
 from [Deep Blue Data](TODO)
+(link pending)
 for those interested
 in following along
 with this README.

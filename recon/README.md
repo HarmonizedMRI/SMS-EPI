@@ -144,7 +144,7 @@ Next,
 call `recon`,
 passing in the appropriate inputs:
 ```julia
-recon("frame010.mat", "sense.mat"; outfile = "recon010.mat")
+recon("frame010.mat", "sense.mat"; lambda = 50, outfile = "recon010.mat")
 ```
 The call to `recon` creates
 a file called `recon010.mat`
@@ -155,7 +155,7 @@ See the documentation for a description of the inputs to `recon`.
 
 The following will display the reconstructed image:
 ```julia
-showrecon("recon010.mat"; title = "SMS-EPI Reconstruction (mb = 2)")
+showrecon("recon010.mat"; title = "SMS-EPI Reconstruction (mb = 2)", yflip = false)
 ```
 See the documentation for a description of the inputs to `showrecon`.
 

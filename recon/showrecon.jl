@@ -14,7 +14,7 @@ Display a plot (heatmap) of reconstructed data.
 
 # Options
 - `slices = :`: Slices to display (`:` means display all slices);
-  this kwarg is ignored for 2D data
+  this option is ignored for 2D data
 - `plot_kwargs...`: Additional keyword arguments passed to `MIRTjim.jim`,
   such as:
   - `title = ""`: Plot title
