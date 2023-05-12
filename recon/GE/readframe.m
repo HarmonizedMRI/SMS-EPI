@@ -10,7 +10,7 @@
 % Options
 % -------
 % pfile        File location of the P-file containing the SMS-EPI data
-%                Default: 'P,fmri_mb6.7' (for mb = 6)
+%                Default: 'P_fmri_mb6.7' (for mb = 6)
 % calFrame     Frame to use for ghost correction
 %                Default: 2
 % calSlice     Slice to use for ghost correction
@@ -33,7 +33,7 @@
 %                      nsamples = sum(mask(:))
 function [data, mask] = readframe(frame, mb, varargin)
 
-    arg.pfile = ['P,fmri_mb' num2str(mb) '.7'];
+    arg.pfile = ['P_fmri_mb' num2str(mb) '.7'];
     arg.calFrame = 2;
     arg.calSlice = 5;
     arg.epiInfoFile = 'epiInfo.mat';

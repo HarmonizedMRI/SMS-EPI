@@ -62,15 +62,15 @@ that will be used for computing sensitivity maps,
 and the other containing the SMS-EPI data.
 In this README,
 the two P-files are
-`P,b0.7`
-and `P,fmri_mb2.7`,
+`P_b0.7`
+and `P_fmri_mb2.7`,
 respectively.
-(`P,b0.7` is so named
+(`P_b0.7` is so named
 because it contains two spoiled gradient recalled echo (SPGR) scans
 that can be used for B0 field mapping.
 The first of those scans, however,
 can be used for computing sensitivity maps.
-And `P,fmri_mb2.7` is so named
+And `P_fmri_mb2.7` is so named
 because the data was acquired
 using a fMRI protocol
 with a multiband (mb) factor of 2.)
@@ -138,8 +138,8 @@ your working directory should contain
 (at a minimum)
 the following files:
 ```
-P,b0.7
-P,fmri_mb2.7
+P_b0.7
+P_fmri_mb2.7
 readout.mod
 epiInfo.mat
 setup.m
@@ -159,7 +159,7 @@ passing in the appropriate inputs:
 ```matlab
 >> frame = 10; % Process frame 10 of the data (change this to whatever you want)
 >> mb = 2; % In this README, the SMS multiband factor is 2
->> readframe(frame, mb, 'pfile', 'P,fmri_mb2.7', 'epiInfoFile', 'epiInfo.mat');
+>> readframe(frame, mb, 'pfile', 'P_fmri_mb2.7', 'epiInfoFile', 'epiInfo.mat');
 ```
 The call to `readframe` creates
 a file called `frame010.mat`
@@ -176,10 +176,10 @@ In the same MATLAB session,
 call `getsense`,
 passing in the appropriate inputs:
 ```matlab
->> getsense('pfile', 'P,b0.7', 'readoutFile', 'readout.mod', 'slices', 7:66);
+>> getsense('pfile', 'P_b0.7', 'readoutFile', 'readout.mod', 'slices', 7:66);
 ```
 (The `'slices'` keyword argument
-is specified because `P,b0.7` contains data
+is specified because `P_b0.7` contains data
 for 72 z phase encodes
 to account for slab profile effects,
 but the SMS-EPI data

@@ -88,7 +88,9 @@ the two .mat files are
 and `sense.mat`.
 (These files can be generated, e.g.,
 by following the directions
-in the [README for preparing GE SMS-EPI data for reconstruction](GE).)
+in the [README for preparing GE SMS-EPI data for reconstruction](GE/README.md),
+or can be downloaded
+from [Deep Blue Data](TODO).)
 
 Finally,
 create a Julia script

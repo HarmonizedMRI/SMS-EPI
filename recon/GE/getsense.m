@@ -5,7 +5,7 @@
 % Options
 % -------
 % pfile        File location of the P-file containing the SPGR data
-%                Default: 'P,b0.7' (because this data can also be used for
+%                Default: 'P_b0.7' (because this data can also be used for
 %                          B0 field mapping)
 % readoutFile  File location of the TOPPE .mod file used for the readout portion
 %              of the SPGR scan
@@ -31,7 +31,7 @@
 % Note that both smap and spgr are saved to outfile.
 function [smap, spgr] = getsense(varargin)
 
-    arg.pfile = 'P,b0.7';
+    arg.pfile = 'P_b0.7';
     arg.readoutFile = 'readout.mod';
     arg.slices = [];
     arg.outfile = 'sense.mat';
