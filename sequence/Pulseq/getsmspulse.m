@@ -1,24 +1,24 @@
-function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
-% function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep, sys, varargin)
+function [rf, gzRF, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, sliceSep, sysGE, sys, varargin)
+% function [rf, gzRF, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, sliceSep, sysGE, sys, varargin)
 %
 % Create SMS rf and gradient waveforms 
 %
 % Inputs
-%   flip         flip angle (degrees)
+%   alpha         flip angle (degrees)
 %   slThick      slice thickness (m)
 %   tbw          time-bandwidth product
 %   dur          pulse duration (sec)
 %   nSlices      Multi-band factor
 %   sliceSep     Center-to-center slice separation (cm)
-%   sys          system struct for TOPPE, see toppe.systemspecs()
+%   sysGE          system struct for TOPPE, see toppe.systemspecs()
 %
 % Outputs
 %   rf    [nt 1]   Complex RF waveform (Gauss). Raster time is 4us.
 %   g     [nt 1]   Slice-select gradient (Gauss/cm)
 %   freq  [1]      Frequency offset (Hz) corresponding to sliceSep
 
-if strcmp(flip, 'test')
-	sub_test();
+if strcmp(alpha, 'test')
+	[rf, gzRF] = sub_test();
 	return;
 end
 
@@ -36,7 +36,7 @@ arg = toppe.utils.vararg_pair(arg, varargin);
 
 % design the 'unit' (base) pulse
 nSpoilCycles = 1e-3;   % just has to be small enough so that no spoiler is added at beginning of waveform in makeslr()
-[rf1,g] = toppe.utils.rf.makeslr(flip, slThick, tbw, dur, nSpoilCycles, sys, ...
+[rf1,g] = toppe.utils.rf.makeslr(alpha, slThick, tbw, dur, nSpoilCycles, sysGE, ...
 	'type', arg.type, ...   
 	'ftype', arg.ftype, ...  
 	'ofname', arg.ofname, ...
@@ -51,15 +51,15 @@ PHS = getsmsphase(nSlices);  % Phase of the various subpulses (rad). From Wong e
 bw = tbw/dur*1e3;          % pulse bandwidth (Hz)
 gPlateau = max(g);       % gradient amplitude during RF excitation (Gauss/cm)
 rf = 0*rf1;
-dt = sys.raster;           % sample (dwell) time (sec) 
+dt = sysGE.raster;           % sample (dwell) time (sec) 
 t = [dt:dt:(dt*length(rf1))]' - (dt*iPeak);
 for sl = 1:nSlices
 	sliceOffset = (-nSlices/2 + 0.5 + sl-1) * sliceSep;   % cm
-	f = sys.gamma*gPlateau*sliceOffset;   % Hz
+	f = sysGE.gamma*gPlateau*sliceOffset;   % Hz
 	rf = rf + rf1.*exp(1i*2*pi*f*t)*exp(1i*PHS(sl));
 end
 
-freq = sys.gamma*gPlateau*sliceSep;   % Hz
+freq = sysGE.gamma*gPlateau*sliceSep;   % Hz
 
 % pad to 4-sample boundary
 rf = toppe.makeGElength(rf);   
@@ -99,7 +99,7 @@ end
 % write to TOPPE .mod file
 if arg.writeModFile
 	% wrap waveforms in toppe.utils.makeGElength() to make sure they are on a 4-sample (16 us) boundary
-	toppe.writemod(sys, 'rf', toppe.utils.makeGElength(rf), ...
+	toppe.writemod(sysGE, 'rf', toppe.utils.makeGElength(rf), ...
 		'gz', toppe.utils.makeGElength(g), ...
 		'ofname', arg.ofname);
 
@@ -107,16 +107,51 @@ if arg.writeModFile
 	%toppe.plotmod('tipdown.mod');
 end
 
+%% create Pulseq objects
+
+% Convert from Gauss (Gauss/cm) to Hz (Hz/m), and interpolate to sys.rf/gradRasterTime
+wav = pulsegeq.rf2pulseq(rf, sysGE.raster, sys);  
+g = pulsegeq.g2pulseq(g, sysGE.raster, sys);  
+
+% Pad with zeros to make equal length
+wavdur = length(wav)*sys.rfRasterTime;
+gdur = length(g)*sys.gradRasterTime;
+if gdur < wavdur
+    n = ceil((wavdur-gdur)/sys.gradRasterTime);
+    g = [g zeros(1, n)];
+    gdur = length(g)*sys.gradRasterTime;
+end
+wav = [wav zeros(1, round((gdur-wavdur)/sys.rfRasterTime))];
+
+% trim zeros at start/end of RF pulse
+% delay (s) must be on grad raster boundary
+I = find(abs(diff(wav) > 0));
+nDelay = I(1) - mod(I(1), round(sys.gradRasterTime/sys.rfRasterTime));
+wav = wav(nDelay:end);
+delay = nDelay*sys.rfRasterTime;
+I = find(abs(diff(fliplr(wav)) > 0));
+wav = wav(1:(end-I(1)+1));
+
+% zero-pad RF waveform duration to gradient raster boundary
+wavdur = length(wav)*sys.rfRasterTime;
+ttarget = pulsegeq.roundtoraster(wavdur, sys.gradRasterTime);
+wav = [wav zeros(1, round((ttarget-wavdur)/sys.rfRasterTime))];
+rf = mr.makeArbitraryRf(wav, alpha/180*pi, ...
+            'delay', delay, ...
+            'system', sys);
+gzRF = mr.makeArbitraryGrad('z', g, sys);
+
 return
 
-function sub_test
-flip = 90;       % degrees
+function [rf, gzRF] = sub_test
+alpha = 90;       % degrees
 slThick = 0.5e-2;   % m
 sliceSep = 4e-2;    % m
 tbw = 6;
 dur = 4e-3;         % s
 mb = 5;          % multiband factor (number of slices)
-sys = toppe.systemspecs();
-getsmspulse(flip, slThick, tbw, dur, mb, sliceSep, sys, ...
+sysGE = toppe.systemspecs();
+sys = mr.opts();
+[rf, gzRF] = getsmspulse(alpha, slThick, tbw, dur, mb, sliceSep, sysGE, sys, ...
 	'doSim', true);
 return;
