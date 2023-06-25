@@ -5,9 +5,9 @@ function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep,
 %
 % Inputs
 %   flip         flip angle (degrees)
-%   slThick      slice thickness (cm)
+%   slThick      slice thickness (m)
 %   tbw          time-bandwidth product
-%   dur          pulse duration (msec)
+%   dur          pulse duration (sec)
 %   nSlices      Multi-band factor
 %   sliceSep     Center-to-center slice separation (cm)
 %   sys          system struct for TOPPE, see toppe.systemspecs()

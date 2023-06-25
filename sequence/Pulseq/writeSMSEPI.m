@@ -1,7 +1,7 @@
-% Low-resolution 3D B0 mapping sequence in Pulseq, optimized
+% SMS-EPI sequence in Pulseq, optimized
 % for identical execution on Siemens and GE scanners.
 %
-% This script creates the file 'b0.seq', that can be executed directly
+% This script creates the file 'smsepi.seq', that can be executed directly
 % on Siemens MRI scanners using the Pulseq interpreter.
 % The .seq file can also be converted to a .tar file that can be executed on GE
 % scanners, see main.m.
@@ -11,7 +11,7 @@
 % For more information about preparing a Pulseq file for execution on GE scanners,
 % see https://github.com/jfnielsen/TOPPEpsdSourceCode/wiki.
 
-% Define experimental parameters
+%% Define experimental parameters
 sys = mr.opts('maxGrad', 22, 'gradUnit','mT/m', ...
               'maxSlew', 80, 'slewUnit', 'T/m/s', ...
               'rfDeadTime', 100e-6, ...
@@ -24,17 +24,57 @@ sys = mr.opts('maxGrad', 22, 'gradUnit','mT/m', ...
 
 timessi = 100e-6;    % start sequence interrupt (SSI) time (required delay at end of block group/TR)
 
-fov = [240e-3 240e-3 240e-3];     % FOV (m)
-Nx = 60; Ny = Nx; Nz = 20;        % Matrix size
-dwell = 16e-6;                    % ADC sample time (s). For GE, must be multiple of 2us.
-alpha = 3;                        % flip angle (degrees)
-fatChemShift = 3.5*1e-6;          % 3.5 ppm
+voxelSize = [2.4 2.4 2.4]*1e-3;     % m
+mb = 6;                             % multiband/SMS factor
+Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
+fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
+
+dwell = 2e-6;                       % ADC sample time (s). For GE, must be multiple of 2us.
+alpha = 60;                         % flip angle (degrees)
+
+fatChemShift = 3.5*1e-6;            % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
-TE = 2e-3 + [0 1/fatOffresFreq];                % fat and water in phase for both echoes
-TR = 7e-3*[1 1];                                % constant TR
+TE = 30e-3;
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
-alphaPulseDuration = 0.2e-3;
-Tpre = 0.5e-3;       % prephasing trapezoid duration
+
+rfTB  = 6;          % time-bandwidth product
+rfDur = 8e-3;       % RF pulse duration (s)
+
+%% Excitation pulse
+
+% design pulse
+clear rf ex
+sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
+    'maxSlew', sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
+    'maxRF', 0.25);
+sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
+[wav, g, freq] = getsmspulse(alpha, voxelSize(3), rfTB, rfDur, ...
+    mb, sliceSep, sysGE, ...
+    'doSim', false, ...   % Plot simulated SMS slice profile
+    'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
+    'ftype', 'ls');       % filter design. 'ls' = least squares
+
+% Convert from Gauss (Gauss/cm) to Hz (Hz/m), and interpolate to sys.rf/gradRasterTime
+% Pad with zeros to make equal length
+wav = pulsegeq.rf2pulseq(wav, sysGE.raster, sys);  
+g = pulsegeq.g2pulseq(g, sysGE.raster, sys);  
+wavdur = length(wav)*sys.rfRasterTime;
+gdur = length(g)*sys.gradRasterTime;
+if gdur < wavdur
+    n = ceil((wavdur-gdur)/sys.gradRasterTime);
+    g = [g zeros(1, n)];
+    gdur = length(g)*sys.gradRasterTime;
+end
+wav = [wav zeros(1, round((gdur-wavdur)/sys.rfRasterTime))];
+rf = mr.makeArbitraryRf(wav, alpha/180*pi, ...
+            'system', sys);
+
+gzRf = mr.makeArbitraryGrad('z', g, sys);
+
+
+return
+% Convert from Gauss to Hz, and interpolate to sys.rfRasterTime
+
 
 % Create a new sequence object
 seq = mr.Sequence(sys);           
