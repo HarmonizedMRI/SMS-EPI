@@ -10,9 +10,7 @@ function [rf, g, freq] = getsmspulse(flip, slThick, tbw, dur, nSlices, sliceSep,
 %   dur          pulse duration (msec)
 %   nSlices      Multi-band factor
 %   sliceSep     Center-to-center slice separation (cm)
-%
-% Input options
-%  doSim          bool      Simulate and plot slice profile? Default = false.
+%   sys          system struct for TOPPE, see toppe.systemspecs()
 %
 % Outputs
 %   rf    [nt 1]   Complex RF waveform (Gauss). Raster time is 4us.
@@ -23,6 +21,10 @@ if strcmp(flip, 'test')
 	sub_test();
 	return;
 end
+
+slThick = slThick*100;    % cm
+dur = dur*1e3;            % ms
+sliceSep = sliceSep*100;  % cm
 
 % parse inputs
 arg.doSim        = false;
@@ -109,11 +111,12 @@ return
 
 function sub_test
 flip = 90;       % degrees
-slThick = 0.5;   % cm
-sliceSep = 4;    % cm
+slThick = 0.5e-2;   % m
+sliceSep = 4e-2;    % m
 tbw = 6;
-dur = 4;         % msec
+dur = 4e-3;         % s
 mb = 5;          % multiband factor (number of slices)
-makeSMSpulse(flip, slThick, tbw, dur, mb, sliceSep, ...
+sys = toppe.systemspecs();
+getsmspulse(flip, slThick, tbw, dur, mb, sliceSep, sys, ...
 	'doSim', true);
 return;
