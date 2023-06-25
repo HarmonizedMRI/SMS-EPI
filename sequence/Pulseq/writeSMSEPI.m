@@ -42,38 +42,17 @@ rfDur = 8e-3;       % RF pulse duration (s)
 
 %% Excitation pulse
 
-% design pulse
-clear rf ex
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.25);
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
-[wav, g, freq] = getsmspulse(alpha, voxelSize(3), rfTB, rfDur, ...
-    mb, sliceSep, sysGE, ...
-    'doSim', false, ...   % Plot simulated SMS slice profile
+[rf, gzRF, freq] = getsmspulse(alpha, voxelSize(3), rfTB, rfDur, ...
+    mb, sliceSep, sysGE, sys, ...
+    'doSim', true, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'ftype', 'ls');       % filter design. 'ls' = least squares
 
-% Convert from Gauss (Gauss/cm) to Hz (Hz/m), and interpolate to sys.rf/gradRasterTime
-% Pad with zeros to make equal length
-wav = pulsegeq.rf2pulseq(wav, sysGE.raster, sys);  
-g = pulsegeq.g2pulseq(g, sysGE.raster, sys);  
-wavdur = length(wav)*sys.rfRasterTime;
-gdur = length(g)*sys.gradRasterTime;
-if gdur < wavdur
-    n = ceil((wavdur-gdur)/sys.gradRasterTime);
-    g = [g zeros(1, n)];
-    gdur = length(g)*sys.gradRasterTime;
-end
-wav = [wav zeros(1, round((gdur-wavdur)/sys.rfRasterTime))];
-rf = mr.makeArbitraryRf(wav, alpha/180*pi, ...
-            'system', sys);
-
-gzRf = mr.makeArbitraryGrad('z', g, sys);
-
-
 return
-% Convert from Gauss to Hz, and interpolate to sys.rfRasterTime
 
 
 % Create a new sequence object
