@@ -51,10 +51,9 @@ rfDur = 8e-3;       % RF pulse duration (s)
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
 
-Tpre = 0.5e-3;    % x/y/z prephasing gradient lob duration
+Tpre = 1.0e-3;    % x/y/z prephasing gradient lobe duration
 
 %% Excitation pulse
-
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.25);
@@ -87,37 +86,73 @@ Kystep = diff(double(indices(1:etl,2) + 1));
 
 deltak = 1./fov;
 
-% start with the blip
+% start with the blips
 gyBlip = mr.makeTrapezoid('y', sys, 'Area', max(abs(Kystep))*deltak(2)); 
 gzBlip = mr.makeTrapezoid('z', sys, 'Area', max(abs(Kzstep))*deltak(3)); 
 
-% readout trapezoid and ADC (ramp sampling)
 if gyBlip.area > gzBlip.area
-    maxBlipArea = gyBlip.area;   % max blip size is along y
+    maxBlipArea = gyBlip.area;
     blipDuration = mr.calcDuration(gyBlip);
 else
-    maxBlipArea = gzBlip.area;   % max blip size is along z
+    maxBlipArea = gzBlip.area;
     blipDuration = mr.calcDuration(gzBlip);
 end
+
+% readout trapezoid and ADC (ramp sampling)
 gro = mr.makeTrapezoid('x', sys, 'Area', Nx*deltak(1) + maxBlipArea);
 adc = mr.makeAdc(Nx, sys, ...
     'Duration', Nx*dwell, ...
     'Delay', blipDuration/2);
+
+% split blips at block boundary
+[gyBlipUp, gyBlipDown] = mr.splitGradientAt(gyBlip, mr.calcDuration(gyBlip)/2);
+gyBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gyBlip)/2;
+gyBlipDown.delay = 0;
+[gzBlipUp, gzBlipDown] = mr.splitGradientAt(gzBlip, mr.calcDuration(gzBlip)/2);
+gzBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gzBlip)/2;
+gzBlipDown.delay = 0;
 
 % prephasers and spoilers
 gxPre = mr.makeTrapezoid('x', sys, ...
     'Area', -gro.area/2, ...
     'Duration', Tpre);
 gyPre = mr.makeTrapezoid('y', sys, ...
-    'Area', Ny*deltak(2)/2, ...   % maximum PE1 gradient, max positive amplitude
+    'Area', -Ny*deltak(2)/2, ...   % maximum PE1 gradient, max positive amplitude
     'Duration', Tpre);
 gzPre = mr.makeTrapezoid('z', sys, ...
-    'Area', Nz*deltak(3)/2, ...   % maximum PE2 gradient, max positive amplitude
+    'Area', -Nz*deltak(3)/2, ...   % maximum PE2 gradient, max positive amplitude
     'Duration', Tpre);
 gxSpoil = mr.makeTrapezoid('x', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
 gzSpoil = mr.makeTrapezoid('z', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
+
+%% Assemble a dummy sequence for practice
+seq = mr.Sequence(sys);           
+
+KystepMax = max(abs(Kystep));
+KzstepMax = max(abs(Kzstep));
+
+blockGroupID = 1;
+seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', blockGroupID));
+seq.addBlock(gxPre, gyPre, gzPre);
+seq.addBlock(gro, adc, ...
+    mr.scaleGrad(gyBlipUp, Kystep(1)/KystepMax), ...
+    mr.scaleGrad(gzBlipUp, Kzstep(1)/KzstepMax));
+for ie = 2:10 %(etl-1)
+    seq.addBlock(adc, ...
+        mr.scaleGrad(gro, (-1)^(ie-1)), ...
+        mr.scaleGrad(gyBlipDown, Kystep(ie-1)/KystepMax), ...
+        mr.scaleGrad(gyBlipUp, Kystep(ie)/KystepMax), ...
+        mr.scaleGrad(gzBlipDown, Kzstep(ie-1)/KzstepMax), ...
+        mr.scaleGrad(gzBlipUp, Kzstep(ie)/KzstepMax));
+end
+seq.addBlock(adc, ...
+    mr.scaleGrad(gro, (-1)^(etl)), ...
+    mr.scaleGrad(gyBlipDown, Kystep(ie)/KystepMax), ...
+    mr.scaleGrad(gzBlipDown, Kzstep(ie)/KzstepMax));
+
+seq.plot();
 
 return
 
@@ -133,7 +168,6 @@ return
 % iZ < 0: Dummy shots to reach steady state
 % iZ = 0: ADC is turned on and used for receive gain calibration on GE scanners (during auto prescan)
 % iZ > 0: Image acquisition
-seq = mr.Sequence(sys);           
 nDummyZLoops = 2;
 for iZ = -nDummyZLoops:Nz
     if iZ > 0
