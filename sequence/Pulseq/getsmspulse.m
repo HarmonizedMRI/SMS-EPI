@@ -113,16 +113,6 @@ end
 wav = pulsegeq.rf2pulseq(rf, sysGE.raster, sys);  
 g = pulsegeq.g2pulseq(g, sysGE.raster, sys);  
 
-% Pad with zeros to make equal length
-wavdur = length(wav)*sys.rfRasterTime;
-gdur = length(g)*sys.gradRasterTime;
-if gdur < wavdur
-    n = ceil((wavdur-gdur)/sys.gradRasterTime);
-    g = [g zeros(1, n)];
-    gdur = length(g)*sys.gradRasterTime;
-end
-wav = [wav zeros(1, round((gdur-wavdur)/sys.rfRasterTime))];
-
 % trim zeros at start/end of RF pulse
 % delay (s) must be on grad raster boundary
 I = find(abs(diff(wav) > 0));
@@ -136,22 +126,30 @@ wav = wav(1:(end-I(1)+1));
 wavdur = length(wav)*sys.rfRasterTime;
 ttarget = pulsegeq.roundtoraster(wavdur, sys.gradRasterTime);
 wav = [wav zeros(1, round((ttarget-wavdur)/sys.rfRasterTime))];
+
+% if delay < sys.rfDeadTime, set to rfDeadTime and delay gradients accordingly
+gdelay = sys.rfDeadTime - delay;
+delay = max(sys.rfDeadTime, delay);
+    
+% create pulseq objects
 rf = mr.makeArbitraryRf(wav, alpha/180*pi, ...
             'delay', delay, ...
             'system', sys);
-gzRF = mr.makeArbitraryGrad('z', g, sys);
+gzRF = mr.makeArbitraryGrad('z', g, sys, ...
+    'delay', gdelay);
 
 return
 
 function [rf, gzRF] = sub_test
-alpha = 90;       % degrees
-slThick = 0.5e-2;   % m
-sliceSep = 4e-2;    % m
+alpha = 90;        % degrees
+slThick = 5e-3;    % m
+sliceSep = 40e-3;  % m
 tbw = 6;
-dur = 4e-3;         % s
-mb = 5;          % multiband factor (number of slices)
+dur = 4e-3;        % s
+mb = 5;            % multiband factor (number of slices)
 sysGE = toppe.systemspecs();
 sys = mr.opts();
 [rf, gzRF] = getsmspulse(alpha, slThick, tbw, dur, mb, sliceSep, sysGE, sys, ...
 	'doSim', true);
+
 return;

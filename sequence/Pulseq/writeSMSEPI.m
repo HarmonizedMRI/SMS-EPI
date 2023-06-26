@@ -11,6 +11,9 @@
 % For more information about preparing a Pulseq file for execution on GE scanners,
 % see https://github.com/jfnielsen/TOPPEpsdSourceCode/wiki.
 
+%% Paths
+caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
+
 %% Define experimental parameters
 sys = mr.opts('maxGrad', 22, 'gradUnit','mT/m', ...
               'maxSlew', 80, 'slewUnit', 'T/m/s', ...
@@ -28,17 +31,27 @@ voxelSize = [2.4 2.4 2.4]*1e-3;     % m
 mb = 6;                             % multiband/SMS factor
 Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
 fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
-
-dwell = 2e-6;                       % ADC sample time (s). For GE, must be multiple of 2us.
+TE = 30e-3;
 alpha = 60;                         % flip angle (degrees)
 
-fatChemShift = 3.5*1e-6;            % 3.5 ppm
-fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
-TE = 30e-3;
+dwell = 2e-6;                       % ADC sample time (s). For GE, must be multiple of 2us.
+
+% CAIPI sampling parameters
+Ry = 1;   % ky undersampling factor
+Rz = mb;  % kz undersampling factor
+CaipiShiftZ = 2;
+pf_ky = 0.8;              % partial Fourier factor along ky
+etl = ceil(pf_ky*Ny/Ry);  % echo train length
+
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
 
-rfTB  = 6;          % time-bandwidth product
+rfTB  = 6;          % RF pulse time-bandwidth product
 rfDur = 8e-3;       % RF pulse duration (s)
+
+fatChemShift = 3.5*1e-6;                        % 3.5 ppm
+fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
+
+Tpre = 0.5e-3;    % x/y/z prephasing gradient lob duration
 
 %% Excitation pulse
 
@@ -48,25 +61,52 @@ sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
 [rf, gzRF, freq] = getsmspulse(alpha, voxelSize(3), rfTB, rfDur, ...
     mb, sliceSep, sysGE, sys, ...
-    'doSim', true, ...    % Plot simulated SMS slice profile
+    'doSim', false, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'ftype', 'ls');       % filter design. 'ls' = least squares
 
-return
+%% Get CAIPI sampling pattern for each shot
+pyFile = [caipiPythonPath '/skippedcaipi_sampling.py'];
+pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
+    pyFile, Ny, Nz, Ry, Rz, CaipiShiftZ, 1);
+a = 2; %input('Press 1 to run Python script from Matlab, 2 to run offline ');
+if a == 1
+    system(pyCmd);
+else
+    fprintf('Run the following python command:\n\t%s\n', pyCmd);
+    input('Then press Enter to continue');
+end
+load caipi
+
+% kz encoding blip amplitude along echo train (multiples of deltak)
+Kzstep = diff(double(indices(1:etl,1) + 1));
+Kystep = diff(double(indices(1:etl,2) + 1));
 
 
-% Create a new sequence object
-seq = mr.Sequence(sys);           
+%% Define other gradients and ADC events
 
-% Create non-selective pulse
-[rf, rfDelay] = mr.makeBlockPulse(alpha/180*pi, sys, 'Duration', alphaPulseDuration);
-
-% Define other gradients and ADC events
-% Cut the redaout gradient into two parts for optimal spoiler timing
 deltak = 1./fov;
-Tread = Nx*dwell;
+
+% start with the blip
+gyBlip = mr.makeTrapezoid('y', sys, 'Area', max(abs(Kystep))*deltak(2)); 
+gzBlip = mr.makeTrapezoid('z', sys, 'Area', max(abs(Kzstep))*deltak(3)); 
+
+% readout trapezoid and ADC (ramp sampling)
+if gyBlip.area > gzBlip.area
+    maxBlipArea = gyBlip.area;   % max blip size is along y
+    blipDuration = mr.calcDuration(gyBlip);
+else
+    maxBlipArea = gzBlip.area;   % max blip size is along z
+    blipDuration = mr.calcDuration(gzBlip);
+end
+gro = mr.makeTrapezoid('x', sys, 'Area', Nx*deltak(1) + maxBlipArea);
+adc = mr.makeAdc(Nx, sys, ...
+    'Duration', Nx*dwell, ...
+    'Delay', blipDuration/2);
+
+% prephasers and spoilers
 gxPre = mr.makeTrapezoid('x', sys, ...
-    'Area', -Nx*deltak(1)/2, ...
+    'Area', -gro.area/2, ...
     'Duration', Tpre);
 gyPre = mr.makeTrapezoid('y', sys, ...
     'Area', Ny*deltak(2)/2, ...   % maximum PE1 gradient, max positive amplitude
@@ -74,36 +114,26 @@ gyPre = mr.makeTrapezoid('y', sys, ...
 gzPre = mr.makeTrapezoid('z', sys, ...
     'Area', Nz*deltak(3)/2, ...   % maximum PE2 gradient, max positive amplitude
     'Duration', Tpre);
-gxtmp = mr.makeTrapezoid('x', sys, ...   % temporary object
-    'Amplitude', Nx*deltak(1)/Tread, ...
-    'FlatTime', Tread);
-adc = mr.makeAdc(Nx, sys, ...
-    'Duration', Tread,...
-    'Delay', gxtmp.riseTime);
-gxtmp2 = mr.makeTrapezoid('x', sys, ...  % temporary object
-    'Amplitude', Nx*deltak(1)/Tread, ...
-    'FlatTime', Tread + adc.deadTime);   % extend flat time so we can split at end of ADC dead time
+gxSpoil = mr.makeTrapezoid('x', sys, ...
+    'Area', Nx*deltak(1)*nCyclesSpoil);
 gzSpoil = mr.makeTrapezoid('z', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
-gxSpoil = mr.makeExtendedTrapezoidArea('x', gxtmp.amplitude, 0, gzSpoil.area, sys);
-[gx, ~] = mr.splitGradientAt(gxtmp2, gxtmp2.riseTime + gxtmp2.flatTime);
 
-% y/z PE steps
-pe1Steps = ((0:Ny-1)-Ny/2)/Ny*2;
-pe2Steps = ((0:Nz-1)-Nz/2)/Nz*2;
+return
 
 % Calculate timing
-TEmin = rf.shape_dur/2 + rf.ringdownTime + mr.calcDuration(gxPre) ...
-      + adc.delay + Nx/2*dwell;
-delayTE = ceil((TE-TEmin)/seq.gradRasterTime)*seq.gradRasterTime;
-TRmin = mr.calcDuration(rf) + delayTE + mr.calcDuration(gxPre) ...
-      + mr.calcDuration(gx) + mr.calcDuration(gxSpoil);
-delayTR = ceil((TR-TRmin)/seq.gradRasterTime)*seq.gradRasterTime;
+%TEmin = rf.shape_dur/2 + rf.ringdownTime + mr.calcDuration(gxPre) ...
+%      + adc.delay + Nx/2*dwell;
+%delayTE = ceil((TE-TEmin)/seq.gradRasterTime)*seq.gradRasterTime;
+%TRmin = mr.calcDuration(rf) + delayTE + mr.calcDuration(gxPre) ...
+%      + mr.calcDuration(gx) + mr.calcDuration(gxSpoil);
+%delayTR = ceil((TR-TRmin)/seq.gradRasterTime)*seq.gradRasterTime;
 
-% Loop over phase encodes and define sequence blocks
+%% Loop over phase encodes and define sequence blocks
 % iZ < 0: Dummy shots to reach steady state
 % iZ = 0: ADC is turned on and used for receive gain calibration on GE scanners (during auto prescan)
 % iZ > 0: Image acquisition
+seq = mr.Sequence(sys);           
 nDummyZLoops = 2;
 for iZ = -nDummyZLoops:Nz
     if iZ > 0
