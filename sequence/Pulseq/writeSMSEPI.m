@@ -1,5 +1,4 @@
-% SMS-EPI sequence in Pulseq, optimized
-% for identical execution on Siemens and GE scanners.
+% SMS-EPI sequence in Pulseq
 %
 % This script creates the file 'smsepi.seq', that can be executed directly
 % on Siemens MRI scanners using the Pulseq interpreter.
@@ -82,8 +81,7 @@ Kzstep = diff(double(indices(1:etl,1) + 1));
 Kystep = diff(double(indices(1:etl,2) + 1));
 
 
-%% Define other gradients and ADC events
-
+%% Define readout gradients and ADC events
 deltak = 1./fov;
 
 % start with the blips
@@ -98,16 +96,19 @@ else
     blipDuration = mr.calcDuration(gzBlip);
 end
 
-% readout trapezoid and ADC (ramp sampling)
+% readout trapezoid
 gro = mr.makeTrapezoid('x', sys, 'Area', Nx*deltak(1) + maxBlipArea);
-adc = mr.makeAdc(Nx, sys, ...
-    'Duration', Nx*dwell, ...
+Tread = mr.calcDuration(gro) - blipDuration;
+Tread = pulsegeq.roundtoraster(Tread, dwell);
+adc = mr.makeAdc(ceil(Tread/dwell), sys, ...
+    'Duration', Tread, ...
     'Delay', blipDuration/2);
 
 % split blips at block boundary
 [gyBlipUp, gyBlipDown] = mr.splitGradientAt(gyBlip, mr.calcDuration(gyBlip)/2);
 gyBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gyBlip)/2;
 gyBlipDown.delay = 0;
+
 [gzBlipUp, gzBlipDown] = mr.splitGradientAt(gzBlip, mr.calcDuration(gzBlip)/2);
 gzBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gzBlip)/2;
 gzBlipDown.delay = 0;
@@ -133,26 +134,37 @@ seq = mr.Sequence(sys);
 KystepMax = max(abs(Kystep));
 KzstepMax = max(abs(Kzstep));
 
-blockGroupID = 1;
-seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', blockGroupID));
-seq.addBlock(gxPre, gyPre, gzPre);
-seq.addBlock(gro, adc, ...
-    mr.scaleGrad(gyBlipUp, Kystep(1)/KystepMax), ...
-    mr.scaleGrad(gzBlipUp, Kzstep(1)/KzstepMax));
-for ie = 2:10 %(etl-1)
-    seq.addBlock(adc, ...
-        mr.scaleGrad(gro, (-1)^(ie-1)), ...
-        mr.scaleGrad(gyBlipDown, Kystep(ie-1)/KystepMax), ...
-        mr.scaleGrad(gyBlipUp, Kystep(ie)/KystepMax), ...
-        mr.scaleGrad(gzBlipDown, Kzstep(ie-1)/KzstepMax), ...
-        mr.scaleGrad(gzBlipUp, Kzstep(ie)/KzstepMax));
-end
-seq.addBlock(adc, ...
-    mr.scaleGrad(gro, (-1)^(etl)), ...
-    mr.scaleGrad(gyBlipDown, Kystep(ie)/KystepMax), ...
-    mr.scaleGrad(gzBlipDown, Kzstep(ie)/KzstepMax));
+        blockGroupID = 1;
+        seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', blockGroupID));
+        seq.addBlock(gxPre, gyPre, gzPre);
+        seq.addBlock(gro, adc, ...
+                     mr.scaleGrad(gyBlipUp, Kystep(1)/KystepMax), ...
+                     mr.scaleGrad(gzBlipUp, Kzstep(1)/KzstepMax));
+        for ie = 2:(etl-1)
+            gybd = mr.scaleGrad(gyBlipDown, Kystep(ie-1)/KystepMax);
+            gybu = mr.scaleGrad(gyBlipUp, Kystep(ie)/KystepMax);
+            gybdu = mr.addGradients({gybd, gybu}, sys);
+            gzbd = mr.scaleGrad(gzBlipDown, Kzstep(ie-1)/KzstepMax);
+            gzbu = mr.scaleGrad(gzBlipUp, Kzstep(ie)/KzstepMax);
+            gzbdu = mr.addGradients({gzbd, gzbu}, sys);
+            seq.addBlock(adc, mr.scaleGrad(gro, (-1)^(ie-1)), gybdu, gzbdu);
+        end
+        seq.addBlock(adc, ...
+                     mr.scaleGrad(gro, (-1)^(ie)), ...
+                     mr.scaleGrad(gyBlipDown, Kystep(ie)/KystepMax), ...
+                     mr.scaleGrad(gzBlipDown, Kzstep(ie)/KzstepMax));
 
 seq.plot();
+
+% Check sequence timing
+[ok, error_report]=seq.checkTiming;
+if (ok)
+    fprintf('Timing check passed successfully\n');
+else
+    fprintf('Timing check failed! Error listing follows:\n');
+    fprintf([error_report{:}]);
+    fprintf('\n');
+end
 
 return
 
@@ -213,16 +225,6 @@ for iZ = -nDummyZLoops:Nz
     end
 end
 fprintf('\nSequence ready\n');
-
-% Check sequence timing
-[ok, error_report]=seq.checkTiming;
-if (ok)
-    fprintf('Timing check passed successfully\n');
-else
-    fprintf('Timing check failed! Error listing follows:\n');
-    fprintf([error_report{:}]);
-    fprintf('\n');
-end
 
 % Visualise sequence and output for execution
 Ndummy = length(TE)*Ny*nDummyZLoops;
