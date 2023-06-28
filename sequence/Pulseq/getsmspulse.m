@@ -62,8 +62,8 @@ end
 freq = sysGE.gamma*gPlateau*sliceSep;   % Hz
 
 % pad to 4-sample boundary
-rf = toppe.makeGElength(rf);   
-g = toppe.makeGElength(g);
+%rf = toppe.makeGElength(rf);   
+%g = toppe.makeGElength(g);
 
 % simulate and plot slice profile
 if arg.doSim
@@ -111,7 +111,10 @@ end
 
 % Convert from Gauss (Gauss/cm) to Hz (Hz/m), and interpolate to sys.rf/gradRasterTime
 wav = pulsegeq.rf2pulseq(rf, sysGE.raster, sys);  
+gin = g;
 g = pulsegeq.g2pulseq(g, sysGE.raster, sys);  
+rf = [rf(:); 0];   
+g = [g(:); 0];     % since interpolation can produce non-zero value at end
 
 % trim zeros at start/end of RF pulse
 % delay (s) must be on grad raster boundary
