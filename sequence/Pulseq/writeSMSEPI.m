@@ -28,10 +28,13 @@ sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
 
 voxelSize = [2.4 2.4 2.4]*1e-3;     % m
 mb = 6;                             % multiband/SMS factor
-Nx = 17; Ny = Nx; Nz = mb*10;       % Matrix size
+Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
 fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
 TE = 30e-3;
 alpha = 60;                         % flip angle (degrees)
+
+nFrames = 10;                       % number of temporal frames (image volumes)
+nDummyFrames = 0;                   % dummy frames to reach steady state
 
 dwell = 4e-6;                       % ADC sample time (s). For GE, must be multiple of 2us.
 
@@ -39,7 +42,7 @@ dwell = 4e-6;                       % ADC sample time (s). For GE, must be multi
 Ry = 1;                   % ky undersampling factor
 Rz = mb;                  % kz undersampling factor
 CaipiShiftZ = 2;
-pf_ky = 1.0;             % partial Fourier factor along ky
+pf_ky = 0.7;             % partial Fourier factor along ky
 etl = ceil(pf_ky*Ny/Ry);  % echo train length
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
@@ -128,7 +131,7 @@ gxPre = mr.makeTrapezoid('x', sys, ...
     'Area', -gro.area/2);
 Tpre = mr.calcDuration(gxPre);
 gyPre = mr.makeTrapezoid('y', sys, ...
-    'Area', (kyInds(1)-Ny/2)*deltak(2), ... 
+    'Area', (kyInds(1)-Ny/2+1/2)*deltak(2), ... 
     'Duration', Tpre);
 gzPre = mr.makeTrapezoid('z', sys, ...
     'Area', -deltak(3), ...   % maximum PE2 gradient, max positive amplitude
@@ -138,15 +141,16 @@ gxSpoil = mr.makeTrapezoid('x', sys, ...
 gzSpoil = mr.makeTrapezoid('z', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
 
-%% Calculate minimum TE to achieve desired TE
+%% Calculate delay to achieve desired TE
 kyIndAtTE = find(kyInds-Ny/2 == min(abs(kyInds-Ny/2)));
 minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
         (kyIndAtTE-0.5) * mr.calcDuration(gro);
 TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
 
-%% Assemble a dummy sequence for practice
+%% Assemble sequence
 seq = mr.Sequence(sys);           
 
+Nshots = Nz/mb;
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
 
@@ -173,8 +177,6 @@ kzStepMax = max(abs(kzStep));
                      mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
                      mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
 
-%seq.plot('blockrange', [1 20]);
-
 % Check sequence timing
 [ok, error_report]=seq.checkTiming;
 if (ok)
@@ -184,6 +186,19 @@ else
     fprintf([error_report{:}]);
     fprintf('\n');
 end
+
+%% Inspect sequence
+
+%seq.plot('blockrange', [1 20]);
+
+% k-space trajectory calculation
+[ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
+
+% plot k-spaces
+figure; plot(ktraj(1,:),ktraj(2,:),'b'); % a 2D k-space plot
+axis('equal'); % enforce aspect ratio for the correct trajectory display
+hold;plot(ktraj_adc(1,:),ktraj_adc(2,:),'r.'); % plot the sampling points
+title('full k-space trajectory (k_x x k_y)');
 
 return
 
