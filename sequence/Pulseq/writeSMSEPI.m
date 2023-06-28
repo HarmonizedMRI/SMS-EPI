@@ -14,8 +14,8 @@
 caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
 
 %% Define experimental parameters
-sys = mr.opts('maxGrad', 22, 'gradUnit','mT/m', ...
-              'maxSlew', 80, 'slewUnit', 'T/m/s', ...
+sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
+              'maxSlew', 120, 'slewUnit', 'T/m/s', ...
               'rfDeadTime', 100e-6, ...
               'rfRingdownTime', 60e-6, ...
               'adcDeadTime', 40e-6, ...
@@ -24,7 +24,7 @@ sys = mr.opts('maxGrad', 22, 'gradUnit','mT/m', ...
               'blockDurationRaster', 10e-6, ...
               'B0', 3.0);
 
-timessi = 100e-6;    % start sequence interrupt (SSI) time (required delay at end of block group/TR)
+%timessi = 100e-6;    % start sequence interrupt (SSI) time (required delay at end of block group/TR)
 
 voxelSize = [2.4 2.4 2.4]*1e-3;     % m
 mb = 6;                             % multiband/SMS factor
@@ -33,11 +33,11 @@ fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
 TE = 30e-3;
 alpha = 60;                         % flip angle (degrees)
 
-dwell = 2e-6;                       % ADC sample time (s). For GE, must be multiple of 2us.
+dwell = 4e-6;                       % ADC sample time (s). For GE, must be multiple of 2us.
 
 % CAIPI sampling parameters
-Ry = 1;   % ky undersampling factor
-Rz = mb;  % kz undersampling factor
+Ry = 1;                   % ky undersampling factor
+Rz = mb;                  % kz undersampling factor
 CaipiShiftZ = 2;
 pf_ky = 0.8;              % partial Fourier factor along ky
 etl = ceil(pf_ky*Ny/Ry);  % echo train length
@@ -71,14 +71,17 @@ a = 2; %input('Press 1 to run Python script from Matlab, 2 to run offline ');
 if a == 1
     system(pyCmd);
 else
-    fprintf('Run the following python command:\n\t%s\n', pyCmd);
+    fprintf('Open a terminal and run the following python command:\n\t%s\n', pyCmd);
     input('Then press Enter to continue');
 end
 load caipi
 
+KzInds = double(indices((end-etl+1):end, 1));
+KyInds = double(indices((end-etl+1):end, 2));
+
 % kz encoding blip amplitude along echo train (multiples of deltak)
-Kzstep = diff(double(indices(1:etl,1) + 1));
-Kystep = diff(double(indices(1:etl,2) + 1));
+Kzstep = diff(KzInds + 1);
+Kystep = diff(KyInds + 1);
 
 
 %% Define readout gradients and ADC events
@@ -96,11 +99,16 @@ else
     blipDuration = mr.calcDuration(gzBlip);
 end
 
-% readout trapezoid
-gro = mr.makeTrapezoid('x', sys, 'Area', Nx*deltak(1) + maxBlipArea);
+% Readout trapezoid
+% Limit gradient amplitude according to FOV and dwell time.
+systmp = sys;
+systmp.maxGrad = deltak(1)/dwell;
+gro = mr.makeTrapezoid('x', systmp, 'Area', Nx*deltak(1) + maxBlipArea);
 Tread = mr.calcDuration(gro) - blipDuration;
-Tread = pulsegeq.roundtoraster(Tread, dwell);
-adc = mr.makeAdc(ceil(Tread/dwell), sys, ...
+if mod(round(Tread*1e6)*1e-6, dwell)
+    Tread = Tread - mod(Tread, dwell) + dwell;
+end
+adc = mr.makeAdc(round(Tread/dwell), sys, ...
     'Duration', Tread, ...
     'Delay', blipDuration/2);
 
@@ -154,7 +162,7 @@ KzstepMax = max(abs(Kzstep));
                      mr.scaleGrad(gyBlipDown, Kystep(ie)/KystepMax), ...
                      mr.scaleGrad(gzBlipDown, Kzstep(ie)/KzstepMax));
 
-seq.plot();
+%seq.plot('blockrange', [1 20]);
 
 % Check sequence timing
 [ok, error_report]=seq.checkTiming;
@@ -228,7 +236,7 @@ fprintf('\nSequence ready\n');
 
 % Visualise sequence and output for execution
 Ndummy = length(TE)*Ny*nDummyZLoops;
-seq.plot('TimeRange',[Ndummy+1 Ndummy+6]*TR(1), 'timedisp', 'ms')
+%seq.plot('TimeRange',[Ndummy+1 Ndummy+6]*TR(1), 'timedisp', 'ms')
 
 seq.setDefinition('FOV', fov);
 seq.setDefinition('Name', 'b0');
