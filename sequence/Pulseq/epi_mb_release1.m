@@ -93,12 +93,12 @@ Bandsep = [0 -7 -14 7 14 21];
 nBand = 0;
 
 % trials and errors, blip duration is too small
-rf_6 = mrz.makeMBPulse_less(rf.signal,'n_bands',0,'timeBwProduct',4,'band_sep',[0 -7 -14 7 14 21]*3e-3/slicethickness);%phs is for no centered slice
-rf_61 = mrz.makeMBPulse(rf.signal,'n_bands',6,'timeBwProduct',4,'band_sep',7*3e-3/slicethickness,'phs_0_pt','phs_mod');
+%rf_6 = mrz.makeMBPulse_less(rf.signal,'n_bands',0,'timeBwProduct',4,'band_sep',[0 -7 -14 7 14 21]*3e-3/slicethickness);%phs is for no centered slice
+%rf_61 = mrz.makeMBPulse(rf.signal,'n_bands',6,'timeBwProduct',4,'band_sep',7*3e-3/slicethickness,'phs_0_pt','phs_mod');
 
 
 rf1 = rf;% rf1 for multiband
-rf1.signal = rf_6;
+%rf1.signal = rf_6;
 
 if nBand == 0
     nBand = length(Bandsep);
