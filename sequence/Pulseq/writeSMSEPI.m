@@ -28,7 +28,7 @@ sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
 
 voxelSize = [2.4 2.4 2.4]*1e-3;     % m
 mb = 6;                             % multiband/SMS factor
-Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
+Nx = 17; Ny = Nx; Nz = mb*10;       % Matrix size
 fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
 TE = 30e-3;
 alpha = 60;                         % flip angle (degrees)
@@ -39,7 +39,7 @@ dwell = 4e-6;                       % ADC sample time (s). For GE, must be multi
 Ry = 1;                   % ky undersampling factor
 Rz = mb;                  % kz undersampling factor
 CaipiShiftZ = 2;
-pf_ky = 0.8;              % partial Fourier factor along ky
+pf_ky = 1.0;             % partial Fourier factor along ky
 etl = ceil(pf_ky*Ny/Ry);  % echo train length
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
@@ -49,8 +49,6 @@ rfDur = 8e-3;       % RF pulse duration (s)
 
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
-
-Tpre = 1.0e-3;    % x/y/z prephasing gradient lobe duration
 
 %% Excitation pulse
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
@@ -63,11 +61,11 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'ftype', 'ls');       % filter design. 'ls' = least squares
 
-%% Get CAIPI sampling pattern for each shot
+%% Get CAIPI sampling pattern (for one shot/echo train)
 pyFile = [caipiPythonPath '/skippedcaipi_sampling.py'];
 pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
     pyFile, Ny, Nz, Ry, Rz, CaipiShiftZ, 1);
-a = 2; %input('Press 1 to run Python script from Matlab, 2 to run offline ');
+a = input('Press 1 to run Python script from Matlab, 2 to run offline:  ');
 if a == 1
     system(pyCmd);
 else
@@ -76,21 +74,23 @@ else
 end
 load caipi
 
-KzInds = double(indices((end-etl+1):end, 1));
-KyInds = double(indices((end-etl+1):end, 2));
+% kz and ky indeces (in units of deltak)
+kzInds = double(indices((end-etl+1):end, 1));
+kyInds = double(indices((end-etl+1):end, 2));
 
 % kz encoding blip amplitude along echo train (multiples of deltak)
-Kzstep = diff(KzInds + 1);
-Kystep = diff(KyInds + 1);
+kzStep = diff(kzInds);
+kyStep = diff(kyInds);
 
 
-%% Define readout gradients and ADC events
+%% Define readout gradients and ADC event
 deltak = 1./fov;
 
 % start with the blips
-gyBlip = mr.makeTrapezoid('y', sys, 'Area', max(abs(Kystep))*deltak(2)); 
-gzBlip = mr.makeTrapezoid('z', sys, 'Area', max(abs(Kzstep))*deltak(3)); 
+gyBlip = mr.makeTrapezoid('y', sys, 'Area', max(abs(kyStep))*deltak(2)); 
+gzBlip = mr.makeTrapezoid('z', sys, 'Area', max(abs(kzStep))*deltak(3)); 
 
+% area and duration of the biggest blip
 if gyBlip.area > gzBlip.area
     maxBlipArea = gyBlip.area;
     blipDuration = mr.calcDuration(gyBlip);
@@ -104,6 +104,8 @@ end
 systmp = sys;
 systmp.maxGrad = deltak(1)/dwell;
 gro = mr.makeTrapezoid('x', systmp, 'Area', Nx*deltak(1) + maxBlipArea);
+
+% ADC event
 Tread = mr.calcDuration(gro) - blipDuration;
 if mod(round(Tread*1e6)*1e-6, dwell)
     Tread = Tread - mod(Tread, dwell) + dwell;
@@ -123,44 +125,53 @@ gzBlipDown.delay = 0;
 
 % prephasers and spoilers
 gxPre = mr.makeTrapezoid('x', sys, ...
-    'Area', -gro.area/2, ...
-    'Duration', Tpre);
+    'Area', -gro.area/2);
+Tpre = mr.calcDuration(gxPre);
 gyPre = mr.makeTrapezoid('y', sys, ...
-    'Area', -Ny*deltak(2)/2, ...   % maximum PE1 gradient, max positive amplitude
+    'Area', (kyInds(1)-Ny/2)*deltak(2), ... 
     'Duration', Tpre);
 gzPre = mr.makeTrapezoid('z', sys, ...
-    'Area', -Nz*deltak(3)/2, ...   % maximum PE2 gradient, max positive amplitude
+    'Area', -deltak(3), ...   % maximum PE2 gradient, max positive amplitude
     'Duration', Tpre);
 gxSpoil = mr.makeTrapezoid('x', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
 gzSpoil = mr.makeTrapezoid('z', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
 
+%% Calculate minimum TE to achieve desired TE
+kyIndAtTE = find(kyInds-Ny/2 == min(abs(kyInds-Ny/2)));
+minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
+        (kyIndAtTE-0.5) * mr.calcDuration(gro);
+TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
+
 %% Assemble a dummy sequence for practice
 seq = mr.Sequence(sys);           
 
-KystepMax = max(abs(Kystep));
-KzstepMax = max(abs(Kzstep));
+kyStepMax = max(abs(kyStep));
+kzStepMax = max(abs(kzStep));
 
         blockGroupID = 1;
         seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', blockGroupID));
+        if TE > minTE
+            seq.addBlock(mr.makeDelay(TEdelay));
+        end
         seq.addBlock(gxPre, gyPre, gzPre);
         seq.addBlock(gro, adc, ...
-                     mr.scaleGrad(gyBlipUp, Kystep(1)/KystepMax), ...
-                     mr.scaleGrad(gzBlipUp, Kzstep(1)/KzstepMax));
+                     mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax), ...
+                     mr.scaleGrad(gzBlipUp, kzStep(1)/kzStepMax));
         for ie = 2:(etl-1)
-            gybd = mr.scaleGrad(gyBlipDown, Kystep(ie-1)/KystepMax);
-            gybu = mr.scaleGrad(gyBlipUp, Kystep(ie)/KystepMax);
+            gybd = mr.scaleGrad(gyBlipDown, kyStep(ie-1)/kyStepMax);
+            gybu = mr.scaleGrad(gyBlipUp, kyStep(ie)/kyStepMax);
             gybdu = mr.addGradients({gybd, gybu}, sys);
-            gzbd = mr.scaleGrad(gzBlipDown, Kzstep(ie-1)/KzstepMax);
-            gzbu = mr.scaleGrad(gzBlipUp, Kzstep(ie)/KzstepMax);
+            gzbd = mr.scaleGrad(gzBlipDown, kzStep(ie-1)/kzStepMax);
+            gzbu = mr.scaleGrad(gzBlipUp, kzStep(ie)/kzStepMax);
             gzbdu = mr.addGradients({gzbd, gzbu}, sys);
             seq.addBlock(adc, mr.scaleGrad(gro, (-1)^(ie-1)), gybdu, gzbdu);
         end
         seq.addBlock(adc, ...
                      mr.scaleGrad(gro, (-1)^(ie)), ...
-                     mr.scaleGrad(gyBlipDown, Kystep(ie)/KystepMax), ...
-                     mr.scaleGrad(gzBlipDown, Kzstep(ie)/KzstepMax));
+                     mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
+                     mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
 
 %seq.plot('blockrange', [1 20]);
 
