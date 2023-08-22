@@ -4,13 +4,14 @@ function [rf, gzRF, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, slice
 % Create SMS rf and gradient waveforms 
 %
 % Inputs
-%   alpha         flip angle (degrees)
+%   alpha        flip angle (degrees)
 %   slThick      slice thickness (m)
 %   tbw          time-bandwidth product
 %   dur          pulse duration (sec)
 %   nSlices      Multi-band factor
 %   sliceSep     Center-to-center slice separation (cm)
-%   sysGE          system struct for TOPPE, see toppe.systemspecs()
+%   sysGE        system struct for TOPPE, see toppe.systemspecs()
+%   sys          Pulseq system struct, see mr.opts()
 %
 % Outputs
 %   rf    [nt 1]   Complex RF waveform (Gauss). Raster time is 4us.
@@ -107,14 +108,21 @@ if arg.writeModFile
 	%toppe.plotmod('tipdown.mod');
 end
 
-%% create Pulseq objects
+%% Create Pulseq objects
 
-% Convert from Gauss (Gauss/cm) to Hz (Hz/m), and interpolate to sys.rf/gradRasterTime
-wav = pulsegeq.rf2pulseq(rf, sysGE.raster, sys);  
+% Convert from Gauss to Hz, and interpolate to sys.rfRasterTime
+wav = rf2pulseq(rf, sysGE.raster*1e-6, sys.rfRasterTime);  
+
+% Convert from Gauss/cm to Hz/m, and interpolate to sys.gradRasterTime
 gin = g;
-g = pulsegeq.g2pulseq(g, sysGE.raster, sys);  
-rf = [rf(:); 0];   
-g = [g(:); 0];     % since interpolation can produce non-zero value at end
+rasterIn = sysGE.raster*1e-6;    % s
+rasterOut = sys.gradRasterTime;  % s
+grad.waveform = g * sysGE.gamma / 100;    % Hz/m
+grad.first = grad.waveform(1);   
+grad.last = grad.waveform(end);
+grad.tt = (1:length(grad.waveform)) * rasterIn - rasterIn/2;
+[g, tt] = gradinterp(grad, rasterIn, rasterOut);
+keyboard
 
 % trim zeros at start/end of RF pulse
 % delay (s) must be on grad raster boundary
