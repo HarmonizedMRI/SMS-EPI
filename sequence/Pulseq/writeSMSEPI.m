@@ -27,10 +27,10 @@ sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
 %timessi = 100e-6;    % start sequence interrupt (SSI) time (required delay at end of block group/TR)
 
 voxelSize = [2.4 2.4 2.4]*1e-3;     % m
-mb = 6;                             % multiband/SMS factor
+mb = 4;                             % multiband/SMS factor
 Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
 fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
-TE = 30e-3;
+TE = 30e-3;                         % echo time (s)
 alpha = 60;                         % flip angle (degrees)
 
 nFrames = 10;                       % number of temporal frames (image volumes)
@@ -63,6 +63,8 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
     'doSim', false, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'ftype', 'ls');       % filter design. 'ls' = least squares
+
+return
 
 %% Get CAIPI sampling pattern (for one shot/echo train)
 pyFile = [caipiPythonPath '/skippedcaipi_sampling.py'];
