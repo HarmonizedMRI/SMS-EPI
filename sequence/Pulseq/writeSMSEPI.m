@@ -24,10 +24,8 @@ sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
               'blockDurationRaster', 10e-6, ...
               'B0', 3.0);
 
-%timessi = 100e-6;    % start sequence interrupt (SSI) time (required delay at end of block group/TR)
-
 voxelSize = [2.4 2.4 2.4]*1e-3;     % m
-mb = 4;                             % multiband/SMS factor
+mb = 6;                             % multiband/SMS factor
 Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
 fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
 TE = 30e-3;                         % echo time (s)
@@ -53,6 +51,12 @@ rfDur = 8e-3;       % RF pulse duration (s)
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
 
+
+%% Fat sat pulse 
+
+% TODO
+
+
 %% Excitation pulse
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
@@ -64,10 +68,8 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'ftype', 'ls');       % filter design. 'ls' = least squares
 
-return
-
 %% Get CAIPI sampling pattern (for one shot/echo train)
-pyFile = [caipiPythonPath '/skippedcaipi_sampling.py'];
+pyFile = [caipiPythonPath 'skippedcaipi_sampling.py'];
 pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
     pyFile, Ny, Nz, Ry, Rz, CaipiShiftZ, 1);
 a = input('Press 1 to run Python script from Matlab, 2 to run offline:  ');
@@ -80,22 +82,24 @@ end
 load caipi
 
 % kz and ky indeces (in units of deltak)
-kzInds = double(indices((end-etl+1):end, 1));
 kyInds = double(indices((end-etl+1):end, 2));
+kzInds = double(indices((end-etl+1):end, 1));
 
-% kz encoding blip amplitude along echo train (multiples of deltak)
-kzStep = diff(kzInds);
+% ky/kz encoding blip amplitude along echo train (multiples of deltak)
 kyStep = diff(kyInds);
+kzStep = diff(kzInds);
 
 
 %% Define readout gradients and ADC event
+% The Pulseq toolbox really shines here!
+
 deltak = 1./fov;
 
-% start with the blips
+% Start with the blips
 gyBlip = mr.makeTrapezoid('y', sys, 'Area', max(abs(kyStep))*deltak(2)); 
 gzBlip = mr.makeTrapezoid('z', sys, 'Area', max(abs(kzStep))*deltak(3)); 
 
-% area and duration of the biggest blip
+% Area and duration of the biggest blip
 if gyBlip.area > gzBlip.area
     maxBlipArea = gyBlip.area;
     blipDuration = mr.calcDuration(gyBlip);
@@ -105,9 +109,8 @@ else
 end
 
 % Readout trapezoid
-% Limit gradient amplitude according to FOV and dwell time.
 systmp = sys;
-systmp.maxGrad = deltak(1)/dwell;
+systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
 gro = mr.makeTrapezoid('x', systmp, 'Area', Nx*deltak(1) + maxBlipArea);
 
 % ADC event
@@ -133,10 +136,10 @@ gxPre = mr.makeTrapezoid('x', sys, ...
     'Area', -gro.area/2);
 Tpre = mr.calcDuration(gxPre);
 gyPre = mr.makeTrapezoid('y', sys, ...
-    'Area', (kyInds(1)-Ny/2+1/2)*deltak(2), ... 
+    'Area', (kyInds(1)-Ny/2-1)*deltak(2), ... 
     'Duration', Tpre);
 gzPre = mr.makeTrapezoid('z', sys, ...
-    'Area', -deltak(3), ...   % maximum PE2 gradient, max positive amplitude
+    'Area', -Nz/2*deltak(3), ... 
     'Duration', Tpre);
 gxSpoil = mr.makeTrapezoid('x', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
@@ -152,9 +155,11 @@ TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
 %% Assemble sequence
 seq = mr.Sequence(sys);           
 
-Nshots = Nz/mb;
+nShots = 1;%Nz/mb;
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
+
+for shot = 1:nShots
 
         blockGroupID = 1;
         seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', blockGroupID));
@@ -178,6 +183,7 @@ kzStepMax = max(abs(kzStep));
                      mr.scaleGrad(gro, (-1)^(ie)), ...
                      mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
                      mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
+ end
 
 % Check sequence timing
 [ok, error_report]=seq.checkTiming;
@@ -189,14 +195,18 @@ else
     fprintf('\n');
 end
 
-%% Inspect sequence
+%% Output for execution and plot
+seq.setDefinition('FOV', fov);
+seq.setDefinition('Name', 'smsepi');
+seq.write('smsepi.seq')       % Write to pulseq file
 
+
+%% Plot
+seq.plot(); %'timeRange', [0 0.2]);
 %seq.plot('blockrange', [1 20]);
 
-% k-space trajectory calculation
+% k-space trajectory calculation and plot
 [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
-
-% plot k-spaces
 figure; plot(ktraj(1,:),ktraj(2,:),'b'); % a 2D k-space plot
 axis('equal'); % enforce aspect ratio for the correct trajectory display
 hold;plot(ktraj_adc(1,:),ktraj_adc(2,:),'r.'); % plot the sampling points
@@ -204,15 +214,9 @@ title('full k-space trajectory (k_x x k_y)');
 
 return
 
-% Calculate timing
-%TEmin = rf.shape_dur/2 + rf.ringdownTime + mr.calcDuration(gxPre) ...
-%      + adc.delay + Nx/2*dwell;
-%delayTE = ceil((TE-TEmin)/seq.gradRasterTime)*seq.gradRasterTime;
-%TRmin = mr.calcDuration(rf) + delayTE + mr.calcDuration(gxPre) ...
-%      + mr.calcDuration(gx) + mr.calcDuration(gxSpoil);
-%delayTR = ceil((TR-TRmin)/seq.gradRasterTime)*seq.gradRasterTime;
 
-%% Loop over phase encodes and define sequence blocks
+
+% Loop over phase encodes and define sequence blocks
 % iZ < 0: Dummy shots to reach steady state
 % iZ = 0: ADC is turned on and used for receive gain calibration on GE scanners (during auto prescan)
 % iZ > 0: Image acquisition
