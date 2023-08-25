@@ -8,7 +8,7 @@
 % The experimental parameters below are chosen such that the sequence 
 % can be executed identically (to us precision) on Siemens and GE systems.
 % For more information about preparing a Pulseq file for execution on GE scanners,
-% see https://github.com/jfnielsen/TOPPEpsdSourceCode/wiki.
+% see the 'Pulseq on GE' manual.
 
 %% Paths
 caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
@@ -68,6 +68,7 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'ftype', 'ls');       % filter design. 'ls' = least squares
 
+
 %% Get CAIPI sampling pattern (for one shot/echo train)
 pyFile = [caipiPythonPath 'skippedcaipi_sampling.py'];
 pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
@@ -84,6 +85,8 @@ load caipi
 % kz and ky indeces (in units of deltak)
 kyInds = double(indices((end-etl+1):end, 2));
 kzInds = double(indices((end-etl+1):end, 1));
+%kyInds = double(indices(1:etl, 2));
+%kzInds = double(indices(1:etl, 1));
 
 % ky/kz encoding blip amplitude along echo train (multiples of deltak)
 kyStep = diff(kyInds);
@@ -146,27 +149,33 @@ gxSpoil = mr.makeTrapezoid('x', sys, ...
 gzSpoil = mr.makeTrapezoid('z', sys, ...
     'Area', Nx*deltak(1)*nCyclesSpoil);
 
+
 %% Calculate delay to achieve desired TE
 kyIndAtTE = find(kyInds-Ny/2 == min(abs(kyInds-Ny/2)));
 minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
         (kyIndAtTE-0.5) * mr.calcDuration(gro);
 TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
 
+
 %% Assemble sequence
 seq = mr.Sequence(sys);           
 
-nShots = 1;%Nz/mb;
+nShots = Nz/mb;
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
 
-for shot = 1:nShots
+for shot = 1:2 %nShots
 
-        blockGroupID = 1;
-        seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', blockGroupID));
+        % RF excitation. Label only the first block in each segment.
+        segmentID = 1;
+        seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', segmentID));
+
         if TE > minTE
             seq.addBlock(mr.makeDelay(TEdelay));
         end
-        seq.addBlock(gxPre, gyPre, gzPre);
+
+        seq.addBlock(gxPre, gyPre, mr.scaleGrad(gzPre, 1 - 2/Nz*(shot-1)));
+
         seq.addBlock(gro, adc, ...
                      mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax), ...
                      mr.scaleGrad(gzBlipUp, kzStep(1)/kzStepMax));
