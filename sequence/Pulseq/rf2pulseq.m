@@ -16,7 +16,7 @@ gamma = 4.2576e3;    % Hz/G
 rf = rf*gamma;       % Hz
 
 dur = numel(rf)*rasterIn;   % pulse duration
-ttIn = (1:length(rf))*rasterIn + rasterIn/2;
+ttIn = (1:length(rf))*rasterIn - rasterIn/2;
 ttOut = rasterOut/2:rasterOut:dur;
 
 rfOut = interp1(ttIn, rf, ttOut, 'linear', 'extrap');
