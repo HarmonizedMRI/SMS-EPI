@@ -1,4 +1,4 @@
-function [rf, gzRF, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, sliceSep, sysGE, sys, varargin)
+function [rf, gz, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, sliceSep, sysGE, sys, varargin)
 % function [rf, gzRF, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, sliceSep, sysGE, sys, varargin)
 %
 % Create SMS rf and gradient waveforms 
@@ -19,7 +19,7 @@ function [rf, gzRF, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, slice
 %   freq  [1]      Frequency offset (Hz) corresponding to sliceSep
 
 if strcmp(alpha, 'test')
-	[rf, gzRF] = sub_test();
+	[rf, gz] = sub_test();
 	return;
 end
 
@@ -38,7 +38,7 @@ arg = toppe.utils.vararg_pair(arg, varargin);
 %% Design rf and gradient (on 4us raster)
 % design the 'unit' (base) pulse
 nSpoilCycles = 1e-6;   % just has to be small enough so that no spoiler is added at beginning of waveform in makeslr()
-[rf1,g] = toppe.utils.rf.makeslr(alpha, slThick, tbw, dur, nSpoilCycles, sysGE, ...
+[rf1, gz] = toppe.utils.rf.makeslr(alpha, slThick, tbw, dur, nSpoilCycles, sysGE, ...
 	'type', arg.type, ...   
 	'ftype', arg.ftype, ...  
 	'ofname', arg.ofname, ...
@@ -51,7 +51,7 @@ iPeak = mean(I) + 2;
 % Create SMS pulse
 PHS = getsmsphase(nSlices);  % Phase of the various subpulses (rad). From Wong et al, ISMRM 2012 p2209.
 bw = tbw/dur*1e3;            % pulse bandwidth (Hz)
-gPlateau = max(g);           % gradient amplitude during RF excitation (Gauss/cm)
+gPlateau = max(gz);           % gradient amplitude during RF excitation (Gauss/cm)
 rf = 0*rf1;
 dt = sysGE.raster*1e-6;      % sample (dwell) time (sec) 
 t = [dt:dt:(dt*length(rf1))]' - (dt*iPeak);
@@ -70,7 +70,7 @@ if arg.doSim
 	z = [-fov/2:0.05:fov/2];   % spatial locations (cm)
 	T1 = 1000;           % ms
 	T2 = 100;            % ms
-	[m] = toppe.utils.rf.slicesim([0 0 1], rf, g, dt*1e3, z, T1, T2, true);
+	[m] = toppe.utils.rf.slicesim([0 0 1], rf, gz, dt*1e3, z, T1, T2, true);
 
 	% Nominal (target) slice profile (may be useful later)
 	%{
@@ -97,49 +97,45 @@ end
 
 %% Create Pulseq objects
 
+rasterIn = sysGE.raster*1e-6;    % s
+
 % Convert from Gauss to Hz, and interpolate to sys.rfRasterTime
-wav = rf2pulseq(rf, sysGE.raster*1e-6, sys.rfRasterTime);  
+rfp = rf2pulseq(rf, rasterIn, sys.rfRasterTime);  
 
 % Convert from Gauss/cm to Hz/m, and interpolate to sys.gradRasterTime
-gin = g;
-rasterIn = sysGE.raster*1e-6;    % s
-rasterOut = sys.gradRasterTime;  % s
-grad.waveform = g * sysGE.gamma / 100;    % Hz/m
-grad.first = grad.waveform(1);   
-grad.last = grad.waveform(end);
-grad.tt = (1:length(grad.waveform)) * rasterIn - rasterIn/2;
-[g, tt] = gradinterp(grad, rasterIn, rasterOut);
+[gzp, tt] = g2pulseq(gz, rasterIn, sys.gradRasterTime);
 
-% trim zeros at start/end of RF pulse
-% delay (s) must be on grad raster boundary
-I = find(abs(diff(wav) > 0));
+% Trim zeros at start/end of RF pulse
+% delays (s) on Siemens grad raster boundary
+I = find(abs(diff(rfp) > 0));
 nDelay = I(1) - mod(I(1), round(sys.gradRasterTime/sys.rfRasterTime));
-wav = wav(nDelay:end);
+rfp = rfp(nDelay:end);
 delay = nDelay*sys.rfRasterTime;
-I = find(abs(diff(fliplr(wav)) > 0));
-wav = wav(1:(end-I(1)+1));
+I = find(abs(diff(flipud(rfp)) > 0));
+rfp = rfp(1:(end-I(1)+1));
 
 % zero-pad RF waveform duration to gradient raster boundary
-wavdur = length(wav)*sys.rfRasterTime;
+wavdur = length(rfp)*sys.rfRasterTime;
 ttarget = ceil(wavdur/sys.gradRasterTime)*sys.gradRasterTime;
-wav = [wav(:); zeros(round((ttarget-wavdur)/sys.rfRasterTime), 1)];
+rfp = [rfp(:); zeros(round((ttarget-wavdur)/sys.rfRasterTime), 1)];
 
 % if delay < sys.rfDeadTime, set to rfDeadTime and delay gradients accordingly
 gdelay = sys.rfDeadTime - delay;
 delay = max(sys.rfDeadTime, delay);
     
 % create pulseq objects
-rf = mr.makeArbitraryRf(wav, alpha/180*pi, ...
+rf = mr.makeArbitraryRf(rfp, alpha/180*pi, ...
             'delay', delay, ...
             'system', sys);
-gzRF = mr.makeArbitraryGrad('z', g, sys, ...
+gz = mr.makeArbitraryGrad('z', gzp, sys, ...
     'delay', gdelay);
-gzRF.first = grad.first;
+gz.first = 0;
+gz.last = 0;
 
 return
 
 
-function [rf, gzRF] = sub_test
+function [rf, gz] = sub_test
 alpha = 70;        % degrees
 slThick = 5e-3;    % m
 sliceSep = 40e-3;  % m
@@ -151,7 +147,7 @@ sys = mr.opts('rfDeadTime', 100e-6, ...
     'rfRingdownTime', 60e-6, ...
     'adcRasterTime', 2e-6, ...
     'adcDeadTime', 40e-6);
-[rf, gzRF] = getsmspulse(alpha, slThick, tbw, dur, mb, sliceSep, sysGE, sys, ...
+[rf, gz] = getsmspulse(alpha, slThick, tbw, dur, mb, sliceSep, sysGE, sys, ...
 	'doSim', true);
 
 return;
