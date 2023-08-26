@@ -124,14 +124,18 @@ gdelay = sys.rfDeadTime - delay;
 delay = max(sys.rfDeadTime, delay);
     
 % create pulseq objects
-rf = mr.makeArbitraryRf(rfp, alpha/180*pi, ...
-            'delay', delay, ...
-            'system', sys);
+% Account for the fact that makeArbitraryRf scales the pulse as follows:
+% signal = signal./abs(sum(signal.*opt.dwell))*flip/(2*pi);
+flip = alpha/180*pi;
+flipAssumed = abs(sum(rfp));
+rf = mr.makeArbitraryRf(rfp, ...
+    flip*abs(sum(rfp*sys.rfRasterTime))*(2*pi), ...
+    'delay', delay, ...
+    'system', sys);
 gz = mr.makeArbitraryGrad('z', gzp, sys, ...
     'delay', gdelay);
 gz.first = 0;
 gz.last = 0;
-
 return
 
 
