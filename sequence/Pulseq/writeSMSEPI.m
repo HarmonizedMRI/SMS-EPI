@@ -170,12 +170,13 @@ for shot = 1:2 %nShots
         segmentID = 1;
         seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', segmentID));
 
+        % TE delay
         if TE > minTE
             seq.addBlock(mr.makeDelay(TEdelay));
         end
 
+        % Readout
         seq.addBlock(gxPre, gyPre, mr.scaleGrad(gzPre, 1 - 2/Nz*(shot-1)));
-
         seq.addBlock(gro, adc, ...
                      mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax), ...
                      mr.scaleGrad(gzBlipUp, kzStep(1)/kzStepMax));
@@ -192,6 +193,9 @@ for shot = 1:2 %nShots
                      mr.scaleGrad(gro, (-1)^(ie)), ...
                      mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
                      mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
+
+        % spoil
+        % seq.addBlock(gxSpoil, gzSpoil);
  end
 
 % Check sequence timing
@@ -212,7 +216,6 @@ seq.write('smsepi.seq')       % Write to pulseq file
 
 %% Plot
 seq.plot(); %'timeRange', [0 0.2]);
-%seq.plot('blockrange', [1 20]);
 
 % k-space trajectory calculation and plot
 [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
@@ -220,6 +223,11 @@ figure; plot(ktraj(1,:),ktraj(2,:),'b'); % a 2D k-space plot
 axis('equal'); % enforce aspect ratio for the correct trajectory display
 hold;plot(ktraj_adc(1,:),ktraj_adc(2,:),'r.'); % plot the sampling points
 title('full k-space trajectory (k_x x k_y)');
+
+%% Optional slow step, but useful for testing during development,
+%% e.g., for the real TE, TR or for staying within slewrate limits
+% rep = seq.testReport;
+% fprintf([rep{:}]);
 
 return
 
