@@ -70,6 +70,8 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
 
 
 %% Get CAIPI sampling pattern (for one shot/echo train)
+
+% create caipi.mat, and load it
 pyFile = [caipiPythonPath 'skippedcaipi_sampling.py'];
 pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
     pyFile, Ny, Nz, Ry, Rz, CaipiShiftZ, 1);
@@ -80,13 +82,12 @@ else
     fprintf('Open a terminal and run the following python command:\n\t%s\n', pyCmd);
     input('Then press Enter to continue');
 end
+
 load caipi
 
-% kz and ky indeces (in units of deltak)
+% kz and ky indeces (multiples of deltak)
 kyInds = double(indices((end-etl+1):end, 2));
 kzInds = double(indices((end-etl+1):end, 1));
-%kyInds = double(indices(1:etl, 2));
-%kzInds = double(indices(1:etl, 1));
 
 % ky/kz encoding blip amplitude along echo train (multiples of deltak)
 kyStep = diff(kyInds);
