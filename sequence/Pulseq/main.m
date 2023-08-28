@@ -17,7 +17,7 @@ writeSMSEPI;
 smsepi2ge;     
 
 % Plot the .tar file.
-% toppe.plotseq() loads the scan files from the MATLA working directory,
+% toppe.plotseq() loads the scan files from the MATLA working directory,
 % so first we must untar the files.
 system('tar xf smsepi.tar');  
 toppe.plotseq(sysGE, 'timeRange', [0 0.06]);  % time range in sec
