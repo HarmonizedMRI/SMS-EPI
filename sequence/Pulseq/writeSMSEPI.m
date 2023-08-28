@@ -194,11 +194,11 @@ for shot = 1:2 %nShots
                      mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
                      mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
 
-        % spoil
+        % spoil. Commented out to make the k-space plot neater
         % seq.addBlock(gxSpoil, gzSpoil);
  end
 
-% Check sequence timing
+%% Check sequence timing
 [ok, error_report]=seq.checkTiming;
 if (ok)
     fprintf('Timing check passed successfully\n');
@@ -213,7 +213,6 @@ seq.setDefinition('FOV', fov);
 seq.setDefinition('Name', 'smsepi');
 seq.write('smsepi.seq')       % Write to pulseq file
 
-
 seq.plot(); %'timeRange', [0 0.2]);
 
 %% k-space trajectory calculation and plot
@@ -227,76 +226,3 @@ title('full k-space trajectory (k_x x k_y)');
 %% e.g., for the real TE, TR or for staying within slewrate limits
 % rep = seq.testReport;
 % fprintf([rep{:}]);
-
-return
-
-
-
-% Loop over phase encodes and define sequence blocks
-% iZ < 0: Dummy shots to reach steady state
-% iZ = 0: ADC is turned on and used for receive gain calibration on GE scanners (during auto prescan)
-% iZ > 0: Image acquisition
-nDummyZLoops = 2;
-for iZ = -nDummyZLoops:Nz
-    if iZ > 0
-        for ib = 1:40
-            fprintf('\b');
-        end
-        fprintf('Writing kz encode %d of %d', iZ, Nz);
-    end
-    for iY = 1:Ny
-        % turn off y and z prephasing lobes during receive gain calibration (auto prescan)
-        yStep = (iZ > 0) * pe1Steps(iY);
-        zStep = (iZ > 0) * pe2Steps(max(1,iZ));
-        for c = 1:length(TE)
-            % RF spoiling
-            rf.phaseOffset = mod(117*(iY^2+iY+2)*pi/180, 2*pi);
-            adc.phaseOffset = rf.phaseOffset;
-            
-            % Excitation
-            % Mark start of block group (= one TR) by adding label
-            % (subsequent blocks in block group are not labelled).
-            %seq.addBlock(rf, rfDelay);
-            blockGroupID = 1;
-            seq.addBlock(rf, mr.makeLabel('SET', 'LIN', blockGroupID));
-            
-            % Encoding
-            seq.addBlock(mr.makeDelay(delayTE(c)));
-            seq.addBlock(gxPre, ...
-                mr.scaleGrad(gyPre, yStep), ...
-                mr.scaleGrad(gzPre, zStep));
-            if (iZ < 0)
-                seq.addBlock(gx);
-            else
-                seq.addBlock(gx, adc);
-            end
-
-            % rephasing/spoiling
-            seq.addBlock(gxSpoil, ...
-                mr.scaleGrad(gyPre, -yStep), ...
-                mr.scaleGrad(gzPre, -zStep));
-            %seq.addBlock(gzSpoil);
-            seq.addBlock(mr.makeDelay(delayTR(c)));
-        end
-    end
-end
-fprintf('\nSequence ready\n');
-
-% Visualise sequence and output for execution
-Ndummy = length(TE)*Ny*nDummyZLoops;
-%seq.plot('TimeRange',[Ndummy+1 Ndummy+6]*TR(1), 'timedisp', 'ms')
-
-seq.setDefinition('FOV', fov);
-seq.setDefinition('Name', 'b0');
-seq.write('b0.seq', false);
-
-return
-
-% visualize the 3D k-space (only makes sense for low-res, otherwise one sees nothing)
-if Nx<=32
-    tic;
-    [kfa,ta,kf]=seq.calculateKspacePP();
-    toc
-    figure;plot3(kf(1,:),kf(2,:),kf(3,:));
-    hold on;plot3(kfa(1,:),kfa(2,:),kfa(3,:),'r.');
-end
