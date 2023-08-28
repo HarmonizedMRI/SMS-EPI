@@ -3,13 +3,16 @@ function [rf, gz, freq] = getsmspulse(alpha, slThick, tbw, dur, nSlices, sliceSe
 %
 % Create SMS rf and gradient waveforms 
 %
+% Test function:
+%  >> getsmspulse('test');
+%
 % Inputs
 %   alpha        flip angle (degrees)
 %   slThick      slice thickness (m)
 %   tbw          time-bandwidth product
 %   dur          pulse duration (sec)
-%   nSlices      Multi-band factor
-%   sliceSep     Center-to-center slice separation (m)
+%   nSlices      multi-band factor
+%   sliceSep     center-to-center slice separation (m)
 %   sysGE        system struct for TOPPE, see toppe.systemspecs()
 %   sys          Pulseq system struct, see mr.opts()
 %
