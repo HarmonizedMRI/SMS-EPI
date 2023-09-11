@@ -33,6 +33,11 @@ mb = 6;                             % multiband/SMS factor
 Nx = 64; Ny = Nx;                   % Matrix size
 Nz = mb*10; 
 fov = [220 220 220]*1e-3;
+if mb > 1
+    slThick = fov(1)/Nx;                % slice thickness
+else
+    slThick = fov(3)/Nz;                % slice thickness
+end
 TE = 30e-3;                         % echo time (s)
 alpha = 60;                         % flip angle (degrees)
 
@@ -67,7 +72,7 @@ sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.25);
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
-[rf, gzRF, freq] = getsmspulse(alpha, voxelSize(3), rfTB, rfDur, ...
+[rf, gzRF, freq] = getsmspulse(alpha, slThick, rfTB, rfDur, ...
     mb, sliceSep, sysGE, sys, ...
     'doSim', false, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
