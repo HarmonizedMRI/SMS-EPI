@@ -14,7 +14,7 @@
 caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
 
 %% Define experimental parameters
-sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
+sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'maxSlew', 120, 'slewUnit', 'T/m/s', ...
               'rfDeadTime', 100e-6, ...
               'rfRingdownTime', 60e-6, ...
@@ -26,7 +26,7 @@ sys = mr.opts('maxGrad', 50, 'gradUnit','mT/m', ...
 
 voxelSize = [2.4 2.4 2.4]*1e-3;     % m
 mb = 6;                             % multiband/SMS factor
-Nx = 92; Ny = Nx; Nz = mb*10;       % Matrix size
+Nx = 64; Ny = Nx; Nz = mb*10;       % Matrix size
 fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
 TE = 30e-3;                         % echo time (s)
 alpha = 60;                         % flip angle (degrees)
@@ -40,7 +40,7 @@ dwell = 4e-6;                       % ADC sample time (s). For GE, must be multi
 Ry = 1;                   % ky undersampling factor
 Rz = mb;                  % kz undersampling factor
 CaipiShiftZ = 2;
-pf_ky = 0.7;             % partial Fourier factor along ky
+pf_ky = 0.7;              % partial Fourier factor along ky
 etl = ceil(pf_ky*Ny/Ry);  % echo train length
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
@@ -73,7 +73,7 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
 
 % create caipi.mat, and load it
 pyFile = [caipiPythonPath 'skippedcaipi_sampling.py'];
-pyCmd = sprintf('python %s %d %d %d %d %d %d', ...
+pyCmd = sprintf('python3 %s %d %d %d %d %d %d', ...
     pyFile, Ny, Nz, Ry, Rz, CaipiShiftZ, 1);
 a = input('Press 1 to run Python script from Matlab, 2 to run offline:  ');
 if a == 1
@@ -178,22 +178,37 @@ for shot = 1:2 %nShots
 
         % Readout
         seq.addBlock(gxPre, gyPre, mr.scaleGrad(gzPre, 1 - 2/Nz*(shot-1)));
-        seq.addBlock(gro, adc, ...
-                     mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax), ...
-                     mr.scaleGrad(gzBlipUp, kzStep(1)/kzStepMax));
+        if mb > 1
+            seq.addBlock(gro, adc, ...
+                         mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax), ...
+                         mr.scaleGrad(gzBlipUp, kzStep(1)/kzStepMax));
+        else
+            seq.addBlock(gro, adc, ...
+                         mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax));
+        end
         for ie = 2:(etl-1)
             gybd = mr.scaleGrad(gyBlipDown, kyStep(ie-1)/kyStepMax);
             gybu = mr.scaleGrad(gyBlipUp, kyStep(ie)/kyStepMax);
             gybdu = mr.addGradients({gybd, gybu}, sys);
-            gzbd = mr.scaleGrad(gzBlipDown, kzStep(ie-1)/kzStepMax);
-            gzbu = mr.scaleGrad(gzBlipUp, kzStep(ie)/kzStepMax);
-            gzbdu = mr.addGradients({gzbd, gzbu}, sys);
-            seq.addBlock(adc, mr.scaleGrad(gro, (-1)^(ie-1)), gybdu, gzbdu);
+            if mb > 1
+                gzbd = mr.scaleGrad(gzBlipDown, kzStep(ie-1)/kzStepMax);
+                gzbu = mr.scaleGrad(gzBlipUp, kzStep(ie)/kzStepMax);
+                gzbdu = mr.addGradients({gzbd, gzbu}, sys);
+                seq.addBlock(adc, mr.scaleGrad(gro, (-1)^(ie-1)), gybdu, gzbdu);
+            else
+                seq.addBlock(adc, mr.scaleGrad(gro, (-1)^(ie-1)), gybdu);
+            end
         end
-        seq.addBlock(adc, ...
-                     mr.scaleGrad(gro, (-1)^(ie)), ...
-                     mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
-                     mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
+        if mb > 1
+            seq.addBlock(adc, ...
+                         mr.scaleGrad(gro, (-1)^(ie)), ...
+                         mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax), ...
+                         mr.scaleGrad(gzBlipDown, kzStep(ie)/kzStepMax));
+         else
+            seq.addBlock(adc, ...
+                         mr.scaleGrad(gro, (-1)^(ie)), ...
+                         mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax));
+         end
 
         % spoil. Commented out to make the k-space plot neater
         % seq.addBlock(gxSpoil, gzSpoil);
