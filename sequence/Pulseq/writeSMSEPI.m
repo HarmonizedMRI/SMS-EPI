@@ -18,16 +18,21 @@ sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'maxSlew', 120, 'slewUnit', 'T/m/s', ...
               'rfDeadTime', 100e-6, ...
               'rfRingdownTime', 60e-6, ...
-              'adcDeadTime', 40e-6, ...
+              'adcDeadTime', 20e-6, ...
               'adcRasterTime', 2e-6, ...
               'gradRasterTime', 10e-6, ...
               'blockDurationRaster', 10e-6, ...
               'B0', 3.0);
 
-voxelSize = [2.4 2.4 2.4]*1e-3;     % m
+% ABCD:
+% voxelSize = [2.4 2.4 2.4]*1e-3;    % m
+% Nx = 92; Ny = Nx; Nz = ?           % Matrix size
+% fov = voxelSize .* [Nx Ny Nz];     % FOV (m)
+
 mb = 6;                             % multiband/SMS factor
-Nx = 64; Ny = Nx; Nz = mb*10;       % Matrix size
-fov = voxelSize .* [Nx Ny Nz];      % FOV (m)
+Nx = 64; Ny = Nx;                   % Matrix size
+Nz = mb*10; 
+fov = [220 220 220]*1e-3;
 TE = 30e-3;                         % echo time (s)
 alpha = 60;                         % flip angle (degrees)
 
@@ -40,7 +45,7 @@ dwell = 4e-6;                       % ADC sample time (s). For GE, must be multi
 Ry = 1;                   % ky undersampling factor
 Rz = mb;                  % kz undersampling factor
 CaipiShiftZ = 2;
-pf_ky = 0.7;              % partial Fourier factor along ky
+pf_ky = 1.0;              % partial Fourier factor along ky
 etl = ceil(pf_ky*Ny/Ry);  % echo train length
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
@@ -126,7 +131,7 @@ adc = mr.makeAdc(round(Tread/dwell), sys, ...
     'Duration', Tread, ...
     'Delay', blipDuration/2);
 
-% split blips at block boundary
+% Split blips at block boundary.
 [gyBlipUp, gyBlipDown] = mr.splitGradientAt(gyBlip, mr.calcDuration(gyBlip)/2);
 gyBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gyBlip)/2;
 gyBlipDown.delay = 0;
@@ -165,10 +170,14 @@ nShots = Nz/mb;
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
 
-for shot = 1:2 %nShots
+for shot = -2:4 %nShots
 
-        % RF excitation. Label only the first block in each segment.
-        segmentID = 1;
+        isDummyShot = shot < 1;
+
+        % Label the first block in each segment with the segment ID (see Pulseq on GE manual)
+        segmentID = 2 - isDummyShot;
+
+        % RF excitation
         seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'LIN', segmentID));
 
         % TE delay
@@ -177,12 +186,13 @@ for shot = 1:2 %nShots
         end
 
         % Readout
-        seq.addBlock(gxPre, gyPre, mr.scaleGrad(gzPre, 1 - 2/Nz*(shot-1)));
         if mb > 1
+            seq.addBlock(gxPre, gyPre, mr.scaleGrad(gzPre, 1 - 2/Nz*(shot-1)));
             seq.addBlock(gro, adc, ...
                          mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax), ...
                          mr.scaleGrad(gzBlipUp, kzStep(1)/kzStepMax));
         else
+            seq.addBlock(gxPre, gyPre);
             seq.addBlock(gro, adc, ...
                          mr.scaleGrad(gyBlipUp, kyStep(1)/kyStepMax));
         end
@@ -210,8 +220,11 @@ for shot = 1:2 %nShots
                          mr.scaleGrad(gyBlipDown, kyStep(ie)/kyStepMax));
          end
 
-        % spoil. Commented out to make the k-space plot neater
+        % spoil. Commented out for now to make the k-space plot neater
         % seq.addBlock(gxSpoil, gzSpoil);
+
+        % Long TR for testing
+        %seq.addBlock(mr.makeDelay(1s));
  end
 
 %% Check sequence timing
