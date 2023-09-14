@@ -26,7 +26,10 @@ sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
 
 % ABCD:
 % voxelSize = [2.4 2.4 2.4]*1e-3;    % m
-% Nx = 92; Ny = Nx; Nz = ?           % Matrix size
+% mb = 6;
+% TE = 30;
+% alpha = 52;
+% Nx = 90; Ny = Nx; Nz = 60;         % Matrix size
 % fov = voxelSize .* [Nx Ny Nz];     % FOV (m)
 
 mb = 6;                             % multiband/SMS factor
