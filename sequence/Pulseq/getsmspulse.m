@@ -123,8 +123,12 @@ ttarget = ceil(wavdur/sys.gradRasterTime)*sys.gradRasterTime;
 rfp = [rfp(:); zeros(round((ttarget-wavdur)/sys.rfRasterTime), 1)];
 
 % if delay < sys.rfDeadTime, set to rfDeadTime and delay gradients accordingly
-gdelay = sys.rfDeadTime - delay;
-delay = max(sys.rfDeadTime, delay);
+if delay < sys.rfDeadTime
+    gdelay = sys.rfDeadTime - delay;
+    delay = sys.rfDeadTime;
+else
+    gdelay = 0;
+end
     
 % create pulseq objects
 % Account for the fact that makeArbitraryRf scales the pulse as follows:
