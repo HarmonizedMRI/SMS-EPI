@@ -112,7 +112,7 @@ rfp = rf2pulseq(rf, rasterIn, sys.rfRasterTime);
 % delays (s) on Siemens grad raster boundary
 I = find(abs(diff(rfp) > 0));
 nDelay = I(1) - mod(I(1), round(sys.gradRasterTime/sys.rfRasterTime));
-rfp = rfp(nDelay:end);
+rfp = rfp(nDelay+1:end);
 delay = nDelay*sys.rfRasterTime;
 I = find(abs(diff(flipud(rfp)) > 0));
 rfp = rfp(1:(end-I(1)+1));
