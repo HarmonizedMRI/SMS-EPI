@@ -1,24 +1,11 @@
 % create SMS EPI sequence files, in the following order:
 % 1. mb=6 sequence. Defines readout and adc events
 % 2. calibration scan (blips off, for receive gain calibration and EPI ghost correction)
-% 3. mb=1 2D
-% 4. mb=1 3D -- NO, need to put min phase RF pulse back in
-% 5. 3D GRE B0 mapping
+% 3. mb=1 single-slice 'ACS' reference scan
 
-TODO = [1 1 1 0 1];
+TODO = [1 1 1];
 
 sysGE = toppe.systemspecs();  % for plotting
-
-addpath ~/github/HarmonizedMRI/SMS-EPI/sequence/Pulseq/   % getsmspulse.m, rf2pulseq.m
-
-% acquisition parameters
-voxelSize = [2.4 2.4 2.4]*1e-3;   % m
-nx = 90; ny = nx; nz = 60;
-TE = 40e-3;                       % sec
-alpha = 15;
-pf_ky = 1.0; %(nx-3*6)/nx;
-
-TR = 2*0.8;                      % volume TR (sec)
 
 fatSat = false;
 RFspoil = false;
@@ -27,7 +14,7 @@ RFspoil = false;
 % Design sub-sequence containing 40 shots = 4 frames 
 % We choose 4 shots since RF spoiling phase (for rf_inc = 117) repeats every 80 RF shots
 % (fat sat also spoils so only need 40 TRs not 80)
-% RF spoiling anyhow probably isn't doing much since TR=0.8s
+% But RF spoiling anyhow probably isn't doing much since TR>>T2.
 mb = 6; Ry = 1; Rz = mb; caipiShiftZ = 2;
 nDummyFrames = 0;
 nFrames = 1;

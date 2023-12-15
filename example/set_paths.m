@@ -6,6 +6,7 @@ addpath pulseq/matlab
 
 % hmriutils toolbox
 system('git clone git@github.com:HarmonizedMRI/utils.git');
+addpath utils
  
 % tools for converting to GE scan files
 system('git clone git@github.com:HarmonizedMRI/PulCeq.git');

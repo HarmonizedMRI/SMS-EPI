@@ -10,12 +10,16 @@ SMS-EPI data for functional MRI.
 
 The workflow involves the following steps:
 
-1. **Create the Pulseq (.seq) file**
-This is done by scanning a uniform phantom with a Pulseq sequence that we provide 
-(see the [sequence/Pulseq](sequence/Pulseq) folder), 
+1. **Create the Pulseq (.seq) files**
+This example creates the following .seq files:
+  * `cal.seq`: EPI ghost calibration scans
+  * `acs.seq`: individual slice acquisitions for slice GRAPPA calibration
+  * `sms-epi.seq`: SMS-EPI scan for fMRI
 
-2. **Run the Pulseq file on your scanner**
-This involves running a Pulseq scan.
+TODO: blip up/down spin-echo scan for distortion correction
+
+
+2. **Run the Pulseq files on your scanner**
 At present, Siemens and GE scanners are supported.
 
 3. **Load the raw data**
