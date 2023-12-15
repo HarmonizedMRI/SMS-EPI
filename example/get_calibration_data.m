@@ -24,8 +24,7 @@ dcal = hmriutils.epi.rampsampepi2cart(draw, kxo, kxe, nx, fov(1)*100, 'spline');
 dcal = hmriutils.epi.epiphasecorrect(dcal, a);
 
 % undo slice interleaving (see writeEPI.m)
-Z = [1:2:nz 2:2:nz];
-Z = [Z(1:end-2) Z(end) Z(end-1)]; % last two shots/partitions are swapped
+Z = hmriutils.epi.getsliceordering(nz);
 dcal(:,:,Z,:) = dcal;
 
 % recon and display
@@ -33,6 +32,5 @@ Icalrss = zeros(nx, etl, nz);
 for iz = 1:nz
     [~, Icalrss(:,:,iz)] = toppe.utils.ift3(squeeze(dcal(:,:,iz,:)), 'type', '2d');
 end
-im(Icalrss);
-
+%im(Icalrss);
 

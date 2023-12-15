@@ -6,6 +6,8 @@ pfile_mb1 = 'P,mb1.7';      % single-slice EPI reference scan for slice GRAPPA
 pfile_mb6 = 'P,mb6.7';      % fMRI scan
 
 % SMS-EPI acquisition parameters
+% The number of temporal frames is not set here; 
+% it is determined by the 'runs' parameter on the console
 voxelSize = [2.4 2.4 2.4]*1e-3;   % m
 nx = 90; ny = 90; nz = 60;        % matrix size
 TE = 30e-3;                       % sec
