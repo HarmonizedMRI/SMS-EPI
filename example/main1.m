@@ -8,9 +8,6 @@ set_experimental_params;
 write_sequences;
 
 % After scanning, place the raw data files in the folder 
-% specified in set_experimental_params.m.
-% Then run the remainder of this script.
+% specified in set_experimental_params.m,
+% and run 'main2.m'
 
-% Get calibration data and reconstruct 
-get_calibration_data;
-recon_timeseries;
