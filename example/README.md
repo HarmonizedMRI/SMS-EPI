@@ -27,6 +27,14 @@ in a fully transparent, vendor-agnostic, and customizable way.
 
 The workflow involves the following steps:
 
+## Step 0: Requirements
+
+**MATLAB** is required to run the code in this repository.
+
+**git** is the most convenient way to download the code as described in the next step. 
+Alternatively, you can navigate to each repository and download the code as a ZIP file 
+(under the green "Code" button in each repository).
+
 ## Step 1: Installation
 
 The code in this repository can be
@@ -53,12 +61,12 @@ addpath toppe              % only needed if converting to GE scan files
 cd mirt; setup; cd ..;     % 'im' function for display
 ```
 
-**Linux users** can run `set_path.m` 
+**Linux users** can run `get_code_and_set_path.m` 
 to perform these actions entirely from within the MATLAB prompt, e.g.:
 ```
 >> system('git clone --branch develop git@github.com:HarmonizedMRI/SMS-EPI.git');
 >> cd SMS-EPI/example
->> set_paths;
+>> get_code_and_set_paths;
 ```
 
 **Windows users**: for instructions on how to do `git clone` in Windows, 
@@ -113,5 +121,6 @@ recon_timeseries;              % do slice GRAPPA reconstruction
    * In vivo example data (3D GRE ACS scan)
    * Share data on DeepBlue/other
    * Consider using similarity b/w calibration scans and recon'd images as QC metric
+   * Instructions/code for converting to nifti
 
 

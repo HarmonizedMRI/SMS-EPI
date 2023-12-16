@@ -1,5 +1,5 @@
 % Get the code
-set_paths;
+get_code_and_set_paths;
 
 % Edit the following script as needed
 set_experimental_params;
