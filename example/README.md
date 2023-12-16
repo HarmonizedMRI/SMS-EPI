@@ -39,7 +39,7 @@ Alternatively, you can navigate to each repository and download the code as a ZI
 
 The code in this repository can be
 downloaded using the following `git clone` command 
-from, e.g., a Linux shell or Git Bash:
+from, e.g., a Linux shell or a Git Bash shell in Windows:
 ```
 git clone --branch develop git@github.com:HarmonizedMRI/SMS-EPI.git
 ```
@@ -61,7 +61,7 @@ addpath toppe              % only needed if converting to GE scan files
 cd mirt; setup; cd ..;     % 'im' function for display
 ```
 
-**Linux users** can run `get_code_and_set_path.m` 
+**Linux users** can run `get_code_and_set_paths.m` 
 to perform these actions entirely from within the MATLAB prompt, e.g.:
 ```
 >> system('git clone --branch develop git@github.com:HarmonizedMRI/SMS-EPI.git');
@@ -94,8 +94,6 @@ This creates the following .seq files:
 * `cal.seq`: EPI ghost calibration scan
 * `acs.seq`: individual slice acquisitions for slice GRAPPA calibration
 
-TODO: blip up/down spin-echo scan for distortion correction
-
 ## Step 4: Run the Pulseq files on your scanner
 This requires that you install the Pulseq interpreter for your scanner make and model.
 Interpreters for Siemens and GE are distributed freely within each 
@@ -114,6 +112,11 @@ get_ghost_calibration_data;    % get EPI ghost calibration data
 get_acs_data;                  % get individual slice (ACS) data for slice GRAPPA
 recon_timeseries;              % do slice GRAPPA reconstruction
 ```
+
+## Example data files
+
+To test the reconstruction step, you may download example phantom and human data files
+acquired on GE and/or Siemens scanners at the following link: TODO
 
 ## TODO  
    * blip up/down spin-echo scan for distortion correction
