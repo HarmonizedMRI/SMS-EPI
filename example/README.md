@@ -1,8 +1,8 @@
 # A complete SMS-EPI example: from acquisition to image reconstruction
 
 This folder contains MATLAB code that implements 
-a complete vendor-agnostic workflow for acquiring and reconstructing
-SMS-EPI data for functional MRI.
+a complete **vendor-agnostic workflow for acquiring and reconstructing
+SMS-EPI data for functional MRI**.
 This is part of the HarmonizedMRI project for reproducible MRI, 
 see https://harmonizedmri.github.io/.
 
@@ -21,6 +21,9 @@ The SMS-EPI fMRI sequence provided here matches the ABCD protocol
 (2.4 mm isotropic resolution, 90x90x60 matrix size, 0.8s temporal resolution,
 SMS factor 6), and has been tested extensively in phantoms and volunteers;
 however you are free the change these parameters as described below.
+You may also want to add your own image post-processing steps;
+here we simply guarantee that the SMS-EPI images are acquired and reconstructed
+in a fully transparent, vendor-agnostic, and customizable way.
 
 The workflow involves the following steps:
 
