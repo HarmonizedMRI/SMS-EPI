@@ -5,9 +5,11 @@
 %    a           odd/even echo calibration parameters (constant and linear offset)
 %    dcal        individual slice k-space, for slice GRAPPA calibration
 
-% additional experimental parameter and data file
-nFrames = 8;
+% file to reconstruct
 fn = [datdir pfile_mb6];
+
+% number of frames is determined by the 'runs' parameter on the scanner console
+nFrames = 8;
 
 % CAIPI sampling mask
 smask = hmriutils.epi.getsamplingmask([1 3 5 1 3 5], nx, ny, mb);
@@ -23,12 +25,10 @@ Z_start = hmriutils.epi.getsliceordering(np);
 % loop over frames and reconstruct
 Irss = zeros(nx, ny, nz, nFrames);
 for ifr = 1:8 %:nFrames
-    % load raw data
+    % load raw data for this fram, interpolate to Cartesian grid, 
+    % and apply odd/even phase correction
     draw = hmriutils.epi.loadframeraw_ge(fn, etl, np, ifr);   % [nFID etl np nc]
-    [nFID etl np nc] = size(draw);   % nFID = number of data samples in ADC window
-    dfr = hmriutils.epi.rampsampepi2cart(draw, kxo, kxe, nx, fov(1)*100, 'spline');   % odd echoes
-
-    % apply odd/even phase correction
+    dfr = hmriutils.epi.rampsampepi2cart(draw, kxo, kxe, nx, fov(1)*100, 'spline'); 
     dfr = hmriutils.epi.epiphasecorrect(dfr, a);    %  [nx etl np nc]
 
     % loop over partitions (shots, or SMS slice groups)
@@ -36,13 +36,13 @@ for ifr = 1:8 %:nFrames
         fprintf('Reconstructing partition (slice group) %d of %d\n', p, length(Z_start));
 
         % slices to recon
-        IZ = Z_start(p):np:nz;   
+        Z = Z_start(p):np:nz;   
 
         % SMS data for one shot/partition
         ysms = squeeze(dfr(:,:,p,:));   % [nx etl nc]
 
         % calibration data (acquired without z blips)
-        d_ex = dcal(:,:,IZ,:);
+        d_ex = dcal(:,:,Z,:);
         ncalx = 48; ncaly = 32; % setting optimal cal region size is an unsolved problem
         Rx = nx/2-ncalx/2:nx/2+ncalx/2-1;
         Ry = ny/2-ncaly/2:ny/2+ncaly/2-1;
@@ -52,16 +52,18 @@ for ifr = 1:8 %:nFrames
         % do slice GRAPPA recon
         if isempty(w{p})
             K = [5 5];
-            [Irss(:,:,IZ,ifr), w{p}] = hmriutils.epi.slg.recon(ysms, ycal, IZ, nz, smask, K);
+            [Irss(:,:,Z,ifr), w{p}] = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K);
         else
-            Irss(:,:,IZ,ifr) = hmriutils.epi.slg.recon(ysms, ycal, IZ, nz, smask, K, w{p});
+            Irss(:,:,Z,ifr) = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, w{p});
         end
 
-        % compare with reference image
+        % display
         msk = Icalrss>0.1*max(Icalrss(:));
         im(Irss(:,:,:,ifr).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
         title(sprintf('frame %d', ifr));
         pause(0.25);
+
+        % compare with reference image
         %im(cat(1, Icalrss, Irss(:,:,:,ifr)).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
         %title('left: truth; middle: reconstructed; right: 10xdiff'); pause(1);
     end
