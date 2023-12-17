@@ -9,7 +9,7 @@ see https://harmonizedmri.github.io/.
 The SMS-EPI fMRI pulse sequence is defined in the 
 [Pulseq](https://pulseq.github.io/ "Vendor-agnostic MRI pulse sequences")
 vendor-agnostic file format,
-that allows the same sequence to be executed on multiple MRI
+that allows the same sequence definition to be executed on multiple MRI
 hardware platforms; at present, all Siemens and GE scanner models 
 are supported.
 The fMRI image time-series is reconstructed using slice GRAPPA.
