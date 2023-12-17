@@ -20,7 +20,7 @@ no vendor-dependent reconstruction or image processing is performed.
 The SMS-EPI fMRI sequence provided here matches the ABCD protocol
 (2.4 mm isotropic resolution, 90x90x60 matrix size, 0.8s temporal resolution,
 SMS factor 6), and has been tested extensively in phantoms and volunteers;
-however you are free the change these parameters as described below.
+however you are free to change these parameters as described below.
 You may also want to add your own image post-processing steps;
 here we simply guarantee that the SMS-EPI images are acquired and reconstructed
 in a fully transparent, vendor-agnostic, and customizable way.

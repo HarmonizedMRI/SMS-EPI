@@ -24,8 +24,8 @@ Z_start = hmriutils.epi.getsliceordering(np);
 
 % loop over frames and reconstruct
 Irss = zeros(nx, ny, nz, nFrames);
-for ifr = 1:8 %:nFrames
-    % load raw data for this fram, interpolate to Cartesian grid, 
+for ifr = 1:nFrames
+    % load raw data for this frame, interpolate to Cartesian grid, 
     % and apply odd/even phase correction
     draw = hmriutils.epi.loadframeraw_ge(fn, etl, np, ifr);   % [nFID etl np nc]
     dfr = hmriutils.epi.rampsampepi2cart(draw, kxo, kxe, nx, fov(1)*100, 'spline'); 
