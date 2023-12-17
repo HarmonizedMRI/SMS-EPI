@@ -115,8 +115,9 @@ recon_timeseries;              % do slice GRAPPA reconstruction
 
 ## Example data files
 
-To test the reconstruction step, you may download example phantom and human data files
-acquired on GE and/or Siemens scanners at the following link: TODO
+To test the reconstruction step, you may download example phantom data files
+acquired on GE and/or Siemens scanners at the following link: 
+https://www.dropbox.com/scl/fo/iex6irettg1pcz1uj2eta/h?rlkey=2f8v2upr7puncfqnwdm9crjbh&dl=0
 
 ## TODO  
    * blip up/down spin-echo scan for distortion correction
