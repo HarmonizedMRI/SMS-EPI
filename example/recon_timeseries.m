@@ -60,8 +60,7 @@ for ifr = 1:nFrames
         % display
         msk = Icalrss>0.1*max(Icalrss(:));
         im(Irss(:,:,:,ifr).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
-        title(sprintf('frame %d', ifr));
-        pause(0.25);
+        title(sprintf('frame %d', ifr)); pause(0.25);
 
         % compare with reference image
         %im(cat(1, Icalrss, Irss(:,:,:,ifr)).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
