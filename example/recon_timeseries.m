@@ -69,15 +69,3 @@ for ifr = 1:nFrames
     end
 end
 
-return
-
-I = flipdim(flipdim(I,2), 1);
-I = abs(I);
-I = I/max(I(:));
-I = single(I);
-save(sprintf('%s/Images.mat', datdir), 'I', '-v7.3');
-
-%load Imb1
-%im(cat(1, Imb1, I), [0 0.7])
-%tic; espiritreco = bart('pics -l1 -r0.001', du, sens_bart); toc;
-
