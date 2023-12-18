@@ -15,8 +15,14 @@ nFrames = 8;
 smask = hmriutils.epi.getsamplingmask([1 3 5 1 3 5], nx, ny, mb);
 
 % Initialize slice GRAPPA weights
+clear w Irss
 for p = 1:np
     w{p} = [];
+end
+for ifr = 1:nFrames
+    for p = 1:np
+        Irss{ifr,p} = zeros(nx, ny);
+    end
 end
 
 % slice order for the np partitions
@@ -49,14 +55,11 @@ parfor p = 1:length(Z_start)
     ycal = 0*d_ex;
     ycal(Rx, Ry, :, :) = d_ex(Rx, Ry, :, :);
 
-    % do slice GRAPPA recon
+    % get GRAPPA weights
     [~, w{p}] = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K);
 end
 
-return
-
 % loop over frames and reconstruct
-Irss = zeros(nx, ny, nz, nFrames);
 for ifr = 1:nFrames
     % load raw data for this frame, interpolate to Cartesian grid, 
     % and apply odd/even phase correction
@@ -65,7 +68,7 @@ for ifr = 1:nFrames
     dfr = hmriutils.epi.epiphasecorrect(dfr, a);    %  [nx etl np nc]
 
     % loop over partitions (shots, or SMS slice groups)
-    for p = 1:length(Z_start) 
+    parfor p = 1:length(Z_start) 
         fprintf('Reconstructing partition (slice group) %d of %d\n', p, length(Z_start));
 
         % slices to recon
@@ -83,17 +86,12 @@ for ifr = 1:nFrames
         ycal(Rx, Ry, :, :) = d_ex(Rx, Ry, :, :);
 
         % do slice GRAPPA recon
-        if isempty(w{p})
-            K = [5 5];
-            [Irss(:,:,Z,ifr), w{p}] = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K);
-        else
-            Irss(:,:,Z,ifr) = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, w{p});
-        end
+        Irss{ifr,p} = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, w{p});
 
         % display
-        msk = Icalrss>0.1*max(Icalrss(:));
-        im(Irss(:,:,:,ifr).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
-        title(sprintf('frame %d', ifr)); pause(0.25);
+    %    msk = Icalrss>0.1*max(Icalrss(:));
+    %,    im(Irss(:,:,:,ifr).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
+    %    title(sprintf('frame %d', ifr)); pause(0.25);
 
         % compare with reference image
         %im(cat(1, Icalrss, Irss(:,:,:,ifr)).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
