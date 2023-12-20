@@ -12,7 +12,7 @@ fn = [datdir pfile_mb6];
 nFrames = 8;
 
 % CAIPI sampling mask
-smask = hmriutils.epi.getsamplingmask([1 3 5 1 3 5], nx, ny, mb);
+smask = hmriutils.epi.getsamplingmask([1 3 5 1 3 5], nx, etl, mb);
 
 % Initialize slice GRAPPA weights
 for p = 1:np
@@ -46,6 +46,7 @@ for ifr = 1:nFrames
         ncalx = 48; ncaly = 32; % setting optimal cal region size is an unsolved problem
         Rx = nx/2-ncalx/2:nx/2+ncalx/2-1;
         Ry = ny/2-ncaly/2:ny/2+ncaly/2-1;
+        Ry = Ry - (ny-etl);
         ycal = 0*d_ex;
         ycal(Rx, Ry, :, :) = d_ex(Rx, Ry, :, :);
 
