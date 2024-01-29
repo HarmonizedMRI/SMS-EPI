@@ -1,11 +1,7 @@
-# SMS-EPI fMRI
+# Vendor-agnostic SMS-EPI fMRI sequence and image reconstruction
 
-Sequence prototype written with the TOPPE library: navigate to the [sequence/GE](sequence/GE) directory.
+![HarmonizedMRI](figs/hmri.jpg)
 
+The ./example/ folder in this repository contains a detailed workflow 
+that implements the following diagram.
 
-## Misc
-
-### 2D EPI example, with calibration data analysis
-
-FBIRN, single-channel head coil:
-./sessions/fbirn\_um11Apr2021\_2depi/main.m
