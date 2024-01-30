@@ -13,7 +13,7 @@ that ensures identical sequence execution and image reconstruction across differ
 and across scanner software upgrades. 
 At present, Siemens and GE scanners are fully supported.
 The acquisition sequence is defined in a simple (and human readable) text file in the Pulseq file format, 
-and sequence execution on real hardware is made possible by sequence-agnostic interpreters that we provide:
+and sequence execution on real hardware is made possible with sequence-agnostic interpreters that we provide:
 
 ![HarmonizedMRI](figs/hmri.jpg)
 
@@ -21,7 +21,9 @@ and sequence execution on real hardware is made possible by sequence-agnostic in
 ## Getting started
 
 1. Contact the HarmonizedMRI study team for access to the interpreter for your scanner.
-2. Download the file 'smsepi.seq' and run it on your scanner.
+2. Download the file 'smsepi.seq', 
+or create your own using the 'writeEPI.m' MATLAB function that we provide.
+The run it on your scanner.
 3. Reconstruct the data using slice GRAPPA code that we provide.
 
 
@@ -34,10 +36,9 @@ that implements all steps needed to implement the above diagram
 
 ## Beta testers wanted!
 
-If you have an interest in multi-site fMRI, or just want to prototype new EPI fMRI methods,
+If you have an interest in multi-site fMRI or want to prototype new EPI fMRI methods,
 our Pulseq SMS-EPI fMRI protocol may be for you.
 If you'd like to give it a quick try for evaluation purposes, 
 or are already sure you want to use it for your fMRI studies, 
 send an email to jfnielse@umich.edu and we will work with you
 to install the Pulseq interpreters and the sequence and reconstruction code.
-
