@@ -6,13 +6,15 @@
 %    dcal        individual slice k-space, for slice GRAPPA calibration
 
 % file to reconstruct
-fn = [datdir pfile_mb6];
+fn = [datdir datfile_task '.h5'];
 
 % number of frames is determined by the 'runs' parameter on the scanner console
-nFrames = 8;
+nFramesDiscard = 0;
+nFrames = nFramesDiscard + 1; %388;
 
 % CAIPI sampling mask
 smask = hmriutils.epi.getsamplingmask([1 3 5 1 3 5], nx, etl, mb);
+%smask = flipdim(smask, 2);  % for testing negative y (PE) gradient on Siemens
 
 % Initialize slice GRAPPA weights
 for p = 1:np
@@ -24,11 +26,11 @@ Z_start = hmriutils.epi.getsliceordering(np);
 
 % loop over frames and reconstruct
 Irss = zeros(nx, ny, nz, nFrames);
-for ifr = 1:nFrames
+for ifr = (nFramesDiscard+1):nFrames
     % load raw data for this frame, interpolate to Cartesian grid, 
     % and apply odd/even phase correction
-    draw = hmriutils.epi.loadframeraw_ge(fn, etl, np, ifr);   % [nFID etl np nc]
-    dfr = hmriutils.epi.rampsampepi2cart(draw, kxo, kxe, nx, fov(1)*100, 'spline'); 
+    draw = hmriutils.epi.io.readframe(fn, ifr);
+    dfr = hmriutils.epi.rampsampepi2cart(draw, kxo, kxe, nx, fov(1)*100, 'nufft'); 
     dfr = hmriutils.epi.epiphasecorrect(dfr, a);    %  [nx etl np nc]
 
     % loop over partitions (shots, or SMS slice groups)
@@ -43,24 +45,36 @@ for ifr = 1:nFrames
 
         % calibration data (acquired without z blips)
         d_ex = dcal(:,:,Z,:);
-        ncalx = 48; ncaly = 32; % setting optimal cal region size is an unsolved problem
+        ncalx = 48; ncaly = 48; % setting optimal cal region size is an unsolved problem
         Rx = nx/2-ncalx/2:nx/2+ncalx/2-1;
         Ry = ny/2-ncaly/2:ny/2+ncaly/2-1;
         Ry = Ry - (ny-etl);
         ycal = 0*d_ex;
         ycal(Rx, Ry, :, :) = d_ex(Rx, Ry, :, :);
 
-        % do slice GRAPPA recon
+        % flip y for testing
+        %ycal = flipdim(ycal, 2);
+        %ysms = flipdim(ysms, 2);
+
+        % slice GRAPPA recon
         if isempty(w{p})
             K = [5 5];
-            [Irss(:,:,Z,ifr), w{p}] = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K);
+            [y, w{p}] = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K);
         else
-            Irss(:,:,Z,ifr) = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, w{p});
+            y = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, w{p});
         end
 
+        % partial Fourier recon
+        Irss(:,:,Z,ifr) = hmriutils.epi.slg.recon_pfky(y, ny, 'zerofill');
+        %Irss = zeros(nx,etl,length(Z));
+        %for iz = 1:length(Z)
+        %    [~, Irss(:,:,Z(iz),ifr)] = toppe.utils.ift3(squeeze(y(:,:,iz,:)), 'type', '2d');
+        %end
+
+
         % display
-        msk = Icalrss>0.1*max(Icalrss(:));
-        im(Irss(:,:,:,ifr).*msk); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
+        msk = Irss(:,:,:,ifr)>0.0*max(Irss(:));
+        im(flipdim(Irss(:,:,:,ifr).*msk,2)); %, 10*abs(Irss(:,:,:,ifr)-Icalrss).*msk));
         title(sprintf('frame %d', ifr)); pause(0.25);
 
         % compare with reference image
