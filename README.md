@@ -41,4 +41,7 @@ our Pulseq SMS-EPI fMRI protocol may be for you.
 If you'd like to give it a quick try for evaluation purposes, 
 or are already sure you want to use it for your fMRI studies, 
 send an email to jfnielse@umich.edu and we will work with you
-to install the Pulseq interpreters and the sequence and reconstruction code.
+to install the Pulseq interpreters and the sequence and reconstruction code.  
+At present, we ask that if you plan to use our Pulseq protocol in your fMRI studies, 
+your scanner is also equipped with the corresponding SMS-EPI product sequence.
+
