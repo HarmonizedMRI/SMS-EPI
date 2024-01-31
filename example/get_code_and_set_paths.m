@@ -1,4 +1,7 @@
 %% Get MATLAB toolboxes
+
+% Read Siemens .dat files
+addpath ~/github/jfnielsen/scanLog/SiemensRead/
  
 % toolbox for loading GE raw files
 addpath ~/Programs/orchestra-sdk-2.1-1.matlab/

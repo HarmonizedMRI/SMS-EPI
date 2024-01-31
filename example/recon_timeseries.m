@@ -6,7 +6,7 @@
 %    dcal        individual slice k-space, for slice GRAPPA calibration
 
 % file to reconstruct
-fn = [datdir datfile_task '.h5'];
+fn = [datdir datfile_rest '.h5'];
 
 % number of frames is determined by the 'runs' parameter on the scanner console
 nFramesDiscard = 0;
@@ -61,7 +61,7 @@ for ifr = (nFramesDiscard+1):nFrames
             K = [5 5];
             [y, w{p}] = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K);
         else
-            y = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, w{p});
+            y = hmriutils.epi.slg.recon(ysms, ycal, Z, nz, smask, K, 'w', w{p});
         end
 
         % partial Fourier recon
