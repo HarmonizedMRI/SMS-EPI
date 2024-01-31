@@ -1,18 +1,21 @@
+scanner = 'Siemens';  % 'GE' or 'Siemens' (for now!)
 
-basedir = '~/data/20240124_UM3TUHP_invivo/';
-%datdir = '/mnt/storage/jfnielse/HarmonizedMRI/EPI-test/20231219_UM3TMR750_invivo/'; 
-datdir = [basedir 'raw/Exam4485/'];
+if strcmp(scanner, 'GE')
+    datfile_suffix = '.h5';    % ScanArchive
+else
+    datfile_suffix = '.dat';   % Siemens raw data
+end
+
+% note trailing slash
+%basedir = '~/data/20240124_UM3TUHP_invivo/';
+basedir = '~/data/20240130_MGHPrisma_phantom/';
 datdir = '';
 
 % SMS-EPI data files
-%datfile_ghostcal = 'Series5/ScanArchive_7347633TMRFIX_20240124_153126277.h5'; 
-%datfile_mb1 = 'Series6/ScanArchive_7347633TMRFIX_20240124_153140697.h5';
-%datfile_rest = 'Series8/ScanArchive_7347633TMRFIX_20240124_153207534.h5'; 
-%datfile_task = 'Series19/ScanArchive_7347633TMRFIX_20240124_161603132.h5';   
-datfile_ghostcal = 'ghostcal.h5';    % EPI ghost reference scan
-datfile_mb1 = 'mb1.h5';              % 2D EPI reference scan for slice GRAPPA
-datfile_rest = 'rest.h5';            % 5:13 resting fMRI
-datfile_task = 'task.h5';            % 5:13 resting fMRI
+datfile_ghostcal = ['ghostcal' datfile_suffix];    % EPI ghost reference scan
+datfile_mb1 = ['mb1' datfile_suffix];              % 2D EPI reference scan for slice GRAPPA
+datfile_task = ['task' datfile_suffix];            % 3:30 task fMRI
+datfile_rest = ['rest' datfile_suffix];            % 5:13 resting fMRI
 
 % b0 mapping
 pfile_b0 = 'P,b0.7';        % 3D GRE dual-echo scan for B0 mapping
