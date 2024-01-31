@@ -21,7 +21,7 @@ and sequence execution on real hardware is made possible with sequence-agnostic 
 ## Getting started
 
 1. Contact the HarmonizedMRI study team for access to the interpreter for your scanner.
-2. Download the file 'smsepi.seq', 
+2. Ask the study team for the sequence file 'smsepi.seq', 
 or create your own using the 'writeEPI.m' MATLAB function that we provide.
 The run it on your scanner.
 3. Reconstruct the data using slice GRAPPA code that we provide.
