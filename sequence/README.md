@@ -95,7 +95,8 @@ Sequence file 2d.tar ready for execution on GE scanners
 
 This will create three **.tar** archive files that corresponding to the .seq files listed above.
 These sequences can be executed on GE scanners using the **tv6 v1.9.0** Pulseq interpreter, available here:
-https://github.com/jfnielsen/TOPPEpsdSourceCode/releases/tag/v1.9.0
+https://github.com/jfnielsen/TOPPEpsdSourceCode/releases/tag/v1.9.0.
+Scan instructions are available here: https://github.com/jfnielsen/TOPPEpsdSourceCode/tree/UserGuide/v6.
 
 
 
