@@ -1,5 +1,14 @@
 # A complete Pulseq SMS-EPI example: from acquisition to image reconstruction
 
+**Table of Contents**  
+[Overview](#overview)  
+[Create the Pulseq sequence files](#create-the-pulseq-sequence-files)  
+[Acquire fMRI data](#acquire-fmri-data)  
+[Reconstruct images](#reconstruct-images)  
+
+
+## Overview
+
 This folder contains MATLAB code that implements 
 a complete vendor-agnostic workflow for acquiring and reconstructing
 SMS-EPI data for functional MRI.
@@ -9,7 +18,7 @@ If you'd like to implement a similar workflow on other operating systems,
 let us know and we'll work with you to make that happen.
 
 
-## Step 1: Create the Pulseq sequence files
+## Create the Pulseq sequence files
 
 Follow the instructions in the 
 [README.md](../sequence/README.md) file
@@ -23,7 +32,7 @@ to create the following sequence files:
 For GE users, the corresponding files **cal.tar**, **2d.tar**, and **mb6.tar** will also be created.
 
 
-## Step 2: Acquire fMRI data
+## Acquire fMRI data
 
 This sections contains information on how to run the .seq/.tar files created in Step 1 on your scanner.
 
@@ -75,9 +84,21 @@ On GE, the following scan receipe will ensure correct receive gain settings for 
 The data is written to disk in the usual ScanArchive format, as for any other sequence.
 
 
-## Reconstruct the fMRI image time-series
+## Reconstruct images
 
-## Step 5: Reconstruct time-series images
+In the workflow demonstrated here, 
+converting the raw (k-space) data to an image time-series involves the following steps:
+
+1. **Load data:** Load the scanner-specific data file and convert to a custom HDF5 format. 
+The reasons for doing this are (1) the subsequent workflow is fully vendor-agnostic, and
+(2) this custom HDF5 format splits the data frames across multiple smaller files
+that can be loaded relatively quickly.
+2. **EPI ramp sampling:** For each raw data set (cal.seq, 2d.seq, mb6.seq), interpolate the ramp-sampled EPI data to a Cartesian grid using nufft.
+3. **EPI ghost correction:** Estimate odd/even EPI ghost correction parameters from the cal.seq scan, and apply this correction to the data.
+4. **slice-GRAPPA calibration:** Perform the slice-GRAPPA calibration step using data from the 2d.seq scan.
+5. **image reconstruction:** Perform slice-GRAPPA reconstruction for each slice group in each frame.
+
+
 Place the acquired data files in the folder specified
 in `set_experimental_params.m`. 
 Then execute the following MATLAB commands:
