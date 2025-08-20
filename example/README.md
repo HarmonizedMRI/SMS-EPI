@@ -1,10 +1,11 @@
-# A complete Pulseq SMS-EPI example: from acquisition to image reconstruction
+# Pulseq SMS-EPI example: from acquisition to image reconstruction
 
 **Table of Contents**  
 [Overview](#overview)  
 [Create the Pulseq sequence files](#create-the-pulseq-sequence-files)  
 [Acquire fMRI data](#acquire-fmri-data)  
 [Reconstruct images](#reconstruct-images)  
+[Example data set](#example-data-set)  
 
 
 ## Overview
@@ -13,9 +14,14 @@ This folder contains MATLAB code that implements
 a complete vendor-agnostic workflow for acquiring and reconstructing
 SMS-EPI data for functional MRI.
 
-The specific workflow implementation provided here is designed for **Linux**;
-If you'd like to implement a similar workflow on other operating systems,
-let us know and we'll work with you to make that happen.
+The workflow implementation provided here has been tested under Linux,
+but should be portable to other platforms with minimal changes since it only
+relies on MATLAB and Python code.
+
+
+## Accessing an example data set
+
+A resting-state fMRI data set in a volunteer is available upon request.
 
 
 ## Create the Pulseq sequence files
@@ -31,10 +37,13 @@ to create the following sequence files:
 
 For GE users, the corresponding files **cal.tar**, **2d.tar**, and **mb6.tar** will also be created.
 
+Use the default parameters, which will create an SMS-EPI scan with SMS factor 6,
+2.4 mm isotropic resolution, TE/TR = 30/800 ms, and matrix size 90x90x60 (matching the ABCD protocol). 
+
 
 ## Acquire fMRI data
 
-This sections contains information on how to run the .seq/.tar files created in Step 1 on your scanner.
+This sections contains information on how to run the .seq/.tar files created in the previous step on your scanner.
 
 ### Install the Pulseq interpreter
 
@@ -89,25 +98,30 @@ The data is written to disk in the usual ScanArchive format, as for any other se
 In the workflow demonstrated here, 
 converting the raw (k-space) data to an image time-series involves the following steps:
 
-1. **Load data:** Load the scanner-specific data file and convert to a custom HDF5 format. 
-The reasons for doing this are (1) the subsequent workflow is fully vendor-agnostic, and
+1. Load the scanner-specific data file and convert to a custom HDF5 format. 
+The reasons for doing this file format conversion are 
+(1) the subsequent workflow is fully vendor-agnostic, and
 (2) this custom HDF5 format splits the data frames across multiple smaller files
 that can be loaded relatively quickly.
-2. **EPI ramp sampling:** For each raw data set (cal.seq, 2d.seq, mb6.seq), interpolate the ramp-sampled EPI data to a Cartesian grid using nufft.
-3. **EPI ghost correction:** Estimate odd/even EPI ghost correction parameters from the cal.seq scan, and apply this correction to the data.
-4. **slice-GRAPPA calibration:** Perform the slice-GRAPPA calibration step using data from the 2d.seq scan.
-5. **image reconstruction:** Perform slice-GRAPPA reconstruction for each slice group in each frame.
+2. For each raw data set (cal.seq, 2d.seq, mb6.seq), 
+   interpolate the ramp-sampled EPI data to a Cartesian grid using nufft.
+3. Estimate odd/even EPI ghost correction parameters from the cal.seq scan, and apply this correction to the data.
+4. Perform slice-GRAPPA calibration using data from the 2d.seq scan.
+5. Perform slice-GRAPPA reconstruction for each slice group in each frame.
+
+The script **recon_example.m** in the current folder implements these steps.
+To use this script, do the following:
+1. Edit **set_experimental_params.m**: Set the scanner vendor, data file paths, and other parameters.
+2. Execute the reconstruction script:
+   ```
+   >> recon_example;
+   ```
+
+   See the comments in that script for further details.
 
 
-Place the acquired data files in the folder specified
-in `set_experimental_params.m`. 
-Then execute the following MATLAB commands:
-```
-set_experimental_params;       % get experimental parameters
-get_ghost_calibration_data;    % get EPI ghost calibration data 
-get_acs_data;                  % get individual slice (ACS) data for slice GRAPPA
-recon_timeseries;              % do slice GRAPPA reconstruction
-```
+
+
 
 
 
