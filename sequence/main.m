@@ -23,8 +23,8 @@ system('git clone git@github.com:HarmonizedMRI/3DEPI.git');
 
 TODO = [1 1 1 0 0 0 0 0];
 
-scanner = 'Siemens';
-%scanner = 'GE';
+%scanner = 'Siemens';
+scanner = 'GE';
 fatSat = true;
 RFspoil = true;
 
