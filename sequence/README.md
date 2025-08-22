@@ -1,4 +1,4 @@
-# Create Pulseq files for SMS-EPI fMRI, for Siemens and GE 
+# Create Pulseq files for SMS-EPI fMRI, for Siemens and GE scanners
 
 ## Setup 
 
@@ -32,7 +32,13 @@ See main.m
 
 1. In main.m, set the `scanner` variable to 'Siemens' 
 
-2. Run main.m
+2. Enter your python virtual environment at start MATLAB
+   ```
+   $ source myvenv/bin/activate
+   $ matlab
+   ```
+
+3. Run main.m
     ```
     >> main;
     ```
