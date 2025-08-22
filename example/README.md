@@ -118,7 +118,12 @@ To use this script, do the following:
 
    See the comments in that script for further details.
 
+   Example output:
+![SMS images](ims.png)
+
 
 ## Example data set
 
-
+The data set shown in the image above is available via Dropbox.
+To request access, please fill out this short
+[Google form](https://docs.google.com/forms/d/e/1FAIpQLSdp8OX5gdTumVD1tIXP__d-y8I3XismLOcJZPbF_MWh7jQIqA/viewform?usp=dialog).
