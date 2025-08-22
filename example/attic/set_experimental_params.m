@@ -1,4 +1,4 @@
-scanner = 'Siemens';  % 'GE' or 'Siemens' (for now!)
+scanner = 'GE';  % 'GE' or 'Siemens' (for now!)
 
 if strcmp(scanner, 'GE')
     datfile_suffix = '.h5';    % ScanArchive

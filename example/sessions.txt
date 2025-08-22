@@ -1,0 +1,10 @@
+subject     site      scanner     date       session   vendor     kspace_delay    readout_trajectory_file
+
+sub00004    umich     uhp         20240124   1         GE         -1.5            ./readout.mod
+sub00004    umich     mr7         20240202   1         Siemens    -1.5            ./readout.mod
+sub00004    umich     mr750       20241122   1         GE         -1.5            ./readout.mod
+sub00004    umich     mr7         20241211   1         Siemens    -1.5            ./readout.mod
+sub00004    umich     mr7         20250107   1         Siemens    -1.5            ./readout.mod
+sub00004    umich     mr1         20250131   1         Siemens    -1.5            ./readout.mod
+sub00004    umich     uhp         20250717   1         GE         -1.5            ./readout.mod
+
