@@ -1,0 +1,8 @@
+/home/jfnielse/data/sub00004-umich-uhp-20250717-1/Exam7498/
+cal Series15
+noise   Series13
+2d  Series14
+rest    Series16
+rest    Series19
+rest    Series22
+rest    Series25
