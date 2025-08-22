@@ -18,11 +18,6 @@ but should be portable to other platforms with minimal changes since it only
 relies on MATLAB and Python code.
 
 
-## Accessing an example data set
-
-A resting-state fMRI data set in a volunteer is available upon request.
-
-
 ## Create the Pulseq sequence files
 
 Follow the instructions in the 
