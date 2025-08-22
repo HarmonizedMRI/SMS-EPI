@@ -32,7 +32,7 @@ See main.m
 
 1. In main.m, set the `scanner` variable to 'Siemens' 
 
-2. Enter your python virtual environment at start MATLAB
+2. Enter your python virtual environment and start MATLAB
    ```
    $ source myvenv/bin/activate
    $ matlab
