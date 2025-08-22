@@ -13,8 +13,8 @@ rownum = 9;  % row number in sessions.txt (list of scan sessions)
 
 auto = false;  % pause after each step before continuing
 
-doGhostCal = 0;
-getACS = 0; 
+doGhostCal = 1;
+getACS = 1; 
 
 newCal = 1;   % 0: before Nov 2024. 1: combines EPI cal and 2D GRAPPA ref/cal scan
 
