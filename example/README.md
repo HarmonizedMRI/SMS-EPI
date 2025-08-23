@@ -113,8 +113,7 @@ To use this script, do the following:
 
    See the comments in that script for further details.
 
-   Example output:
-![SMS images](ims.png)
+   ![SMS images](ims.png)
 
 
 ## Example data set
