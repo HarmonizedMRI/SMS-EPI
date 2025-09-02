@@ -52,7 +52,7 @@ cnt.rest = 0;
 cnt.task = 0;
 
 ii = 2;
-while ~isempty(L{ii}) & ii < length(L)
+while ii <= length(L) & ~isempty(L{ii})
     l = split(L{ii});
     switch(l{1})
         case 'b0'
