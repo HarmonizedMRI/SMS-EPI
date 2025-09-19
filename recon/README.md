@@ -1,4 +1,7 @@
-# Reconstructing SMS-EPI Data
+# Reconstructing SMS-EPI Data using SENSE in Julia
+
+For **slice GRAPPA** recon, see ./example/.
+
 
 ## SENSE Reconstruction
 
