@@ -69,9 +69,9 @@ warning('OFF', 'mr:restoreShape');
 %% Define experimental parameters
 sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'maxSlew', 150, 'slewUnit', 'T/m/s', ...
-              'rfDeadTime', 100e-6, ...
-              'rfRingdownTime', 60e-6 + 100e-6, ... % make room for psd_rf_wait (since rf pulse is followed by wait pulse)
-              'adcDeadTime', 20e-6, ...
+              'rfDeadTime', 0e-6, ...
+              'rfRingdownTime', 0e-6, ...
+              'adcDeadTime', 0e-6, ...
               'adcRasterTime', 4e-6, ...
               'gradRasterTime', 4e-6, ...
               'rfRasterTime', 4e-6, ...
@@ -220,7 +220,7 @@ else
     gro = arg.gro;
 end
 
-% break up readout trap
+% break up readout trapezoid
 % Piece 1: ramp from 0 to end of gy/gz blip
 % Piece 2: ADC window (symmetric)
 % Piece 3: ramp from start of gy/gz blip to 0
@@ -231,18 +231,10 @@ gro3.delay = 0;
 gro1.delay = blipDuration/2;
 gro31 = mr.addGradients({gro3, mr.scaleGrad(gro1, -1)}, sys);
 
-seq = mr.Sequence(sys);
-seq.addBlock(gro1);
-seq.addBlock(gro2);
-seq.addBlock(gro31);
-seq.plot('showBlocks', true);
-
-keyboard
-
 % ADC event
 % Number of readout samples must be multiple of 4 (TODO: check if this is actually needed)
 if isempty(arg.adc) 
-    TreadTmp = mr.calcDuration(gro) - blipDuration;
+    TreadTmp = mr.calcDuration(gro2);
     numSamplesTmp = ceil(TreadTmp/dwell);
     numSamples = ceil(numSamplesTmp/4)*4;
     Tread = numSamples*dwell;
@@ -252,15 +244,6 @@ if isempty(arg.adc)
 else
     adc = arg.adc;
 end
-
-% Split blips at block boundary
-[gyBlipUp, gyBlipDown] = mr.splitGradientAt(gyBlip, mr.calcDuration(gyBlip)/2);
-gyBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gyBlipUp);
-gyBlipDown.delay = 0;
-
-[gzBlipUp, gzBlipDown] = mr.splitGradientAt(gzBlip, mr.calcDuration(gzBlip)/2);
-gzBlipUp.delay = mr.calcDuration(gro) - mr.calcDuration(gzBlipUp);
-gzBlipDown.delay = 0;
 
 % prephasers and spoilers
 gxPre = trap4ge(mr.makeTrapezoid('x', sys, ...
@@ -287,47 +270,26 @@ gzSpoil = mr.makeTrapezoid('z', sys2, ...
 
 
 %% Calculate delays to achieve desired TE (for SMS and 3D) and TR.
-%% For SE, minimum TE is used.
 % Note: gzRF includes gradient rephaser, while
 % gzRF_se does NOT include gradient spoilers
 kyIndAtTE = find(kyInds-ny/2 == min(abs(kyInds-ny/2)));
-if strcmp(type, 'SE')
-    % TE = time from center of 180 pulse to center of ky-space readout
-    TE = mr.calcDuration(gzRF_se) - mr.calcDuration(rf_se)/2 - rf_se.delay + mr.calcDuration(gzSpoil) + mr.calcDuration(gxPre) + ...
-            (kyIndAtTE-0.5) * mr.calcDuration(gro);
-    fprintf('TE set to %.3f s\n', TE);
+minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
+        (kyIndAtTE-0.5) * mr.calcDuration(gro);
+assert(TE+eps > minTE, sprintf('Requested TE < minimum TE (%f)', minTE));
+TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
 
-    % minTE2 = minimum time between centers of 90 and 180 pulses
-    minTE1 = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gzSpoil) + ...
-            rf_se.delay + rf_se.shape_dur/2;
+minTR = arg.fatSat*(mr.calcDuration(rfsat) + mr.calcDuration(gxSpoil)) + ...
+    mr.calcDuration(gzRF) + TEdelay + ...
+    mr.calcDuration(gxPre) + etl*mr.calcDuration(gro) + mr.calcDuration(gxSpoil);
 
-    % delay before 180 pulse
-    TEdelay = floor((TE-minTE1)/sys.blockDurationRaster) * sys.blockDurationRaster;
-
-    % min TR
-    minTR = arg.fatSat*(mr.calcDuration(rfsat) + mr.calcDuration(gxSpoil)) + ...
-            mr.calcDuration(gzRF) + TEdelay + ...
-            2*mr.calcDuration(gzSpoil) + mr.calcDuration(gzRF_se) + ...
-            mr.calcDuration(gxPre) + etl*mr.calcDuration(gro) + mr.calcDuration(gxSpoil);
-else
-    minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
-            (kyIndAtTE-0.5) * mr.calcDuration(gro);
-    assert(TE+eps > minTE, sprintf('Requested TE < minimum TE (%f)', minTE));
-    TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
-
-    minTR = arg.fatSat*(mr.calcDuration(rfsat) + mr.calcDuration(gxSpoil)) + ...
-        mr.calcDuration(gzRF) + TEdelay + ...
-        mr.calcDuration(gxPre) + etl*mr.calcDuration(gro) + mr.calcDuration(gxSpoil);
-
-    if strcmp(type, '3D')
-        minTR = minTR + mr.calcDuration(gzPre);
-    end
+if strcmp(type, '3D')
+    minTR = minTR + mr.calcDuration(gzPre);
 end
 
 TRdelay = round((TR/np-minTR-arg.segmentRingdownTime)/sys.blockDurationRaster) * sys.blockDurationRaster;
 assert(TR > np*minTR, sprintf('Requested TR < minimum TR (%f)', minTR));
 
-% slice/partition order
+%% Slice/partition order
 if strcmp(type, '3D')
     IP = -nz/2:Rz:nz/2-1;
 else
@@ -365,8 +327,8 @@ for ifr = (1-nDummyFrames):nFrames
     % Segment/TR ID (see 'Pulseq on GE' manual)
     trid = 2 - isDummyShot;
 
-    yBlipsOn = ~isDummyShot;
-    zBlipsOn = yBlipsOn; 
+    yBlipsOn = ~isDummyShot - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
+    zBlipsOn = yBlipsOn - eps; 
 
     % slice (partition/SMS group) loop
     for p = IP
@@ -406,48 +368,31 @@ for ifr = (1-nDummyFrames):nFrames
             seq.addBlock(mr.makeDelay(TEdelay));
         end
 
-        % Readout
-        %seq.addBlock(gxPre, gyPre, mr.scaleGrad(gzPre, 1 - 2/nz*(shot-1)));
+        % Readout pre-phasers
         if strcmp(type, '3D')
             seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, p/(nz/2)*zBlipsOn*arg.gzPreOn));
         else
             seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, zBlipsOn));
         end
 
-        if isDummyShot
-            seq.addBlock(gro, ...
-                         mr.scaleGrad(gyBlipUp, arg.gySign*yBlipsOn*kyStep(1)/max(kyStepMax,1)), ...
-                         mr.scaleGrad(gzBlipUp, zBlipsOn*kzStep(1)/max(kzStepMax,1)));
-        else
-            seq.addBlock(gro, adc, ...
-                         mr.scaleGrad(gyBlipUp, arg.gySign*yBlipsOn*kyStep(1)/max(kyStepMax,1)), ...
-                         mr.scaleGrad(gzBlipUp, zBlipsOn*kzStep(1)/max(kzStepMax,1)));
+        % first echo
+        seq.addBlock(gro1);
+        seq.addBlock(gro2, adc);
+
+        % middle echoes
+        for e = 2:(etl-1)
+            seq.addBlock(mr.scaleGrad(gro23, (-1)^(e)), ...
+                mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e-1)/max(kyStepMax,1)), ...
+                mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e-1)/max(kzStepMax,1)));
+            seq.addBlock(mr.scaleGrad(gro2, (-1)^(e+1)), adc);
         end
 
-        for ie = 2:(etl-1)
-            % Example: 'gybdu' = Gy blip down up
-            gybd = mr.scaleGrad(gyBlipDown, arg.gySign*yBlipsOn*kyStep(ie-1)/max(kyStepMax,1));
-            gybu = mr.scaleGrad(gyBlipUp,   arg.gySign*yBlipsOn*kyStep(ie)/max(kyStepMax,1));
-            gybdu = mr.addGradients({gybd, gybu}, sys);
-            gzbd = mr.scaleGrad(gzBlipDown, zBlipsOn*kzStep(ie-1)/max(kzStepMax,1));
-            gzbu = mr.scaleGrad(gzBlipUp,   zBlipsOn*kzStep(ie)/max(kzStepMax,1));
-            gzbdu = mr.addGradients({gzbd, gzbu}, sys);
-            if isDummyShot
-                seq.addBlock(mr.scaleGrad(gro, (-1)^(ie-1)), gybdu, gzbdu);
-            else
-                seq.addBlock(adc, mr.scaleGrad(gro, (-1)^(ie-1)), gybdu, gzbdu);
-            end
-        end
-
-        if isDummyShot
-            seq.addBlock(mr.scaleGrad(gro, (-1)^(ie)), ...
-                         mr.scaleGrad(gyBlipDown, arg.gySign*yBlipsOn*kyStep(ie)/max(kyStepMax,1)), ...
-                         mr.scaleGrad(gzBlipDown, zBlipsOn*kzStep(ie)/max(kzStepMax,1)));
-        else
-            seq.addBlock(adc, ...
-                         mr.scaleGrad(gro, (-1)^(ie)), ...
-                         mr.scaleGrad(gyBlipDown, arg.gySign*yBlipsOn*kyStep(ie)/max(kyStepMax,1)), ...
-                         mr.scaleGrad(gzBlipDown, zBlipsOn*kzStep(ie)/max(kzStepMax,1)));
+        % last echo
+        seq.addBlock(mr.scaleGrad(gro23, (-1)^(e+1)), ...
+            mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e-1)/max(kyStepMax,1)), ...
+            mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e-1)/max(kzStepMax,1))); 
+        seq.addBlock(mr.scaleGrad(gro2, (-1)^(e+2)), adc);
+        seq.addBlock(mr.scaleGrad(gro1, (-1)^(e+2)));
         end
 
         % gz rephaser for 3D
@@ -460,6 +405,8 @@ for ifr = (1-nDummyFrames):nFrames
 
         % TR delay
         seq.addBlock(mr.makeDelay(TRdelay));
+
+        keyboard
     end
 end
 fprintf('\n');
