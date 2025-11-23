@@ -17,7 +17,7 @@ RFspoil = true;
 
 % acquisition parameters
 voxelSize = [2.4 2.4 2.4]*1e-3;   % m
-nx = 90; ny = nx; nz = 40;
+nx = 90; ny = nx; nz = 60;
 alpha = 52;
 pf_ky = (nx-3*6)/nx;
 
