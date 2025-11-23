@@ -204,10 +204,9 @@ kzStepMax = max(abs(kzStep));
 deltak = 1./fov;
 
 % Start with the blips
-% Wrap in trap4ge.m so all times are on 20us boundary for accurate interpolation to 4us for GE
 commonRasterTime = 20e-6;   
-gyBlip = trap4ge(mr.makeTrapezoid('y', sys, 'Area', kyStepMax*deltak(2)), commonRasterTime, sys);
-gzBlip = trap4ge(mr.makeTrapezoid('z', sys, 'Area', kzStepMax*deltak(3)), commonRasterTime, sys);
+gyBlip = mr.makeTrapezoid('y', sys, 'Area', kyStepMax*deltak(2));
+gzBlip = mr.makeTrapezoid('z', sys, 'Area', kzStepMax*deltak(3));
 
 blipDuration = max(mr.calcDuration(gyBlip), mr.calcDuration(gzBlip));
 maxBlipArea = max(gyBlip.area, gzBlip.area);
@@ -220,6 +219,25 @@ if isempty(arg.gro)
 else
     gro = arg.gro;
 end
+
+% break up readout trap
+% Piece 1: ramp from 0 to end of gy/gz blip
+% Piece 2: ADC window (symmetric)
+% Piece 3: ramp from start of gy/gz blip to 0
+[gro1, gro23] = mr.splitGradientAt(gro, blipDuration/2);
+[gro2, gro3] = mr.splitGradientAt(gro23, mr.calcDuration(gro) - blipDuration/2);
+gro2.delay = 0;
+gro3.delay = 0;
+gro1.delay = blipDuration/2;
+gro31 = mr.addGradients({gro3, mr.scaleGrad(gro1, -1)}, sys);
+
+seq = mr.Sequence(sys);
+seq.addBlock(gro1);
+seq.addBlock(gro2);
+seq.addBlock(gro31);
+seq.plot('showBlocks', true);
+
+keyboard
 
 % ADC event
 % Number of readout samples must be multiple of 4 (TODO: check if this is actually needed)
