@@ -1,5 +1,5 @@
-function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, tp, varargin)
-% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, tp, varargin)
+function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, type, varargin)
+% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, type, varargin)
 %
 % SMS-EPI sequence in Pulseq
 %
@@ -15,7 +15,7 @@ function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, c
 %   caipiShiftZ  [1]      caipi shift along z for every ky blip
 %   nFrames      [1]      number of time frames (image volumes)
 %   nDummyFrames [1]      number of frames w/o data acquisition to reach steady state
-%   tp         string   'SMS', 'SE', or '3D'. If 'SE', mb is set to 1
+%   type         string   'SMS', 'SE', or '3D'. If 'SE', mb is set to 1
 %
 % Keyword-argument input options:
 %   gro          struct   readout gradient struct. Default: create a new one and return from this function
@@ -25,7 +25,7 @@ function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, c
 %   gro 
 %   adc
 
-tp = 'ME';
+type = 'ME';
 
 [nx ny nz] = deal(N(1), N(2), N(3));
 
@@ -91,7 +91,7 @@ sys2 = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
 
 fov = voxelSize .* [nx ny nz];       % FOV (m)
 
-if strcmp(tp, '3D')
+if strcmp(type, '3D')
     slThick = 0.85*fov(3);
 else
     slThick = fov(3)/nz;
@@ -104,7 +104,7 @@ etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
 rfSpoilingInc = 117;                % RF spoiling increment (degrees)
 
-if strcmp(tp, '3D')
+if strcmp(type, '3D')
     rfTB  = 8;          % RF pulse time-bandwidth product
     rfDur = 4e-3;       % RF pulse duration (s)
 else
@@ -125,7 +125,7 @@ fatsat.dur     = 8.0;     % pulse duration (ms)
 
 % RF waveform in Gauss
 wav = toppe.utils.rf.makeslr(fatsat.flip, fatsat.slThick, fatsat.tbw, fatsat.dur, 1e-6, toppe.systemspecs(), ...
-    'tp', 'ex', ...    % fatsat pulse is a 90 so is of type 'ex', not 'st' (small-tip)
+    'type', 'ex', ...    % fatsat pulse is a 90 so is of type 'ex', not 'st' (small-tip)
     'ftype', 'min', ...
     'writeModFile', false);
 
@@ -151,7 +151,7 @@ sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxRF', 0.15);
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
 % freq = frequency offset (Hz) corresponding to a sliceSep
-if strcmp(tp, 'SMS') | strcmp(tp, 'SE')
+if strcmp(type, 'SMS') | strcmp(type, 'SE')
     ftype = 'ls';
 else
     ftype = 'min';
@@ -160,7 +160,7 @@ end
     mb, sliceSep, sysGE, sys, ...
     'doSim', arg.simulateSliceProfile, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
-    'noRfOffset', strcmp(tp, '3D'), ...   % don't shift slice (slab) for 3D
+    'noRfOffset', strcmp(type, '3D'), ...   % don't shift slice (slab) for 3D
     'ftype', ftype);      % filter design. 'ls' = least squares
 
 rf.use = 'excitation';
@@ -230,17 +230,16 @@ gro2.delay = 0;
 gro3.delay = 0;
 gro1.delay = blipDuration/2;
 gro31 = mr.addGradients({gro3, mr.scaleGrad(gro1, -1)}, sys);
+keyboard
 
 % ADC event
 % Number of readout samples must be multiple of 4 (TODO: check if this is actually needed)
 if isempty(arg.adc) 
-    TreadTmp = mr.calcDuration(gro2);
-    numSamplesTmp = ceil(TreadTmp/dwell);
-    numSamples = ceil(numSamplesTmp/4)*4;
-    Tread = numSamples*dwell;
+    Tread = mr.calcDuration(gro2);
+    numSamples = round(Tread/dwell);
     adc = mr.makeAdc(numSamples, sys, ...
         'Duration', Tread, ...
-        'Delay', blipDuration/2);  % + dwell/2? TODO
+        'Delay', 0);
 else
     adc = arg.adc;
 end
@@ -254,7 +253,7 @@ gyPre = trap4ge(mr.makeTrapezoid('y', sys, ...
     'Area', (kyInds(1)-ny/2)*deltak(2), ... 
     'Duration', Tpre-4*commonRasterTime), ...  % make a bit shorter than Tpre to ensure duration doesn't exceed Tpre after trap4ge
     commonRasterTime, sys);
-if ~strcmp(tp, '3D')
+if ~strcmp(type, '3D')
     area = -floor(mb/2)*deltak(3);
 else
     area = nz/2*deltak(3);
@@ -282,7 +281,7 @@ minTR = arg.fatSat*(mr.calcDuration(rfsat) + mr.calcDuration(gxSpoil)) + ...
     mr.calcDuration(gzRF) + TEdelay + ...
     mr.calcDuration(gxPre) + etl*mr.calcDuration(gro) + mr.calcDuration(gxSpoil);
 
-if strcmp(tp, '3D')
+if strcmp(type, '3D')
     minTR = minTR + mr.calcDuration(gzPre);
 end
 
@@ -290,7 +289,7 @@ TRdelay = round((TR/np-minTR-arg.segmentRingdownTime)/sys.blockDurationRaster) *
 assert(TR > np*minTR, sprintf('Requested TR < minimum TR (%f)', minTR));
 
 %% Slice/partition order
-if strcmp(tp, '3D')
+if strcmp(type, '3D')
     IP = -nz/2:Rz:nz/2-1;
 else
     % Interleaved slice ordering for SMS/2D
@@ -332,7 +331,7 @@ for ifr = (1-nDummyFrames):nFrames
 
     % slice (partition/SMS group) loop
     for p = IP
-        rf.freqOffset = (1-strcmp(tp, '3D')) * round((p-1)*freq);  % frequency offset (Hz) for SMS slice shift
+        rf.freqOffset = (1-strcmp(type, '3D')) * round((p-1)*freq);  % frequency offset (Hz) for SMS slice shift
 
         % Label the start of segment instance
         seq.addBlock(mr.makeLabel('SET', 'TRID', trid));
@@ -369,34 +368,31 @@ for ifr = (1-nDummyFrames):nFrames
         end
 
         % Readout pre-phasers
-        if strcmp(tp, '3D')
+        if strcmp(type, '3D')
             seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, p/(nz/2)*zBlipsOn*arg.gzPreOn));
         else
             seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, zBlipsOn));
         end
 
-        % first echo
+        % echo train
         seq.addBlock(gro1);
         seq.addBlock(gro2, adc);
-
-        % middle echoes
-        for e = 2:(etl-1)
-            seq.addBlock(mr.scaleGrad(gro23, (-1)^(e)), ...
+        
+        for e = 2:etl
+        try
+            seq.addBlock(mr.scaleGrad(gro31, (-1)^(e)), ...
                 mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e-1)/max(kyStepMax,1)), ...
                 mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e-1)/max(kzStepMax,1)));
+        catch
+            keyboard
+        end
             seq.addBlock(mr.scaleGrad(gro2, (-1)^(e+1)), adc);
         end
 
-        % last echo
-        seq.addBlock(mr.scaleGrad(gro23, (-1)^(e+1)), ...
-            mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e-1)/max(kyStepMax,1)), ...
-            mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e-1)/max(kzStepMax,1))); 
-        seq.addBlock(mr.scaleGrad(gro2, (-1)^(e+2)), adc);
-        seq.addBlock(mr.scaleGrad(gro1, (-1)^(e+2)));
-        end
+        seq.addBlock(mr.scaleGrad(gro3, (-1)^(etl+1)));
 
         % gz rephaser for 3D
-        if strcmp(tp, '3D')
+        if strcmp(type, '3D')
             seq.addBlock(mr.scaleGrad(gzPre, -p/(nz/2)*zBlipsOn*arg.gzPreOn));
         end
 
@@ -405,8 +401,6 @@ for ifr = (1-nDummyFrames):nFrames
 
         % TR delay
         seq.addBlock(mr.makeDelay(TRdelay));
-
-        keyboard
     end
 end
 fprintf('\n');

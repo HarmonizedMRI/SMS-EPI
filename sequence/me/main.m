@@ -49,7 +49,7 @@ sysGE = toppe.systemspecs();  % for plotting
 % We choose 4 shots since RF spoiling phase (for rf_inc = 117) repeats every 80 RF shots
 % (fat sat also spoils so only need 40 TRs not 80)
 % RF spoiling anyhow probably isn't doing much since TR=0.8s
-mb = 4; Ry = 1; Rz = mb; caipiShiftZ = 2;
+mb = 6; Ry = 1; Rz = mb; caipiShiftZ = 2;
 nDummyFrames = 0;
 nFrames = 1;
 if TODO(1)
