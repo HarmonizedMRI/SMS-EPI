@@ -8,7 +8,7 @@
 % 7. 3D EPI mb=6
 % 8. 3D EPI mb=1
 
-TODO = [1 1 1 0 0 0 0 0];
+TODO = [1 0 0 0 0 0 0 0];
 
 %scanner = 'Siemens';
 scanner = 'GE';
@@ -17,7 +17,7 @@ RFspoil = true;
 
 % acquisition parameters
 voxelSize = [2.4 2.4 2.4]*1e-3;   % m
-nx = 90; ny = nx; nz = 60;
+nx = 90; ny = nx; nz = 40;
 alpha = 52;
 pf_ky = (nx-3*6)/nx;
 
@@ -49,9 +49,9 @@ sysGE = toppe.systemspecs();  % for plotting
 % We choose 4 shots since RF spoiling phase (for rf_inc = 117) repeats every 80 RF shots
 % (fat sat also spoils so only need 40 TRs not 80)
 % RF spoiling anyhow probably isn't doing much since TR=0.8s
-mb = 6; Ry = 1; Rz = mb; caipiShiftZ = 2;
+mb = 4; Ry = 1; Rz = mb; caipiShiftZ = 2;
 nDummyFrames = 0;
-nFrames = 4;
+nFrames = 1;
 if TODO(1)
     [gro, adc] = writeEPI(voxelSize, [nx ny nz], TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, 'SMS', ...
         'seqName', 'mb6', ...

@@ -25,17 +25,11 @@ function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, c
 %   gro 
 %   adc
 
+type = 'ME';
+
 [nx ny nz] = deal(N(1), N(2), N(3));
 
-np = nz/mb;   % number of excitations/partiations (sets of SMS slices)
-
-if strcmp(type, '3D') | strcmp(type, 'SE')
-    mb = 1;
-end
-
-if strcmp(type, 'SE') & mb ~= 1
-    error('Only mb=1 is supported for SE EPI');
-end
+np = nz/mb;   % number of excitations/partitions (sets of SMS slices)
 
 fprintf('mb=%d\n', mb); 
 
@@ -78,10 +72,11 @@ sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'rfDeadTime', 100e-6, ...
               'rfRingdownTime', 60e-6 + 100e-6, ... % make room for psd_rf_wait (since rf pulse is followed by wait pulse)
               'adcDeadTime', 20e-6, ...
-              'adcRasterTime', 2e-6, ...
-              'gradRasterTime', 10e-6, ...
-              'blockDurationRaster', 10e-6, ...
-              'B0', 2.89);
+              'adcRasterTime', 4e-6, ...
+              'gradRasterTime', 4e-6, ...
+              'rfRasterTime', 4e-6, ...
+              'blockDurationRaster', 4e-6, ...
+              'B0', 3.0);
 
 % reduced slew for spoilers
 sys2 = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
@@ -90,6 +85,7 @@ sys2 = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'rfRingdownTime', sys.rfRingdownTime, ...
               'adcDeadTime', sys.adcDeadTime, ...
               'gradRasterTime', sys.gradRasterTime, ...
+              'rfRasterTime', sys.rfRasterTime, ...
               'blockDurationRaster', sys.blockDurationRaster, ...
               'B0', sys.B0);
 
@@ -101,7 +97,7 @@ else
     slThick = fov(3)/nz;
 end
 
-dwell = 4e-6;                    % ADC sample time (s). For GE, must be multiple of 2us.
+dwell = 4e-6;                    % ADC sample time (s)
 
 etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
 
@@ -143,6 +139,7 @@ flip = fatsat.flip/180*pi;
 flipAssumed = abs(sum(rfp));
 rfsat = mr.makeArbitraryRf(rfp, ...
     flip*abs(sum(rfp*sys.rfRasterTime))*(2*pi), ...
+    'use', 'excitation', ...
     'system', sys);
 rfsat.signal = rfsat.signal/max(abs(rfsat.signal))*max(abs(rfp)); % ensure correct amplitude (Hz)
 rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
@@ -166,33 +163,12 @@ end
     'noRfOffset', strcmp(type, '3D'), ...   % don't shift slice (slab) for 3D
     'ftype', ftype);      % filter design. 'ls' = least squares
 
+rf.use = 'excitation';
+
 freq = arg.freqSign * freq;
 
 if arg.doConj
     rf.signal = conj(rf.signal);
-end
-
-% replace with sinc for debugging phase offset
-%[rf,gzRF] = mr.makeSincPulse(52/180*pi, mr.opts(), 'Duration', 2e-3, 'SliceThickness', 5e-3, 'apodization',0.5,'timeBwProduct',4);
-%t = 1e-6 * (1:length(rf.signal));
-%rf.signal = rf.signal.*exp(1i*2*pi*freq*t);
-%rf.signal = rf.signal * exp(-1i*angle(rf.signal(1001)));
-%freq = 1e3;
-
-
-%% spin-echo refocusing pulse (for mb=1 only)
-if strcmp(type, 'SE')
-    sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
-    [rf_se, gzRF_se, freq_se, t_rf_se_center] = getsmspulse(180, 1.2*slThick, 4, rfDur, ...
-        mb, sliceSep, sysGE, sys, ...
-        'doSim', arg.simulateSliceProfile, ...    % Plot simulated SMS slice profile
-        'type', 'se', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
-        'ftype', ftype);      % filter design. 'ls' = least squares
-    if arg.doConj
-        rf_se.signal = conj(rf_se.signal);
-    end
-
-    freq_se = arg.freqSign * freq_se;
 end
 
 
@@ -220,6 +196,7 @@ kzStep = diff(kzInds);
 
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
+
 
 %% Define readout gradients and ADC event
 % The Pulseq toolbox really shines here!
@@ -367,66 +344,41 @@ for ifr = (1-nDummyFrames):nFrames
     % dummy shots before turning on ADC, to reach steady state 
     isDummyShot = ifr < 1;
 
-    % First frame is EPI calibration/reference scan (blips off)
-    isRefShot = ifr == 1 & arg.doRefScan;
-
     % Segment/TR ID (see 'Pulseq on GE' manual)
-    segmentID = 3;
-    if isDummyShot
-        segmentID = 1;
-    end
-    if isRefShot
-        segmentID = 2;
-    end
+    trid = 2 - isDummyShot;
 
-    yBlipsOn = ~isDummyShot & ~isRefShot;
-    zBlipsOn = yBlipsOn; % & strcmp(type, '3D');   % no z blips for 2D 
-
-    % Alternate blip up/down if SE.
-    % Assign separate segment ID for blip down
-    if strcmp(type, 'SE') & ifr > 1
-        yBlipsOn = -yBlipsOn;
-        if yBlipsOn < 0
-            segmentID = 4;
-        end
-    end
+    yBlipsOn = ~isDummyShot;
+    zBlipsOn = yBlipsOn; 
 
     % slice (partition/SMS group) loop
     for p = IP
         rf.freqOffset = (1-strcmp(type, '3D')) * round((p-1)*freq);  % frequency offset (Hz) for SMS slice shift
 
-        % Must label the first block in segment with segment ID. See Pulseq on GE manual.
+        % Label the start of segment instance
+        seq.addBlock(mr.makeLabel('SET', 'TRID', trid));
+
+        % fat sat and RF spoiling
         if arg.fatSat
-            % fat sat and RF spoiling
             rfsat.phaseOffset = rf_phase/180*pi;
-            seq.addBlock(rfsat, mr.makeLabel('SET', 'TRID', segmentID));
+            seq.addBlock(rfsat);
             seq.addBlock(gxSpoil, gzSpoil);
             if arg.RFspoil
                 rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
                 rf_phase = mod(rf_phase+rf_inc, 360.0);
             end
+        end
 
-            % excitation pulse and RF spoiling
-            rf.phaseOffset = rf_phase/180*pi - 2*pi*rf.freqOffset*mr.calcRfCenter(rf);  % align the phase for off-center slices
-            adc.phaseOffset = rf_phase/180*pi;
+        % excitation pulse and RF spoiling
+        rf.phaseOffset = rf_phase/180*pi - 2*pi*rf.freqOffset*mr.calcRfCenter(rf);  % align the phase for off-center slices
+        adc.phaseOffset = rf_phase/180*pi;
+        if ~arg.doNoiseScan
             seq.addBlock(rf, gzRF);
-            if arg.RFspoil
-                rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
-                rf_phase = mod(rf_phase+rf_inc, 360.0);
-            end
         else
-            % excitation pulse and RF spoiling
-            rf.phaseOffset = rf_phase/180*pi - 2*pi*rf.freqOffset*mr.calcRfCenter(rf);  % align the phase for off-center slices
-            adc.phaseOffset = rf_phase/180*pi;
-            if ~arg.doNoiseScan
-                seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'TRID', segmentID));
-            else
-                seq.addBlock(gzRF, mr.makeLabel('SET', 'TRID', segmentID));
-            end
-            if arg.RFspoil
-                rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
-                rf_phase = mod(rf_phase+rf_inc, 360.0);
-            end
+            seq.addBlock(gzRF);
+        end
+        if arg.RFspoil
+            rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
+            rf_phase = mod(rf_phase+rf_inc, 360.0);
         end
 
         % TE delay
@@ -434,15 +386,6 @@ for ifr = (1-nDummyFrames):nFrames
             seq.addBlock(mr.makeDelay(TEdelay), trigOut);
         else
             seq.addBlock(mr.makeDelay(TEdelay));
-        end
-
-        % refocusing pulse
-        if strcmp(type, 'SE')
-            rf_se.freqOffset = round((p-1)*freq_se);  % frequency offset (Hz) for 2D SE pulse slice shift
-            rf_se.phaseOffset = rf_phase/180*pi + 0*pi/2 - 2*pi*rf_se.freqOffset*mr.calcRfCenter(rf_se);  % align the phase for off-center slices
-            seq.addBlock(gzSpoil);
-            seq.addBlock(rf_se, gzRF_se);
-            seq.addBlock(gzSpoil);
         end
 
         % Readout
@@ -503,16 +446,17 @@ for ifr = (1-nDummyFrames):nFrames
 end
 fprintf('\n');
 
-%% If noise scan, add rf pulse at the end since seg2ge()
-%% requires at least rf pulse to be present
+%% If noise scan, add dummy rf pulse at the end since seg2ceq()
+%% requires at least one rf pulse to be present in sequence
 if arg.doNoiseScan
-    seq.addBlock(rf, gzRF, mr.makeLabel('SET', 'TRID', 2*segmentID));
+    seq.addBlock(mr.makeLabel('SET', 'TRID', 3*trid));
+    seq.addBlock(rf, gzRF, mr.makeDelay(1));
 end
 
 %% Check sequence timing
 [ok, error_report]=seq.checkTiming;
 if (ok)
-    fprintf('Timing check passed successfully\n');
+    fprintf('Timing check passed\n');
 else
     fprintf('Timing check failed! Error listing follows:\n');
     fprintf([error_report{:}]);
@@ -532,44 +476,8 @@ if ~arg.toGE
     return;
 end
 
-%% Convert to .tar file and plot
-
-if mb > 1 | strcmp(type, '3D')
-    maxView = np*etl;
-else
-    maxView = etl;
-end
-sysGE = toppe.systemspecs('maxGrad', 5, ...   % G/cm
-    'maxRF', 0.15, ...
-    'maxSlew', 20, ...                        % G/cm/ms
-    'maxView', maxView, ...               % Determines slice/view index in data file
-    'adcDeadTime', 20, ...           % us. Half of 40us since applied both before + after ADC window.
-    'psd_rf_wait', 148, ...          % RF/gradient delay (us)
-    'psd_grd_wait', 156);            % ADC/gradient delay (us)
-
-ceq = seq2ceq(ifn);
-ofn = [arg.seqName '.tar'];
-ceq2ge(ceq, sysGE, ofn, 'preserveArea', false);
-
 % add caipi.mat to the .tar file
-system(sprintf('tar --append --file=%s caipi.mat', ofn));
-
-system(sprintf('tar xf %s', ofn));
-if arg.plot
-    dur = toppe.getscantime(sysGE);
-    figure('Name', ofn, 'NumberTitle', 'off');
-    toppe.plotseq(sysGE, 'timeRange', dur-[2 0]);
-
-
-    %% k-space trajectory calculation and plot
-    [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
-    figure; plot(ktraj(1,:),ktraj(2,:),'b'); % a 2D k-space plot
-    axis('equal'); % enforce aspect ratio for the correct trajectory display
-    hold;plot(ktraj_adc(1,:),ktraj_adc(2,:),'r.'); % plot the sampling points
-    title('sms EPI, full k-space trajectory (k_x x k_y)');
-end
-
-return
+%system(sprintf('tar --append --file=%s caipi.mat', ofn));
 
 %% Optional slow step, but useful for testing during development,
 %% e.g., for the real TE, TR or for staying within slewrate limits
