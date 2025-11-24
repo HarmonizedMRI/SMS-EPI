@@ -270,10 +270,10 @@ gro31 = struct('type', 'grad', ...
 
 % ADC event
 if isempty(arg.adc) 
-    Tread = mr.calcDuration(gro2);
-    numSamples = round(Tread/dwell);
+    tmp = mr.calcDuration(gro2);
+    numSamples = sys.adcSamplesDivisor*round(tmp/dwell/sys.adcSamplesDivisor);
     adc = mr.makeAdc(numSamples, sys, ...
-        'Duration', Tread, ...
+        'Duration', dwell*numSamples, ...
         'Delay', 0);
 else
     adc = arg.adc;
