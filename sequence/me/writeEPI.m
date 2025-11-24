@@ -215,7 +215,7 @@ maxBlipArea = max(gyBlip.area, gzBlip.area);
 if isempty(arg.gro) 
     systmp = sys;
     systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
-    gro = trap4ge(mr.makeTrapezoid('x', systmp, 'Area', nx*deltak(1) + maxBlipArea), commonRasterTime, systmp);
+    gro = mr.makeTrapezoid('x', systmp, 'Area', nx*deltak(1) + maxBlipArea);
 else
     gro = arg.gro;
 end
@@ -280,23 +280,20 @@ else
 end
 
 % prephasers and spoilers
-gxPre = trap4ge(mr.makeTrapezoid('x', sys, ...
-    'Area', -gro.area/2), ...
-    commonRasterTime, sys);
+gxPre = mr.makeTrapezoid('x', sys, ...
+    'Area', -gro.area/2);
 Tpre = mr.calcDuration(gxPre) + 4*commonRasterTime;
-gyPre = trap4ge(mr.makeTrapezoid('y', sys, ...
+gyPre = mr.makeTrapezoid('y', sys, ...
     'Area', (kyInds(1)-ny/2)*deltak(2), ... 
-    'Duration', Tpre-4*commonRasterTime), ...  % make a bit shorter than Tpre to ensure duration doesn't exceed Tpre after trap4ge
-    commonRasterTime, sys);
+    'Duration', Tpre-4*commonRasterTime);   % make a bit shorter than Tpre to ensure duration doesn't exceed Tpre after trap4ge
 if ~strcmp(type, '3D')
     area = -floor(mb/2)*deltak(3);
 else
     area = nz/2*deltak(3);
 end
-gzPre = trap4ge(mr.makeTrapezoid('z', sys, ...
+gzPre = mr.makeTrapezoid('z', sys, ...
     'Area', area, ...
-    'Duration', Tpre-commonRasterTime), ...   % make < Tpre to ensure duration doesn't exceed Tpre
-    commonRasterTime, sys);
+    'Duration', Tpre-commonRasterTime);    % make < Tpre to ensure duration doesn't exceed Tpre
 gxSpoil = mr.makeTrapezoid('x', sys2, ...
     'Area', -nx*deltak(1)*nCyclesSpoil);
 gzSpoil = mr.makeTrapezoid('z', sys2, ...
@@ -346,22 +343,11 @@ seq = mr.Sequence(sys);
 % temporal frame loop
 rf_phase = 0;
 rf_inc = 0;
-msg = [];
+
 for ifr = (1-nDummyFrames):nFrames
+    fprintf('\rFrame %d of %d     ', ifr, nFrames);
 
-    for ii = 1:length(msg)
-        fprintf('\b');
-    end
-    msg = sprintf('Frame %d of %d     ', ifr, nFrames);
-    fprintf(msg);
-
-    % dummy shots before turning on ADC, to reach steady state 
-    isDummyShot = ifr < 1;
-
-    % Segment/TR ID (see 'Pulseq on GE' manual)
-    trid = 2 - isDummyShot;
-
-    yBlipsOn = ~isDummyShot - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
+    yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
     zBlipsOn = yBlipsOn - eps; 
 
     % slice (partition/SMS group) loop
@@ -369,7 +355,7 @@ for ifr = (1-nDummyFrames):nFrames
         rf.freqOffset = (1-strcmp(type, '3D')) * round((p-1)*freq);  % frequency offset (Hz) for SMS slice shift
 
         % Label the start of segment instance
-        seq.addBlock(mr.makeLabel('SET', 'TRID', trid));
+        seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
 
         % fat sat and RF spoiling
         if arg.fatSat
@@ -439,7 +425,7 @@ fprintf('\n');
 %% If noise scan, add dummy rf pulse at the end since seg2ceq()
 %% requires at least one rf pulse to be present in sequence
 if arg.doNoiseScan
-    seq.addBlock(mr.makeLabel('SET', 'TRID', 3*trid));
+    seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
     seq.addBlock(rf, gzRF, mr.makeDelay(1));
 end
 
