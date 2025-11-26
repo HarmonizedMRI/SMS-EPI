@@ -6,6 +6,8 @@ addpath pulseq/matlab
 %system('git clone --branch tv7 git@github.com:HarmonizedMRI/PulCeq.git');
 %addpath PulCeq/matlab
 %addpath PulCeq/matlab/DataHash
+addpath ~/github/HarmonizedMRI/PulCeq/matlab
+addpath ~/github/HarmonizedMRI/PulCeq/matlab/DataHash
 
 % toppe.utils.makeslr
 system('git clone --branch v1.9.1 git@github.com:toppeMRI/toppe.git');
