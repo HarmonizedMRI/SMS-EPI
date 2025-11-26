@@ -293,7 +293,7 @@ if isempty(arg.adc)
     numSamples = sys.adcSamplesDivisor*round((t4-t1)/dwell/sys.adcSamplesDivisor);
     adc = mr.makeAdc(numSamples, sys, ...
         'Duration', dwell*numSamples, ...
-        'Delay', t2 - t1);  % see figure above
+        'Delay', 0);
 else
     adc = arg.adc;
 end
@@ -418,14 +418,10 @@ for ifr = (1-nDummyFrames):nFrames
         seq.addBlock(gro_t0_t1);
         
         for e = 1:etl-1
-        try
             seq.addBlock(adc, ...
                 mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
                 mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
                 mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
-        catch ME
-        keyboard
-        end
         end
 
         seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)), adc);
@@ -441,16 +437,16 @@ for ifr = (1-nDummyFrames):nFrames
         % TR delay
         seq.addBlock(mr.makeDelay(TRdelay));
 
-        TRdelay
     end
 end
 fprintf('\n');
 
-%% If noise scan, add dummy rf pulse at the end since seg2ceq()
-%% requires at least one rf pulse to be present in sequence
+% Noise scan (add gaps to make room for adc dead/ringdown time)
 if arg.doNoiseScan
     seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
-    seq.addBlock(rf, gzRF, mr.makeDelay(1));
+    seq.addBlock(mr.makeDelay(1));
+    seq.addBlock(adc);
+    seq.addBlock(mr.makeDelay(0.1));
 end
 
 %% Check sequence timing
@@ -463,7 +459,6 @@ else
     fprintf('\n');
 end
 
-
 %% Write .seq file
 seq.setDefinition('FOV', fov);
 seq.setDefinition('Name', arg.seqName);
@@ -471,10 +466,6 @@ ifn = [arg.seqName '.seq'];
 seq.write(ifn);       % Write to pulseq file
 
 % seq.plot('timeRange', [0 0.06]);
-
-if ~arg.toGE
-    return;
-end
 
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));
