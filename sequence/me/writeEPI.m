@@ -21,15 +21,9 @@ function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, kyInds, kzInds, 
 %   gro 
 %   adc
 
-type = 'ME';
-
 [nx ny nz] = deal(N(1), N(2), N(3));
 
 np = nz/mb;   % number of excitations/partitions (sets of SMS slices)
-
-etl = 72; %length(kyInds);
-kyInds = kyInds(end-etl+1:end);
-kzInds = kzInds(end-etl+1:end);
 
 fprintf('mb=%d\n', mb); 
 
@@ -41,10 +35,9 @@ arg.RFspoil = true;
 arg.simulateSliceProfile = false;    % simulate SMS profile and display
 arg.gzPreOn = true;                  % prephase along kz by -mb/2*deltak
 arg.plot = false;
-arg.segmentRingdownTime = 120e-6;    % segment ringdown time for Pulseq on GE 
+arg.segmentRingdownTime = 117e-6;    % segment ringdown time for Pulseq on GE 
 arg.doRefScan = false;               % do EPI ghost reference scan in frame 1
 arg.doNoiseScan = false;
-arg.toGE = true;
 arg.seqName = 'epi';
 arg.gySign = +1;
 arg.freqSign = +1;
@@ -61,6 +54,8 @@ end
 if mb == 1
 %    arg.gzPreOn = false;
 end
+
+etl = length(kyInds);
 
 warning('OFF', 'mr:restoreShape');
 
@@ -89,24 +84,15 @@ sys2 = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
 
 fov = voxelSize .* [nx ny nz];       % FOV (m)
 
-if strcmp(type, '3D')
-    slThick = 0.85*fov(3);
-else
-    slThick = fov(3)/nz;
-end
+slThick = pge2.utils.iff(strcmp(type, '3D'), 0.85*fov(3), fov(3)/nz);
 
 dwell = 4e-6;                    % ADC sample time (s)
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
-rfSpoilingInc = 117;                % RF spoiling increment (degrees)
+rfSpoilingInc = pge2.utils.iff(arg.RFspoil, 117, 0);    % RF spoiling increment (degrees)
 
-if strcmp(type, '3D')
-    rfTB  = 8;          % RF pulse time-bandwidth product
-    rfDur = 4e-3;       % RF pulse duration (s)
-else
-    rfTB  = 6;
-    rfDur = 8e-3;
-end
+rfTB = pge2.utils.iff(strcmp(type, '3D'), 8, 6);   % RF pulse time-bandwidth product
+rfDur = pge2.utils.iff(strcmp(type, '3D'), 4e-3, 8e-3);  % RF pulse duration (s)
 
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
@@ -141,7 +127,7 @@ rfsat.signal = rfsat.signal/max(abs(rfsat.signal))*max(abs(rfp)); % ensure corre
 rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
 
 
-%% excitation pulse
+%% SMS excitation pulse
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', 0.7*sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.15);
@@ -158,9 +144,7 @@ rf.use = 'excitation';
 
 freq = arg.freqSign * freq;
 
-if arg.doConj
-    rf.signal = conj(rf.signal);
-end
+rf.signal = pge2.utils.iff(arg.doConj, conj(rf.signal), rf.signal);
 
 % ky/kz encoding blip amplitude along echo train (multiples of deltak)
 kyStep = diff(kyInds);
@@ -170,12 +154,12 @@ kzStepMax = max(abs(kzStep));
 
 
 %% Define readout gradients and ADC event
-% The Pulseq toolbox really shines here!
 
 deltak = 1./fov;
 
-% Start with the blips
 commonRasterTime = 20e-6;   
+
+% Start with the blips
 gyBlip = mr.makeTrapezoid('y', sys, 'Area', kyStepMax*deltak(2));
 gzBlip = mr.makeTrapezoid('z', sys, 'Area', kzStepMax*deltak(3));
 
@@ -192,6 +176,10 @@ else
 end
 
 % Break up readout trapezoid into parts.
+% This way, we don't have to break up the the gy/gz blips,
+% which in turn allows them to be arbitrarily scaled in scan loop
+% without having to store unique shapes.
+%
 % gro_t0_t1: ramp from 0 to end of gy/gz blip (t1)
 % gro_t1_t4: from t1 to t4. Contains ADC window (symmetric).
 % gro_t4_t5: ramp from start of gy/gz blip (t4) to 0 
@@ -276,13 +264,8 @@ Tpre = mr.calcDuration(gxPre) + 4*commonRasterTime;
 gyPre = mr.makeTrapezoid('y', sys, ...
     'Area', (kyInds(1)-ny/2)*deltak(2), ... 
     'Duration', Tpre-4*commonRasterTime);   % make a bit shorter than Tpre to ensure duration doesn't exceed Tpre after trap4ge
-if ~strcmp(type, '3D')
-    area = -floor(mb/2)*deltak(3);
-else
-    area = nz/2*deltak(3);
-end
 gzPre = mr.makeTrapezoid('z', sys, ...
-    'Area', area, ...
+    'Area', pge2.utils.iff(strcmp(type, '3D'), nz/2*deltak(3), -floor(mb/2)*deltak(3)), ...
     'Duration', Tpre-commonRasterTime);    % make < Tpre to ensure duration doesn't exceed Tpre
 gxSpoil = mr.makeTrapezoid('x', sys2, ...
     'Area', -nx*deltak(1)*nCyclesSpoil);
@@ -325,7 +308,7 @@ else
 end
 
 %% Output trigger (stimulus trigger) event
-trigOut = mr.makeDigitalOutputPulse('ext1', 'duration', 200e-6);
+trigOut = pge2.utils.iff(arg.trigOut, mr.makeDigitalOutputPulse('ext1', 'duration', 200e-6), []);
 
 %% Assemble sequence
 seq = mr.Sequence(sys);           
@@ -342,7 +325,8 @@ for ifr = 1:nFrames
 
     % slice (partition/SMS group) loop
     for p = IP
-        rf.freqOffset = (1-strcmp(type, '3D')) * round((p-1)*freq);  % frequency offset (Hz) for SMS slice shift
+        % frequency offset (Hz) for SMS slice shift
+        rf.freqOffset = pge2.utils.iff(strcmp(type, '3D'), 0, round((p-1)*freq));  
 
         % Label the start of segment instance
         seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
@@ -352,38 +336,27 @@ for ifr = 1:nFrames
             rfsat.phaseOffset = rf_phase/180*pi;
             seq.addBlock(rfsat);
             seq.addBlock(gxSpoil, gzSpoil);
-            if arg.RFspoil
-                rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
-                rf_phase = mod(rf_phase+rf_inc, 360.0);
-            end
+            rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
+            rf_phase = mod(rf_phase+rf_inc, 360.0);
         end
 
         % excitation pulse and RF spoiling
         rf.phaseOffset = rf_phase/180*pi - 2*pi*rf.freqOffset*mr.calcRfCenter(rf);  % align the phase for off-center slices
         adc.phaseOffset = rf_phase/180*pi;
         if ~arg.doNoiseScan
-            seq.addBlock(rf, gzRF);
-        else
             seq.addBlock(gzRF);
-        end
-        if arg.RFspoil
-            rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
-            rf_phase = mod(rf_phase+rf_inc, 360.0);
-        end
-
-        % TE delay
-        if arg.trigOut
-            seq.addBlock(mr.makeDelay(TEdelay), trigOut);
         else
-            seq.addBlock(mr.makeDelay(TEdelay));
+            seq.addBlock(rf, gzRF);
         end
+        rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
+        rf_phase = mod(rf_phase+rf_inc, 360.0);
+
+        % TE delay and trigger output pulse
+        seq.addBlock(mr.makeDelay(TEdelay), trigOut);
 
         % Readout pre-phasers
-        if strcmp(type, '3D')
-            seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, p/(nz/2)*zBlipsOn*arg.gzPreOn));
-        else
-            seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, zBlipsOn));
-        end
+        amp = pge2.utils.iff(strcmp(type, '3D'), p/(nz/2)*zBlipsOn*arg.gzPreOn, zBlipsOn);
+        seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, amp));
 
         % echo train
         seq.addBlock(gro_t0_t1);
@@ -397,17 +370,12 @@ for ifr = 1:nFrames
 
         seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)), adc);
 
-        % gz rephaser for 3D
+        % finish out the TR
         if strcmp(type, '3D')
-            seq.addBlock(mr.scaleGrad(gzPre, -p/(nz/2)*zBlipsOn*arg.gzPreOn));
+            seq.addBlock(mr.scaleGrad(gzPre, -amp));
         end
-
-        % spoil. Disabling makes the k-space plot neater
         seq.addBlock(gxSpoil, gzSpoil);
-
-        % TR delay
         seq.addBlock(mr.makeDelay(TRdelay));
-
     end
 end
 fprintf('\n');
@@ -416,8 +384,10 @@ fprintf('\n');
 if arg.doNoiseScan
     seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
     seq.addBlock(mr.makeDelay(1));
-    seq.addBlock(adc);
-    seq.addBlock(mr.makeDelay(0.1));
+    for ii = 1:10
+        seq.addBlock(adc);
+        seq.addBlock(mr.makeDelay(0.2));
+    end
 end
 
 %% Check sequence timing
@@ -436,7 +406,7 @@ seq.setDefinition('Name', arg.seqName);
 ifn = [arg.seqName '.seq'];
 seq.write(ifn);       % Write to pulseq file
 
-%seq.plot('timeRange', [0 0.08], 'stacked', true);
+seq.plot('timeRange', [0 minTR], 'stacked', true);
 
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));
