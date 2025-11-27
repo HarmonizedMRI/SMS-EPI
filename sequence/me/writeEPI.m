@@ -146,9 +146,9 @@ rf.signal = pge2.utils.iff(arg.doNoiseScan, 1e-9 * rf.signal, rf.signal);  % pra
 
 
 %% ky/kz encoding blip amplitude along echo train (multiples of deltak)
-kyStep = diff(IY);
-kzStep = diff(IZ);
+[IYlabel, kyStep] = ky2blipsandrewinders(IY);
 kyStepMax = max(abs(kyStep));
+kzStep = diff(IZ);
 kzStepMax = max(abs(kzStep));
 
 etl = length(IY);
