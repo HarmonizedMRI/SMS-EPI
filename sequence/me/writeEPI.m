@@ -47,15 +47,7 @@ arg.trigOut = false;
 
 arg = toppe.utils.vararg_pair(arg, varargin);
 
-if arg.doNoiseScan
-    arg.fatSat = false;
-end
-
-if mb == 1
-%    arg.gzPreOn = false;
-end
-
-etl = length(kyInds);
+arg.fatSat = pge2.utils.iff(arg.doNoiseScan, false, arg.fatSat);
 
 warning('OFF', 'mr:restoreShape');
 
@@ -127,7 +119,7 @@ rfsat.signal = rfsat.signal/max(abs(rfsat.signal))*max(abs(rfp)); % ensure corre
 rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
 
 
-%% SMS excitation pulse
+%% Create SMS excitation pulse
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', 0.7*sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.15);
@@ -146,11 +138,17 @@ freq = arg.freqSign * freq;
 
 rf.signal = pge2.utils.iff(arg.doConj, conj(rf.signal), rf.signal);
 
-% ky/kz encoding blip amplitude along echo train (multiples of deltak)
+if arg.doNoiseScan
+    rf.signal = 1e-9 * rf.signal;
+end
+
+%% ky/kz encoding blip amplitude along echo train (multiples of deltak)
 kyStep = diff(kyInds);
 kzStep = diff(kzInds);
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
+
+etl = length(kyInds);
 
 
 %% Define readout gradients and ADC event
@@ -273,9 +271,7 @@ gzSpoil = mr.makeTrapezoid('z', sys2, ...
     'Area', nx*deltak(1)*nCyclesSpoil);
 
 
-%% Calculate delays to achieve desired TE (for SMS and 3D) and TR.
-% Note: gzRF includes gradient rephaser, while
-% gzRF_se does NOT include gradient spoilers
+%% Calculate delays to achieve desired TE and TR.
 kyIndAtTE = find(kyInds-ny/2 == min(abs(kyInds-ny/2)));
 minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
         (kyIndAtTE-0.5) * mr.calcDuration(gro);
@@ -286,9 +282,7 @@ minTR = arg.fatSat*(mr.calcDuration(rfsat) + mr.calcDuration(gxSpoil)) + ...
     mr.calcDuration(gzRF) + TEdelay + ...
     mr.calcDuration(gxPre) + etl*mr.calcDuration(gro) + mr.calcDuration(gxSpoil);
 
-if strcmp(type, '3D')
-    minTR = minTR + mr.calcDuration(gzPre);
-end
+minTR = minTR + pge2.utils.iff(strcmp(type, '3D'), mr.calcDuration(gzPre), 0);
 
 TRdelay = round((TR/np-minTR-arg.segmentRingdownTime)/sys.blockDurationRaster) * sys.blockDurationRaster;
 assert(TR > np*minTR, sprintf('Requested TR < minimum TR (%f)', minTR));
@@ -298,12 +292,10 @@ if strcmp(type, '3D')
     IP = -nz/2:Rz:nz/2-1;
 else
     % Interleaved slice ordering for SMS/2D
-    % if even number of shots, swap last two to reduce slice cross-talk
     IP = [1:2:np 2:2:np];
-    if ~mod(np,2)
-        % for np = even, change order of last two partitions/shots
-        l = length(IP);
-        IP = IP([1:(l-2) l l-1]);
+    if mod(np,2) == 0
+        % for np = even, change order of last two partitions/shots to reduce slice cross-talk
+        IP([end-1 end]) = IP([end end-1]);
     end
 end
 
@@ -325,13 +317,11 @@ for ifr = 1:nFrames
 
     % slice (partition/SMS group) loop
     for p = IP
-        % frequency offset (Hz) for SMS slice shift
-        rf.freqOffset = pge2.utils.iff(strcmp(type, '3D'), 0, round((p-1)*freq));  
 
         % Label the start of segment instance
         seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
 
-        % fat sat and RF spoiling
+        % fat sat
         if arg.fatSat
             rfsat.phaseOffset = rf_phase/180*pi;
             seq.addBlock(rfsat);
@@ -340,14 +330,11 @@ for ifr = 1:nFrames
             rf_phase = mod(rf_phase+rf_inc, 360.0);
         end
 
-        % excitation pulse and RF spoiling
+        % SMS excitation pulse
+        rf.freqOffset = pge2.utils.iff(strcmp(type, '3D'), 0, round((p-1)*freq));  
         rf.phaseOffset = rf_phase/180*pi - 2*pi*rf.freqOffset*mr.calcRfCenter(rf);  % align the phase for off-center slices
         adc.phaseOffset = rf_phase/180*pi;
-        if ~arg.doNoiseScan
-            seq.addBlock(gzRF);
-        else
-            seq.addBlock(rf, gzRF);
-        end
+        seq.addBlock(rf, gzRF);
         rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
         rf_phase = mod(rf_phase+rf_inc, 360.0);
 
