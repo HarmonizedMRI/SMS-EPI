@@ -4,8 +4,8 @@ function [IY, IZ] = getcaipi(ny, nz, Ry, Rz, caipiShiftZ, pth)
 % Get CAIPI sampling pattern (for one shot/echo train)
 %
 % Output
-%   IY   ky indeces, [1 ... ny]
-%   IZ   kz indeces, [1 ... Rz]
+%   IY   [etl]   ky indeces (in units of 1/fov): 1 ... ny, centered at ny/2+1
+%   IZ   [etl]   kz indeces (in units of 1/fov): 1 ... Rz, centered at Rz/2+1
 
 pth = pge2.utils.normalizepath(pth);
 
