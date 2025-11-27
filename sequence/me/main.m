@@ -49,10 +49,8 @@ sysGE = toppe.systemspecs();  % for plotting
 % We choose 4 shots since RF spoiling phase (for rf_inc = 117) repeats every 80 RF shots
 % (fat sat also spoils so only need 40 TRs not 80)
 % RF spoiling anyhow probably isn't doing much since TR=0.8s
-mb = 6; Ry = 1; Rz = mb; caipiShiftZ = 2;
-[IY, IZ] = getcaipi(ny, nz, Ry, Rz, caipiShiftZ, '3DEPI/caipi');
-IY = IY - 1;  % 0...ny-1
-IZ = IZ - 1;  % 0...Rz-1
+mb = 6; Ry = 1; caipiShiftZ = 2;
+[IY, IZ] = getcaipi(ny, nz, Ry, mb, caipiShiftZ, '3DEPI/caipi');
 etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
 IY = IY(end-etl+1:end);
 IZ = IZ(end-etl+1:end);
