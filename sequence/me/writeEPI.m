@@ -28,6 +28,8 @@ type = 'ME';
 np = nz/mb;   % number of excitations/partitions (sets of SMS slices)
 
 etl = 72; %length(kyInds);
+kyInds = kyInds(end-etl+1:end);
+kzInds = kzInds(end-etl+1:end);
 
 fprintf('mb=%d\n', mb); 
 
@@ -294,7 +296,6 @@ gzSpoil = mr.makeTrapezoid('z', sys2, ...
 kyIndAtTE = find(kyInds-ny/2 == min(abs(kyInds-ny/2)));
 minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
         (kyIndAtTE-0.5) * mr.calcDuration(gro);
-keyboard
 assert(TE+eps > minTE, sprintf('Requested TE < minimum TE (%f)', minTE));
 TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
 
@@ -435,7 +436,7 @@ seq.setDefinition('Name', arg.seqName);
 ifn = [arg.seqName '.seq'];
 seq.write(ifn);       % Write to pulseq file
 
-% seq.plot('timeRange', [0 0.06]);
+%seq.plot('timeRange', [0 0.08], 'stacked', true);
 
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));
