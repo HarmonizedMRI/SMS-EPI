@@ -16,10 +16,11 @@ fatSat = true;
 RFspoil = true;
 
 % acquisition parameters
-voxelSize = [2.4 2.4 3.6]*1e-3;   % m
-nx = 90; ny = nx; nz = 40;
+voxelSize = [2.4 2.4 2.4]*1e-3;   % m
+nx = 90; ny = nx; nz = 60;
 alpha = 52;
 pf_ky = (nx-3*6)/nx;
+etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
 
 TR = 0.8;                      % volume TR (sec)
 
@@ -44,16 +45,19 @@ end
 sysGE = toppe.systemspecs();  % for plotting
 %addpath ~/github/HarmonizedMRI/SMS-EPI/sequence/Pulseq/   % getsmspulse.m, rf2pulseq.m
 
-% mb=6 sequence. Defines readout and adc events
+% SMS-EPI sequence. Defines readout and adc events
 % Design sub-sequence containing 40 shots = 4 frames 
 % We choose 4 shots since RF spoiling phase (for rf_inc = 117) repeats every 80 RF shots
 % (fat sat also spoils so only need 40 TRs not 80)
 % RF spoiling anyhow probably isn't doing much since TR=0.8s
-mb = 4; Ry = 1; Rz = mb; caipiShiftZ = 2;
-nDummyFrames = 0;
+mb = 6; Ry = 1; Rz = mb; caipiShiftZ = 2;
+[kyInds, kzInds] = getcaipi(ny, nz, Ry, Rz, caipiShiftZ, '3DEPI/caipi');
+kyInds = kyInds - 1;  % 0...ny-1
+kzInds = kzInds - 1;  % 0...Rz-1
 nFrames = 1;
 if TODO(1)
-    [gro, adc] = writeEPI(voxelSize, [nx ny nz], TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, 'SMS', ...
+    %[gro, adc] = writeEPI(voxelSize, [nx ny nz], TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, 'SMS', ...
+    [gro, adc] = writeEPI(voxelSize, [nx ny nz], TE, TR, alpha, mb, kyInds, kzInds, nFrames, 'SMS', ...
         'seqName', sprintf('mb%d', mb), ...
         'fatSat', fatSat, ...
         'RFspoil', RFspoil, ...

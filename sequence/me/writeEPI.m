@@ -1,21 +1,17 @@
-function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, type, varargin)
-% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, type, varargin)
+function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, kyInds, kzInds, nFrames, type, varargin)
+% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, nFrames, type, varargin)
 %
 % SMS-EPI sequence in Pulseq
 %
 % Inputs:
-%   voxelSize    [1 3]    meters
-%   N            [1 3]    image matrix size 
+%   voxelSize    [3]      meter
+%   N            [3]      image matrix size 
 %   TE           [1]      sec
 %   alpha        [1]      flip angle (degrees)
 %   mb           [1]      multiband/SMS factor
-%   pf_ky        [1]      partial Fourier factor
-%   Ry           [1]      ky undersampling factor
 %   Rz           [1]      kz undersampling factor
-%   caipiShiftZ  [1]      caipi shift along z for every ky blip
 %   nFrames      [1]      number of time frames (image volumes)
-%   nDummyFrames [1]      number of frames w/o data acquisition to reach steady state
-%   type         string   'SMS', 'SE', or '3D'. If 'SE', mb is set to 1
+%   type         string   'SMS' or '3D'
 %
 % Keyword-argument input options:
 %   gro          struct   readout gradient struct. Default: create a new one and return from this function
@@ -30,6 +26,8 @@ type = 'ME';
 [nx ny nz] = deal(N(1), N(2), N(3));
 
 np = nz/mb;   % number of excitations/partitions (sets of SMS slices)
+
+etl = 72; %length(kyInds);
 
 fprintf('mb=%d\n', mb); 
 
@@ -51,8 +49,6 @@ arg.freqSign = +1;
 arg.fatFreqSign = -1;
 arg.doConj = false;
 arg.trigOut = false;
-%arg.caipiPythonPath = '~/github/HarmonizedMRI/3DEPI/caipi/';
-arg.caipiPythonPath = '3DEPI/caipi/';
 
 arg = toppe.utils.vararg_pair(arg, varargin);
 
@@ -98,8 +94,6 @@ else
 end
 
 dwell = 4e-6;                    % ADC sample time (s)
-
-etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
 rfSpoilingInc = 117;                % RF spoiling increment (degrees)
@@ -151,17 +145,12 @@ sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxRF', 0.15);
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
 % freq = frequency offset (Hz) corresponding to a sliceSep
-if strcmp(type, 'SMS') | strcmp(type, 'SE')
-    ftype = 'ls';
-else
-    ftype = 'min';
-end
 [rf, gzRF, freq, t_rf_center] = getsmspulse(alpha, slThick, rfTB, rfDur, ...
     mb, sliceSep, sysGE, sys, ...
     'doSim', arg.simulateSliceProfile, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'noRfOffset', strcmp(type, '3D'), ...   % don't shift slice (slab) for 3D
-    'ftype', ftype);      % filter design. 'ls' = least squares
+    'ftype', pge2.utils.iff(strcmp(type, '3D'), 'min', 'ls'));   % filter design. 'ls' = least squares, 'min' = minimum phase
 
 rf.use = 'excitation';
 
@@ -171,29 +160,9 @@ if arg.doConj
     rf.signal = conj(rf.signal);
 end
 
-
-%% Get CAIPI sampling pattern (for one shot/echo train)
-
-% create caipi.mat, and load it
-pyFile = [arg.caipiPythonPath 'skippedcaipi_sampling.py'];
-pyCmd = sprintf('python3 %s %d %d %d %d %d %d', ...
-    pyFile, ny, nz, Ry, Rz, caipiShiftZ, 1);
-
-if system(pyCmd) ~= 0
-    fprintf('Open a terminal and run the following python command:\n\t%s\n', pyCmd);
-    input('\tWhen done, press Enter to continue');
-end
-
-load caipi
-
-% kz and ky indeces (multiples of deltak)
-kyInds = double(indices((end-etl+1):end, 2));
-kzInds = double(indices((end-etl+1):end, 1));
-
 % ky/kz encoding blip amplitude along echo train (multiples of deltak)
 kyStep = diff(kyInds);
 kzStep = diff(kzInds);
-
 kyStepMax = max(abs(kyStep));
 kzStepMax = max(abs(kzStep));
 
@@ -325,6 +294,7 @@ gzSpoil = mr.makeTrapezoid('z', sys2, ...
 kyIndAtTE = find(kyInds-ny/2 == min(abs(kyInds-ny/2)));
 minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
         (kyIndAtTE-0.5) * mr.calcDuration(gro);
+keyboard
 assert(TE+eps > minTE, sprintf('Requested TE < minimum TE (%f)', minTE));
 TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
 
@@ -363,7 +333,7 @@ seq = mr.Sequence(sys);
 rf_phase = 0;
 rf_inc = 0;
 
-for ifr = (1-nDummyFrames):nFrames
+for ifr = 1:nFrames
     fprintf('\rFrame %d of %d     ', ifr, nFrames);
 
     yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
