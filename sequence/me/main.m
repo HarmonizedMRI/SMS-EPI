@@ -16,10 +16,10 @@ fatSat = true;
 RFspoil = true;
 
 % acquisition parameters
-voxelSize = [2.4 2.4 2.4]*1e-3;   % m
-nx = 90; ny = nx; nz = 60;
+nx = 88; ny = nx; nz = 40;
+voxelSize = [2.4*90/nx 2.4*90/ny 2.4*60/nz]*1e-3;   % m
 alpha = 52;
-pf_ky = (nx-3*6)/nx;
+pf_ky = 1; %(nx-3*6)/nx;
 
 TR = 0.8;                      % volume TR (sec)
 
@@ -49,9 +49,9 @@ sysGE = toppe.systemspecs();  % for plotting
 % We choose 4 shots since RF spoiling phase (for rf_inc = 117) repeats every 80 RF shots
 % (fat sat also spoils so only need 40 TRs not 80)
 % RF spoiling anyhow probably isn't doing much since TR=0.8s
-mb = 6; Ry = 1; caipiShiftZ = 2;
+mb = 4; Ry = 2; caipiShiftZ = 2;
 [IY, IZ] = getcaipi(ny, nz, Ry, mb, caipiShiftZ, '3DEPI/caipi');
-etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
+etl = 2*ceil(pf_ky*ny/Ry/2)   % echo train length. even
 IY = IY(end-etl+1:end);
 IZ = IZ(end-etl+1:end);
 nFrames = 1;

@@ -169,11 +169,11 @@ maxBlipArea = max(gyBlip.area, gzBlip.area);
 
 % Readout trapezoid
 if isempty(arg.gro) 
-%    systmp = sys;
-%    systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
-    %gro = mr.makeTrapezoid('x', systmp, 'Area', nx*deltak(1) + maxBlipArea);
-    gro = pge2.utils.makeTrapezoid('x', nx*deltak(1) + maxBlipArea, ...
-        deltak(1)/dwell, sys.maxSlew, sys.gradRasterTime);
+    %systmp = sys;
+    %systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
+    %gro = mr.makeTrapezoid('x', systmp, 'Area', nx*deltak(1) + maxBlipArea); % this can fail for some reason
+    gro = pge2.utils.makeTrapezoid('x', sys, 'Area', nx*deltak(1) + maxBlipArea, ...
+        'maxGrad', deltak(1)/dwell);  
 else
     gro = arg.gro;
 end
