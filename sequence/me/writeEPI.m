@@ -183,9 +183,9 @@ else
 end
 
 % Break up readout trapezoid into parts.
-% This way, we don't have to break up the the gy/gz blips,
-% which in turn allows them to be arbitrarily scaled in scan loop
-% without having to store unique shapes.
+% This way, we don't have to split the gy/gz blips,
+% which in turn allows them to be arbitrarily scaled in the scan loop
+% without having to store unique shapes for each scaling factor.
 %
 % gro_t0_t1: ramp from 0 to end of gy/gz blip (t1)
 % gro_t1_t4: from t1 to t4. Contains ADC window (symmetric).
@@ -361,12 +361,14 @@ for ifr = 1:nFrames
         
         for e = 1:etl-1
             if ~IYlabel(e)           % ky rewinder
-                tmpDelay = gro_t1_t6.delay;
-                gro_t1_t6.delay = mr.calcDuration(gyRewind);
-                seq.addBlock(gro_t1_t6, (-1)^(e+1), ...
-                    mr.scaleGrad(gyRewind, arg.gySign*yBlipsOn*kyStep(e)/max(kyRewindMax,1))); 
-                gro_t1_t6.delay = tmpDelay;
-            else
+                seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(e+1)), adc);
+                tmpDelay = gzBlip.delay;
+                gzBlip.delay = 0;
+                seq.addBlock(mr.scaleGrad(gyRewind, arg.gySign*yBlipsOn*kyStep(e)/max(kyRewindMax,1)), ...
+                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+                gzBlip.delay = tmpDelay;
+                seq.addBlock(mr.scaleGrad(gro_t0_t1, (-1)^(e+2)));
+            else                     % ky blip
                 seq.addBlock(adc, ...
                     mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
                     mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
