@@ -1,17 +1,16 @@
 function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, IY, IZ, nFrames, type, varargin)
-% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, pf_ky, Ry, Rz, nFrames, type, varargin)
+% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, IY, IZ, nFrames, type)
 %
 % SMS-EPI sequence in Pulseq
 %
 % Inputs:
-%   voxelSize    [3]      meter
+%   voxelSize    [3]      m
 %   N            [3]      image matrix size 
 %   TE           [1]      sec
 %   alpha        [1]      flip angle (degrees)
 %   mb           [1]      multiband/SMS factor
-%   IY       [etl]    ky phase encoding indices, range is 1...ny, centered at ny/2+1
-%   IZ       [etl]    kz partition encoding indices, range is 1...mb, centered at mb/2+1
-%   Rz           [1]      kz undersampling factor
+%   IY           [etl]    ky phase encoding indices, range is 1...ny centered at ny/2+1
+%   IZ           [etl]    kz partition encoding indices, range is 1...mb centered at mb/2+1
 %   nFrames      [1]      number of time frames (image volumes)
 %   type         string   'SMS' or '3D'
 %
@@ -316,7 +315,6 @@ trigOut = pge2.utils.iff(arg.trigOut, mr.makeDigitalOutputPulse('ext1', 'duratio
 %% Assemble sequence
 seq = mr.Sequence(sys);           
 
-% temporal frame loop
 rf_phase = 0;
 rf_inc = 0;
 
@@ -324,7 +322,7 @@ for ifr = 1:nFrames
     fprintf('\rFrame %d of %d     ', ifr, nFrames);
 
     yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
-    zBlipsOn = yBlipsOn - eps; 
+    zBlipsOn = yBlipsOn; 
 
     % slice (partition/SMS group) loop
     for p = IP
@@ -360,7 +358,12 @@ for ifr = 1:nFrames
         seq.addBlock(gro_t0_t1);
         
         for e = 1:etl-1
-            if ~IYlabel(e)           % ky rewinder
+            if IYlabel(e)   % readout followed by ky/kz blip
+                seq.addBlock(adc, ...
+                    mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
+                    mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
+                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+            else             % readout followed by ky rewinder
                 seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(e+1)), adc);
                 tmpDelay = gzBlip.delay;
                 gzBlip.delay = 0;
@@ -368,11 +371,6 @@ for ifr = 1:nFrames
                     mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
                 gzBlip.delay = tmpDelay;
                 seq.addBlock(mr.scaleGrad(gro_t0_t1, (-1)^(e+2)));
-            else                     % ky blip
-                seq.addBlock(adc, ...
-                    mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
-                    mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
-                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
             end
         end
 
