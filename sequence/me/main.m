@@ -19,7 +19,7 @@ RFspoil = true;
 nx = 88; ny = nx; nz = 40;
 voxelSize = [2.4*90/nx 2.4*90/ny 2.4*60/nz]*1e-3;   % m
 alpha = 52;
-pf_ky = 1; %(nx-3*6)/nx;
+pf_ky = 0.8; %(nx-3*6)/nx;
 
 TR = 0.8;                      % volume TR (sec)
 
