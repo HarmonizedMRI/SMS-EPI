@@ -22,7 +22,7 @@ y.absjumps = abs(diff(IY));
 y.blips.indices = find(y.absjumps < max(2, max(y.absjumps)/2));
 
 % rewinder indices (if any)
-y.rewinders.indices = comple(y.blips.indices, etl - 1);
+y.rewinders.indices = pge2.utils.comple(y.blips.indices, etl - 1);
 
 % return blip/rewinder labels
 IYlabel = true(1, etl-1);
