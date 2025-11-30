@@ -168,7 +168,9 @@ blipDuration = max(mr.calcDuration(gyBlip), mr.calcDuration(gzBlip));
 maxBlipArea = max(gyBlip.area, gzBlip.area);
 
 % y rewinder
-gyRewind = mr.makeTrapezoid('y', sys', 'Area', kyRewindMax*deltak(2));
+systmp = sys;
+systmp.maxSlew = sys.maxSlew/2;
+gyRewind = mr.makeTrapezoid('y', systmp, 'Area', kyRewindMax*deltak(2));
 
 % Readout trapezoid
 if isempty(arg.gro) 
