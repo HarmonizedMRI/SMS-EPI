@@ -147,7 +147,8 @@ rf.signal = pge2.utils.iff(arg.doNoiseScan, 1e-9 * rf.signal, rf.signal);  % pra
 
 %% ky/kz encoding blip amplitude along echo train (multiples of deltak)
 [IYlabel, kyStep] = ky2blipsandrewinders(IY);
-kyStepMax = max(abs(kyStep));
+kyStepMax = max(abs(kyStep(IYlabel)));
+kyRewindMax = max(abs(kyStep(~IYlabel)));
 kzStep = diff(IZ);
 kzStepMax = max(abs(kzStep));
 
@@ -166,6 +167,9 @@ gzBlip = mr.makeTrapezoid('z', sys, 'Area', kzStepMax*deltak(3));
 
 blipDuration = max(mr.calcDuration(gyBlip), mr.calcDuration(gzBlip));
 maxBlipArea = max(gyBlip.area, gzBlip.area);
+
+% y rewinder
+gyRewind = mr.makeTrapezoid('y', sys', 'Area', kyRewindMax*deltak(2));
 
 % Readout trapezoid
 if isempty(arg.gro) 
@@ -277,6 +281,7 @@ gzSpoil = mr.makeTrapezoid('z', sys2, ...
 
 
 %% Calculate delays to achieve desired TE and TR.
+if 0
 kyIndAtTE = find(IY-ny/2-1 == min(abs(IY-ny/2-1)));
 minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
         (kyIndAtTE-0.5) * mr.calcDuration(gro);
@@ -291,6 +296,7 @@ minTR = minTR + pge2.utils.iff(is3D, mr.calcDuration(gzPre), 0);
 
 TRdelay = round((TR/np-minTR-arg.segmentRingdownTime)/sys.blockDurationRaster) * sys.blockDurationRaster;
 assert(TR > np*minTR, sprintf('Requested TR < minimum TR (%f)', minTR));
+end
 
 %% Slice/partition order
 if is3D
@@ -344,7 +350,7 @@ for ifr = 1:nFrames
         rf_phase = mod(rf_phase+rf_inc, 360.0);
 
         % TE delay and trigger output pulse
-        seq.addBlock(mr.makeDelay(TEdelay), trigOut);
+        %seq.addBlock(mr.makeDelay(TEdelay), trigOut);
 
         % Readout pre-phasers
         amp = pge2.utils.iff(is3D, p/(nz/2)*zBlipsOn*arg.gzPreOn, zBlipsOn);
@@ -354,10 +360,18 @@ for ifr = 1:nFrames
         seq.addBlock(gro_t0_t1);
         
         for e = 1:etl-1
-            seq.addBlock(adc, ...
-                mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
-                mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
-                mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+            if ~IYlabel(e)           % ky rewinder
+                tmpDelay = gro_t1_t6.delay;
+                gro_t1_t6.delay = mr.calcDuration(gyRewind);
+                seq.addBlock(gro_t1_t6, (-1)^(e+1), ...
+                    mr.scaleGrad(gyRewind, arg.gySign*yBlipsOn*kyStep(e)/max(kyRewindMax,1))); 
+                gro_t1_t6.delay = tmpDelay;
+            else
+                seq.addBlock(adc, ...
+                    mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
+                    mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
+                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+            end
         end
 
         seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)), adc);
@@ -367,7 +381,7 @@ for ifr = 1:nFrames
             seq.addBlock(mr.scaleGrad(gzPre, -amp));
         end
         seq.addBlock(gxSpoil, gzSpoil);
-        seq.addBlock(mr.makeDelay(TRdelay));
+        %seq.addBlock(mr.makeDelay(TRdelay));
     end
 end
 fprintf('\n');
@@ -398,7 +412,7 @@ seq.setDefinition('Name', arg.seqName);
 ifn = [arg.seqName '.seq'];
 seq.write(ifn);       % Write to pulseq file
 
-seq.plot('timeRange', [0 minTR], 'stacked', true);
+seq.plot('timeRange', [0 0.1], 'stacked', true);
 
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));

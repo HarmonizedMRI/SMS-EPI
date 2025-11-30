@@ -54,6 +54,9 @@ mb = 4; Ry = 2; caipiShiftZ = 2;
 etl = 2*ceil(pf_ky*ny/Ry/2)   % echo train length. even
 IY = IY(end-etl+1:end);
 IZ = IZ(end-etl+1:end);
+nTE = 3;   
+IY = repmat(IY, nTE, 1);
+IZ = repmat(IZ, nTE, 1);
 nFrames = 1;
 if TODO(1)
     [gro, adc] = writeEPI(voxelSize, [nx ny nz], TE, TR, alpha, mb, IY, IZ, nFrames, 'SMS', ...
