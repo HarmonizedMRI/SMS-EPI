@@ -15,13 +15,18 @@ scanner = 'GE';
 fatSat = true;
 RFspoil = true;
 
-% acquisition parameters
-nx = 88; ny = nx; nz = 40;
-voxelSize = [2.4*90/nx 2.4*90/ny 2.4*60/nz]*1e-3;   % m
-alpha = 52;
-pf_ky = 0.8; %(nx-3*6)/nx;
+% Acquisition parameters
+% e.g., SMS=4, Ry=2, pf_ky = 0.85, fov 24x24cm, 80x80, 3mm iso:
+% Cohen, Alexander D., et al. "Detecting task functional MRI activation 
+% using the multiband multiecho (MBME) echo‐planar imaging (EPI) sequence." 
+% Journal of Magnetic Resonance Imaging 53.5 (2021): 1366-1374.
+nx = 80; ny = nx; nz = 44;
+%voxelSize = [2.4*90/nx 2.4*90/ny 2.4*60/nz]*1e-3;   % m
+voxelSize = [3 3 3]*1e-3;   % m
+alpha = 60;
+pf_ky = 0.85; %(nx-3*6)/nx;
 
-TR = 0.8;                      % volume TR (sec)
+TR = 0.9;                      % volume TR (sec)
 
 if strcmp(scanner, 'GE')
     % Settings for GE scanners at U-Mich
