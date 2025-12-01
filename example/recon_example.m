@@ -9,7 +9,7 @@
 %
 % Reconstructed images are saved in recon-complete/subject-site-scanner-date-session/
 
-rownum = 10;  % row number in sessions.txt (list of scan sessions)
+rownum = 9;  % row number in sessions.txt (list of scan sessions)
 
 auto = false;  % pause after each step before continuing
 
@@ -90,7 +90,7 @@ if reconRest & isfield(F, 'rest')
             D = readraw([F.datadir F.rest(ii).name], E.vendor);
             hmriutils.epi.io.draw2hdf(D, etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
         end
-        nFrames = 2;
+        nFrames = 392;
         recon_timeseries;
     end
 end
