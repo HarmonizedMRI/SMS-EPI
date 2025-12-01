@@ -9,7 +9,7 @@
 %
 % Reconstructed images are saved in recon-complete/subject-site-scanner-date-session/
 
-rownum = 9;  % row number in sessions.txt (list of scan sessions)
+rownum = 10;  % row number in sessions.txt (list of scan sessions)
 
 auto = false;  % pause after each step before continuing
 
@@ -57,7 +57,7 @@ datafile_mb1 = [F.datadir F.smscal.name];
 D = readraw(datafile_mb1, E.vendor);
 h5file_mb1 = [tmpdir 'mb1.h5'];
 hmriutils.epi.io.draw2hdf(D, etl, np*mb, h5file_mb1);
-if newCal & strcmp(E.vendor, 'Siemens')
+if newCal %& strcmp(E.vendor, 'Siemens')
 get_acs_data_2;
 else
 get_acs_data;
@@ -90,7 +90,7 @@ if reconRest & isfield(F, 'rest')
             D = readraw([F.datadir F.rest(ii).name], E.vendor);
             hmriutils.epi.io.draw2hdf(D, etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
         end
-        nFrames = 392;
+        nFrames = 2;
         recon_timeseries;
     end
 end
