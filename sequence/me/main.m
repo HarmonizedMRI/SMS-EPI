@@ -26,7 +26,7 @@ voxelSize = [3 3 3]*1e-3;   % m
 alpha = 60;
 pf_ky = 0.85; %(nx-3*6)/nx;
 
-TR = 0.9;                      % volume TR (sec)
+TR = 0.1*11;                      % volume TR (sec)
 
 if strcmp(scanner, 'GE')
     % Settings for GE scanners at U-Mich

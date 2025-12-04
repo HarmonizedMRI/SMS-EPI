@@ -60,8 +60,8 @@ warning('OFF', 'mr:restoreShape');
 %% Define experimental parameters
 sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'maxSlew', 150, 'slewUnit', 'T/m/s', ...
-              'rfDeadTime', 0e-6, ...
-              'rfRingdownTime', 0e-6, ...
+              'rfDeadTime', 72e-6, ...
+              'rfRingdownTime', 60e-6, ...
               'adcDeadTime', 0e-6, ...
               'adcRasterTime', 4e-6, ...
               'gradRasterTime', 4e-6, ...
@@ -327,15 +327,16 @@ for ifr = 1:nFrames
         % Label the start of segment instance
         seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
 
-        % add a TR (fat sat, SMS slice excitation, EPI readout)
+        % add a TR: fat sat => SMS slice excitation => EPI readout)
         [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, arg, p, rf_phase, rf_inc);
 
         % add delay to achieve requested TR
         if p == IP(1)
-            minTR = seq.duration + arg.segmentRingdownTime;
+            minTR = seq.duration + arg.segmentRingdownTime
             assert(TR > lv.np*minTR, sprintf('Requested TR (%.3f ms) < minimum TR (%.3f ms)', TR, lv.np*minTR));
-            TRdelay = round((TR/lv.np - minTR - arg.segmentRingdownTime)/sys.blockDurationRaster) * sys.blockDurationRaster;
+            TRdelay = round((TR/lv.np - minTR)/sys.blockDurationRaster) * sys.blockDurationRaster;
         end
+
         seq.addBlock(mr.makeDelay(TRdelay));
     end
 end
