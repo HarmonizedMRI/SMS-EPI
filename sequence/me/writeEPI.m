@@ -1,5 +1,5 @@
-function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, IY, IZ, nFrames, type, varargin)
-% function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, IY, IZ, nFrames, type)
+function [gro, adc] = writeEPI(voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, varargin)
+% function [gro, adc] = writeEPI(voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, varargin)
 %
 % SMS-EPI sequence in Pulseq
 %
@@ -19,15 +19,17 @@ function [gro, adc] = writeEPI(voxelSize, N, TE, TR, alpha, mb, IY, IZ, nFrames,
 %   adc          struct   acquisition struct. Default: create a new one and return from this function
 %
 % Outputs:
-%   gro 
-%   adc
+%   lv.gro 
+%   lv.adc
+
+% use struct 'lv' as a local variable namespace
 
 % copy/modify inputs as needed
-[nx ny nz] = deal(N(1), N(2), N(3));
+[lv.nx lv.ny lv.nz] = deal(N(1), N(2), N(3));
 
-is3D = strcmp(type, '3D');
+lv.is3D = strcmp(type, '3D');
 
-np = nz/mb;   % number of excitations/partitions (sets of SMS slices)
+lv.np = lv.nz/mb;   % number of excitations/partitions (sets of SMS slices)
 
 fprintf('mb=%d\n', mb); 
 
@@ -78,17 +80,17 @@ sys2 = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'blockDurationRaster', sys.blockDurationRaster, ...
               'B0', sys.B0);
 
-fov = voxelSize .* [nx ny nz];       % FOV (m)
+fov = voxelSize .* [lv.nx lv.ny lv.nz];       % FOV (m)
 
-slThick = pge2.utils.iff(is3D, 0.85*fov(3), fov(3)/nz);
+slThick = pge2.utils.iff(lv.is3D, 0.85*fov(3), fov(3)/lv.nz);
 
 dwell = 4e-6;                    % ADC sample time (s)
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
-rfSpoilingInc = pge2.utils.iff(arg.RFspoil, 117, 0);    % RF spoiling increment (degrees)
+lv.rfSpoilingInc = pge2.utils.iff(arg.RFspoil, 117, 0);    % RF spoiling increment (degrees)
 
-rfTB = pge2.utils.iff(is3D, 8, 6);   % RF pulse time-bandwidth product
-rfDur = pge2.utils.iff(is3D, 4e-3, 8e-3);  % RF pulse duration (s)
+rfTB = pge2.utils.iff(lv.is3D, 8, 6);   % RF pulse time-bandwidth product
+rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
@@ -115,12 +117,12 @@ rfp = rf2pulseq(wav, 4e-6, sys.rfRasterTime);
 % signal = signal./abs(sum(signal.*opt.dwell))*flip/(2*pi);
 flip = fatsat.flip/180*pi;
 flipAssumed = abs(sum(rfp));
-rfsat = mr.makeArbitraryRf(rfp, ...
+lv.rfsat = mr.makeArbitraryRf(rfp, ...
     flip*abs(sum(rfp*sys.rfRasterTime))*(2*pi), ...
     'use', 'excitation', ...
     'system', sys);
-rfsat.signal = rfsat.signal/max(abs(rfsat.signal))*max(abs(rfp)); % ensure correct amplitude (Hz)
-rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
+lv.rfsat.signal = lv.rfsat.signal/max(abs(lv.rfsat.signal))*max(abs(rfp)); % ensure correct amplitude (Hz)
+lv.rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
 
 
 %% Create SMS excitation pulse
@@ -129,29 +131,29 @@ sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxRF', 0.15);
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
 % freq = frequency offset (Hz) corresponding to a sliceSep
-[rf, gzRF, freq, t_rf_center] = getsmspulse(alpha, slThick, rfTB, rfDur, ...
+[lv.rf, lv.gzRF, freq, t_rf_center] = getsmspulse(alpha, slThick, rfTB, rfDur, ...
     mb, sliceSep, sysGE, sys, ...
     'doSim', arg.simulateSliceProfile, ...    % Plot simulated SMS slice profile
     'type', 'st', ...     % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
-    'noRfOffset', is3D, ...   % don't shift slice (slab) for 3D
-    'ftype', pge2.utils.iff(is3D, 'min', 'ls'));   % filter design. 'ls' = least squares, 'min' = minimum phase
+    'noRfOffset', lv.is3D, ...   % don't shift slice (slab) for 3D
+    'ftype', pge2.utils.iff(lv.is3D, 'min', 'ls'));   % filter design. 'ls' = least squares, 'min' = minimum phase
 
-rf.use = 'excitation';
+lv.rf.use = 'excitation';
 
-freq = arg.freqSign * freq;
+lv.freq = arg.freqSign * freq;
 
-rf.signal = pge2.utils.iff(arg.doConj, conj(rf.signal), rf.signal);
-rf.signal = pge2.utils.iff(arg.doNoiseScan, 1e-9 * rf.signal, rf.signal);  % practically zero
+lv.rf.signal = pge2.utils.iff(arg.doConj, conj(lv.rf.signal), lv.rf.signal);
+lv.rf.signal = pge2.utils.iff(arg.doNoiseScan, 1e-9 * lv.rf.signal, lv.rf.signal);  % practically zero
 
 
 %% ky/kz encoding blip amplitude along echo train (multiples of deltak)
-[IYlabel, kyStep] = ky2blipsandrewinders(IY);
-kyStepMax = max(abs(kyStep(IYlabel)));
-kyRewindMax = max(abs(kyStep(~IYlabel)));
-kzStep = diff(IZ);
-kzStepMax = max(abs(kzStep));
+[lv.IYlabel, lv.kyStep] = ky2blipsandrewinders(IY);
+lv.kyStepMax = max(abs(lv.kyStep(lv.IYlabel)));
+lv.kyRewindMax = max(abs(lv.kyStep(~lv.IYlabel)));
+lv.kzStep = diff(IZ);
+lv.kzStepMax = max(abs(lv.kzStep));
 
-etl = length(IY);
+lv.etl = length(IY);
 
 
 %% Define readout gradients and ADC event
@@ -161,26 +163,26 @@ deltak = 1./fov;
 commonRasterTime = 20e-6;   
 
 % Start with the blips
-gyBlip = mr.makeTrapezoid('y', sys, 'Area', kyStepMax*deltak(2));
-gzBlip = mr.makeTrapezoid('z', sys, 'Area', kzStepMax*deltak(3));
+lv.gyBlip = mr.makeTrapezoid('y', sys, 'Area', lv.kyStepMax*deltak(2));
+lv.gzBlip = mr.makeTrapezoid('z', sys, 'Area', lv.kzStepMax*deltak(3));
 
-blipDuration = max(mr.calcDuration(gyBlip), mr.calcDuration(gzBlip));
-maxBlipArea = max(gyBlip.area, gzBlip.area);
+blipDuration = max(mr.calcDuration(lv.gyBlip), mr.calcDuration(lv.gzBlip));
+maxBlipArea = max(lv.gyBlip.area, lv.gzBlip.area);
 
 % y rewinder
 systmp = sys;
 systmp.maxSlew = sys.maxSlew/2;
-gyRewind = mr.makeTrapezoid('y', systmp, 'Area', kyRewindMax*deltak(2));
+lv.gyRewind = mr.makeTrapezoid('y', systmp, 'Area', lv.kyRewindMax*deltak(2));
 
 % Readout trapezoid
 if isempty(arg.gro) 
     %systmp = sys;
     %systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
-    %gro = mr.makeTrapezoid('x', systmp, 'Area', nx*deltak(1) + maxBlipArea); % this can fail for some reason
-    gro = pge2.utils.makeTrapezoid('x', sys, 'Area', nx*deltak(1) + maxBlipArea, ...
+    %gro = mr.makeTrapezoid('x', systmp, 'Area', lv.nx*deltak(1) + maxBlipArea); % this can fail for some reason
+    lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
         'maxGrad', deltak(1)/dwell);  
 else
-    gro = arg.gro;
+    lv.gro = arg.gro;
 end
 
 % Break up readout trapezoid into parts.
@@ -204,24 +206,24 @@ end
 %   +-----+---------------------------+--+-------> time
 %         t0 t1 t2             t3  t4 t5 t6
 
-gamp = gro.amplitude/gro.riseTime*blipDuration/2;
+gamp = lv.gro.amplitude/lv.gro.riseTime*blipDuration/2;
 
 t0 = 0;
 t1 = t0 + blipDuration/2;
-t2 = t0 + gro.riseTime;
-t3 = t2 + gro.flatTime;
-t5 = t3 + gro.fallTime;
+t2 = t0 + lv.gro.riseTime;
+t3 = t2 + lv.gro.flatTime;
+t5 = t3 + lv.gro.fallTime;
 t4 = t5 - blipDuration/2;
 t6 = t5 + blipDuration/2;
 
 area_t0_t1 = gamp * (t1-t0)/2;
-area_t1_t2 = (gro.amplitude-gamp) * (t2-t1)/2;
-area_t2_t3 = (gro.amplitude-gamp) * (t3-t2);
+area_t1_t2 = (lv.gro.amplitude-gamp) * (t2-t1)/2;
+area_t2_t3 = (lv.gro.amplitude-gamp) * (t3-t2);
 area_t3_t4 = area_t1_t2;
 area_t4_t5 = area_t0_t1;
 area_t5_t6 = -area_t0_t1;
 
-gro_t0_t1 = struct('type', 'grad', ...
+lv.gro_t0_t1 = struct('type', 'grad', ...
       'channel', 'x', ...
       'waveform', [0 gamp], ...
       'delay', 0, ...
@@ -231,9 +233,9 @@ gro_t0_t1 = struct('type', 'grad', ...
       'first', 0, ...
       'last', gamp);
 
-gro_t1_t5 = struct('type', 'grad', ...
+lv.gro_t1_t5 = struct('type', 'grad', ...
       'channel', 'x', ...
-      'waveform', [gamp gro.amplitude gro.amplitude 0], ...
+      'waveform', [gamp lv.gro.amplitude lv.gro.amplitude 0], ...
       'delay', 0, ...
       'tt', [t1 t2 t3 t5] - t1, ...
       'shape_dur', t5 - t1, ...
@@ -241,72 +243,66 @@ gro_t1_t5 = struct('type', 'grad', ...
       'first', gamp, ...
       'last', 0);
 
-gro_t1_t6 = struct('type', 'grad', ...
+lv.gro_t1_t6 = struct('type', 'grad', ...
       'channel', 'x', ...
-      'waveform', [gamp gro.amplitude gro.amplitude -gamp], ...
+      'waveform', [gamp lv.gro.amplitude lv.gro.amplitude -gamp], ...
       'delay', 0, ...
       'tt', [t1 t2 t3 t6] - t1, ...
       'shape_dur', t6 - t1, ...
-      'area', gro_t1_t5.area + area_t5_t6, ...
+      'area', lv.gro_t1_t5.area + area_t5_t6, ...
       'first', gamp, ...
       'last', -gamp);
 
 % set blip delays (they happen at end of t1-t6 block)
-gyBlip.delay = t5 - mr.calcDuration(gyBlip)/2 - t1;
-gzBlip.delay = t5 - mr.calcDuration(gzBlip)/2 - t1;
+lv.gyBlip.delay = t5 - mr.calcDuration(lv.gyBlip)/2 - t1;
+lv.gzBlip.delay = t5 - mr.calcDuration(lv.gzBlip)/2 - t1;
 
 % ADC event 
 if isempty(arg.adc) 
     numSamples = sys.adcSamplesDivisor*round((t4-t1)/dwell/sys.adcSamplesDivisor);
-    adc = mr.makeAdc(numSamples, sys, ...
+    lv.adc = mr.makeAdc(numSamples, sys, ...
         'Duration', dwell*numSamples, ...
         'Delay', 0);
 else
-    adc = arg.adc;
+    lv.adc = arg.adc;
 end
 
 % prephasers and spoilers
-gxPre = mr.makeTrapezoid('x', sys, ...
-    'Area', -gro.area/2);
-Tpre = mr.calcDuration(gxPre) + 4*commonRasterTime;
-gyPre = mr.makeTrapezoid('y', sys, ...
-    'Area', (IY(1)-ny/2-1)*deltak(2), ... 
+lv.gxPre = mr.makeTrapezoid('x', sys, ...
+    'Area', -lv.gro.area/2);
+Tpre = mr.calcDuration(lv.gxPre) + 4*commonRasterTime;
+lv.gyPre = mr.makeTrapezoid('y', sys, ...
+    'Area', (IY(1)-lv.ny/2-1)*deltak(2), ... 
     'Duration', Tpre-4*commonRasterTime);   % make a bit shorter than Tpre to ensure duration doesn't exceed Tpre after trap4ge
-gzPre = mr.makeTrapezoid('z', sys, ...
-    'Area', pge2.utils.iff(is3D, nz/2*deltak(3), (IZ(1)-mb/2-1)*deltak(3)), ...
+lv.gzPre = mr.makeTrapezoid('z', sys, ...
+    'Area', pge2.utils.iff(lv.is3D, lv.nz/2*deltak(3), (IZ(1)-mb/2-1)*deltak(3)), ...
     'Duration', Tpre-commonRasterTime);    % make < Tpre to ensure duration doesn't exceed Tpre
-gxSpoil = mr.makeTrapezoid('x', sys2, ...
-    'Area', -nx*deltak(1)*nCyclesSpoil);
-gzSpoil = mr.makeTrapezoid('z', sys2, ...
-    'Area', nx*deltak(1)*nCyclesSpoil);
+lv.gxSpoil = mr.makeTrapezoid('x', sys2, ...
+    'Area', -lv.nx*deltak(1)*nCyclesSpoil);
+lv.gzSpoil = mr.makeTrapezoid('z', sys2, ...
+    'Area', lv.nx*deltak(1)*nCyclesSpoil);
 
 
-%% Calculate delays to achieve desired TE and TR.
+%% Calculate delay to achieve desired TE
 if 0
-kyIndAtTE = find(IY-ny/2-1 == min(abs(IY-ny/2-1)));
-minTE = mr.calcDuration(gzRF) - mr.calcDuration(rf)/2 - rf.delay + mr.calcDuration(gxPre) + ...
-        (kyIndAtTE-0.5) * mr.calcDuration(gro);
+kyIndAtTE = find(IY-lv.ny/2-1 == min(abs(IY-lv.ny/2-1)));
+minTE = mr.calcDuration(lv.gzRF) - mr.calcDuration(lv.rf)/2 - lv.rf.delay + mr.calcDuration(lv.gxPre) + ...
+        (kyIndAtTE-0.5) * mr.calcDuration(lv.gro);
 assert(TE+eps > minTE, sprintf('Requested TE < minimum TE (%f)', minTE));
 TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
-
-minTR = arg.fatSat*(mr.calcDuration(rfsat) + mr.calcDuration(gxSpoil)) + ...
-    mr.calcDuration(gzRF) + TEdelay + ...
-    mr.calcDuration(gxPre) + etl*mr.calcDuration(gro) + mr.calcDuration(gxSpoil);
-
-minTR = minTR + pge2.utils.iff(is3D, mr.calcDuration(gzPre), 0);
-
-TRdelay = round((TR/np-minTR-arg.segmentRingdownTime)/sys.blockDurationRaster) * sys.blockDurationRaster;
-assert(TR > np*minTR, sprintf('Requested TR < minimum TR (%f)', minTR));
+else
+    TEdelay = 0;
 end
 
+
 %% Slice/partition order
-if is3D
-    IP = -nz/2:Rz:nz/2-1;
+if lv.is3D
+    IP = -lv.nz/2:Rz:lv.nz/2-1;
 else
     % Interleaved slice ordering for SMS/2D
-    IP = [1:2:np 2:2:np];
-    if mod(np,2) == 0
-        % for np = even, change order of last two partitions/shots to reduce slice cross-talk
+    IP = [1:2:lv.np 2:2:lv.np];
+    if mod(lv.np,2) == 0
+        % for lv.np = even, change order of last two partitions/shots to reduce slice cross-talk
         IP([end-1 end]) = IP([end end-1]);
     end
 end
@@ -320,70 +316,27 @@ seq = mr.Sequence(sys);
 rf_phase = 0;
 rf_inc = 0;
 
+lv.yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
+lv.zBlipsOn = lv.yBlipsOn; 
+
 for ifr = 1:nFrames
     fprintf('\rFrame %d of %d     ', ifr, nFrames);
 
-    yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
-    zBlipsOn = yBlipsOn; 
-
     % slice (partition/SMS group) loop
     for p = IP
-
         % Label the start of segment instance
         seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
 
-        % fat sat
-        if arg.fatSat
-            rfsat.phaseOffset = rf_phase/180*pi;
-            seq.addBlock(rfsat);
-            seq.addBlock(gxSpoil, gzSpoil);
-            rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
-            rf_phase = mod(rf_phase+rf_inc, 360.0);
+        % add a TR (fat sat, SMS slice excitation, EPI readout)
+        [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, arg, p, rf_phase, rf_inc);
+
+        % add delay to achieve requested TR
+        if p == IP(1)
+            minTR = seq.duration + arg.segmentRingdownTime;
+            assert(TR > lv.np*minTR, sprintf('Requested TR (%.3f ms) < minimum TR (%.3f ms)', TR, lv.np*minTR));
+            TRdelay = round((TR/lv.np - minTR - arg.segmentRingdownTime)/sys.blockDurationRaster) * sys.blockDurationRaster;
         end
-
-        % SMS excitation 
-        rf.freqOffset = pge2.utils.iff(is3D, 0, round((p-1)*freq));  
-        rf.phaseOffset = rf_phase/180*pi - 2*pi*rf.freqOffset*mr.calcRfCenter(rf);  % align the phase for off-center slices
-        adc.phaseOffset = rf_phase/180*pi;
-        seq.addBlock(rf, gzRF);
-        rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
-        rf_phase = mod(rf_phase+rf_inc, 360.0);
-
-        % TE delay and trigger output pulse
-        %seq.addBlock(mr.makeDelay(TEdelay), trigOut);
-
-        % Readout pre-phasers
-        amp = pge2.utils.iff(is3D, p/(nz/2)*zBlipsOn*arg.gzPreOn, zBlipsOn);
-        seq.addBlock(gxPre, mr.scaleGrad(gyPre, arg.gySign*yBlipsOn), mr.scaleGrad(gzPre, amp));
-
-        % echo train
-        seq.addBlock(gro_t0_t1);
-        
-        for e = 1:etl-1
-            if IYlabel(e)   % readout followed by ky/kz blip
-                seq.addBlock(adc, ...
-                    mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
-                    mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
-                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
-            else             % readout followed by ky rewinder
-                seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(e+1)), adc);
-                tmpDelay = gzBlip.delay;
-                gzBlip.delay = 0;
-                seq.addBlock(mr.scaleGrad(gyRewind, arg.gySign*yBlipsOn*kyStep(e)/max(kyRewindMax,1)), ...
-                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
-                gzBlip.delay = tmpDelay;
-                seq.addBlock(mr.scaleGrad(gro_t0_t1, (-1)^(e+2)));
-            end
-        end
-
-        seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)), adc);
-
-        % finish out the TR
-        if is3D
-            seq.addBlock(mr.scaleGrad(gzPre, -amp));
-        end
-        seq.addBlock(gxSpoil, gzSpoil);
-        %seq.addBlock(mr.makeDelay(TRdelay));
+        seq.addBlock(mr.makeDelay(TRdelay));
     end
 end
 fprintf('\n');
@@ -393,7 +346,7 @@ if arg.doNoiseScan
     seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
     seq.addBlock(mr.makeDelay(1));
     for ii = 1:10
-        seq.addBlock(adc);
+        seq.addBlock(lv.adc);
         seq.addBlock(mr.makeDelay(0.2));
     end
 end
@@ -423,3 +376,66 @@ seq.plot('timeRange', [0 0.1], 'stacked', true);
 %% e.g., for the real TE, TR or for staying within slewrate limits
 % rep = seq.testReport;
 % fprintf([rep{:}]);
+
+gro = lv.gro;
+adc = lv.adc;
+
+return
+
+% Add one EPI shot to sequence
+function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_inc)
+
+    % fat sat
+    if arg.fatSat
+        lv.rfsat.phaseOffset = rf_phase/180*pi;
+        sq.addBlock(lv.rfsat);
+        sq.addBlock(lv.gxSpoil, lv.gzSpoil);
+        rf_inc = mod(rf_inc+lv.rfSpoilingInc, 360.0);
+        rf_phase = mod(rf_phase+rf_inc, 360.0);
+    end
+
+    % SMS excitation 
+    lv.rf.freqOffset = pge2.utils.iff(lv.is3D, 0, round((p-1)*lv.freq));  
+    lv.rf.phaseOffset = rf_phase/180*pi - 2*pi*lv.rf.freqOffset*mr.calcRfCenter(lv.rf);  % align the phase for off-center slices
+    lv.adc.phaseOffset = rf_phase/180*pi;
+    sq.addBlock(lv.rf, lv.gzRF);
+    rf_inc = mod(rf_inc+lv.rfSpoilingInc, 360.0);
+    rf_phase = mod(rf_phase+rf_inc, 360.0);
+
+    % TE delay and trigger output pulse
+    %sq.addBlock(mr.makeDelay(TEdelay), trigOut);
+
+    % Readout pre-phasers
+    amp = pge2.utils.iff(lv.is3D, p/(lv.nz/2)*lv.zBlipsOn*arg.gzPreOn, lv.zBlipsOn);
+    sq.addBlock(lv.gxPre, mr.scaleGrad(lv.gyPre, arg.gySign*lv.yBlipsOn), mr.scaleGrad(lv.gzPre, amp));
+
+    % echo train
+    sq.addBlock(lv.gro_t0_t1);
+
+    for e = 1:lv.etl-1
+        if lv.IYlabel(e)   % readout followed by ky/kz blip
+            sq.addBlock(lv.adc, ...
+                mr.scaleGrad(lv.gro_t1_t6, (-1)^(e+1)), ...
+                mr.scaleGrad(lv.gyBlip, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyStepMax,1)), ...
+                mr.scaleGrad(lv.gzBlip, lv.zBlipsOn*lv.kzStep(e)/max(lv.kzStepMax,1)));
+        else             % readout followed by ky rewinder
+            sq.addBlock(mr.scaleGrad(lv.gro_t1_t5, (-1)^(e+1)), lv.adc);
+            tmpDelay = lv.gzBlip.delay;
+            lv.gzBlip.delay = 0;
+            sq.addBlock(mr.scaleGrad(lv.gyRewind, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyRewindMax,1)), ...
+                mr.scaleGrad(lv.gzBlip, lv.zBlipsOn*lv.kzStep(e)/max(lv.kzStepMax,1)));
+            lv.gzBlip.delay = tmpDelay;
+            sq.addBlock(mr.scaleGrad(lv.gro_t0_t1, (-1)^(e+2)));
+        end
+    end
+
+    sq.addBlock(mr.scaleGrad(lv.gro_t1_t5, (-1)^(lv.etl+1)), lv.adc);
+
+    % finish out the TR
+    if lv.is3D
+        sq.addBlock(mr.scaleGrad(lv.gzPre, -amp));
+    end
+
+    sq.addBlock(lv.gxSpoil, lv.gzSpoil);
+
+    return
