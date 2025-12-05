@@ -10,8 +10,8 @@
 
 TODO = [1 0 0 0 0 0 0 0];
 
-%scanner = 'Siemens';
-scanner = 'GE';
+%vendor = 'Siemens';
+vendor = 'GE';
 fatSat = true;
 RFspoil = true;
 
@@ -28,18 +28,19 @@ pf_ky = 0.85; %(nx-3*6)/nx;
 
 TR = 0.1*11;                      % volume TR (sec)
 
-if strcmp(scanner, 'GE')
-    % Settings for GE scanners at U-Mich
-    gySign = 1;
-    freqSign = 1;
-    fatFreqSign = -1;
-    doConj = false;
-else
-    % Settings for Siemens Vida bay MR7 @ U-Mich University Hospital
-    gySign = 1;
-    freqSign = -1;
-    fatFreqSign = -1;  % Yes, confirmed on Prisma Fit at VA Tech 2024-Oct-24, and Urbana-Champaign
-    doConj = false;
+switch lower(vendor)
+    case 'ge'
+        % Settings for GE scanners at U-Mich
+        gySign = 1;
+        freqSign = 1;
+        fatFreqSign = -1;
+        doConj = false;
+    case 'siemens'
+        % Settings for Siemens Vida bay MR7 @ U-Mich University Hospital
+        gySign = 1;
+        freqSign = -1;
+        fatFreqSign = -1;  % Yes, confirmed on Prisma Fit at VA Tech 2024-Oct-24, and Urbana-Champaign
+        doConj = false;
 end
 
 sysGE = toppe.systemspecs();  % for plotting
@@ -61,6 +62,7 @@ IZ = repmat(IZ, nTE, 1);
 nFrames = 1;
 if TODO(1)
     [gro, adc] = writeEPI(voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', ...
+        'vendor', vendor, ...
         'seqName', sprintf('mb%d', mb), ...
         'fatSat', fatSat, ...
         'RFspoil', RFspoil, ...
