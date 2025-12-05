@@ -1,5 +1,5 @@
-function [gro, adc] = writeEPI(voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, varargin)
-% function [gro, adc] = writeEPI(voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, varargin)
+function [gro, adc] = writeEPI(seqName, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+% function [gro, adc] = writeEPI(seqName, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
 %
 % SMS-EPI sequence in Pulseq
 %
@@ -13,14 +13,8 @@ function [gro, adc] = writeEPI(voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, typ
 %   IZ           [etl]    kz partition encoding indices, range is 1...mb centered at mb/2+1
 %   nFrames      [1]      number of time frames (image volumes)
 %   type         string   'SMS' or '3D'
+%   opts         struct with defaults 
 %
-% Keyword-argument input options:
-%   gro          struct   readout gradient struct. Default: create a new one and return from this function
-%   adc          struct   acquisition struct. Default: create a new one and return from this function
-%
-% Outputs:
-%   lv.gro 
-%   lv.adc
 
 % use struct 'lv' as a local variable namespace
 
@@ -34,8 +28,6 @@ lv.np = lv.nz/mb;   % number of excitations/partitions (sets of SMS slices)
 fprintf('mb=%d\n', mb); 
 
 % parse input options
-arg.gro = [];
-arg.adc = [];
 arg.fatSat = true;  
 arg.RFspoil = true;
 arg.simulateSliceProfile = false;    % simulate SMS profile and display
@@ -44,7 +36,6 @@ arg.plot = false;
 arg.segmentRingdownTime = 117e-6;    % segment ringdown time for Pulseq on GE 
 arg.doRefScan = false;               % do EPI ghost reference scan in frame 1
 arg.doNoiseScan = false;
-arg.seqName = 'epi';
 arg.gySign = +1;
 arg.freqSign = +1;
 arg.fatFreqSign = -1;
@@ -53,7 +44,13 @@ arg.trigOut = false;
 arg.TEdelay = 0;
 arg.vendor = 'GE';    
 
-arg = toppe.utils.vararg_pair(arg, varargin);
+% Overwrite defaults with user-specified fields
+fn = fieldnames(opts);
+for k = 1:numel(fn)
+    arg.(fn{k}) = opts.(fn{k});
+end
+
+%arg = toppe.utils.vararg_pair(arg, varargin);
 
 arg.fatSat = pge2.utils.iff(arg.doNoiseScan, false, arg.fatSat);
 
@@ -190,15 +187,11 @@ systmp.maxSlew = sys.maxSlew/2;
 lv.gyRewind = mr.makeTrapezoid('y', systmp, 'Area', lv.kyRewindMax*deltak(2));
 
 % Readout trapezoid
-if isempty(arg.gro) 
-    %systmp = sys;
-    %systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
-    %gro = mr.makeTrapezoid('x', systmp, 'Area', lv.nx*deltak(1) + maxBlipArea); % this can fail for some reason
-    lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
-        'maxGrad', deltak(1)/dwell);  
-else
-    lv.gro = arg.gro;
-end
+%systmp = sys;
+%systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
+%gro = mr.makeTrapezoid('x', systmp, 'Area', lv.nx*deltak(1) + maxBlipArea); % this can fail for some reason
+lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
+    'maxGrad', deltak(1)/dwell);  
 
 % Split readout trapezoid into parts.
 % This way, we don't have to split the gy/gz blips,
@@ -272,14 +265,10 @@ lv.gyBlip.delay = t5 - mr.calcDuration(lv.gyBlip)/2 - t1;
 lv.gzBlip.delay = t5 - mr.calcDuration(lv.gzBlip)/2 - t1;
 
 % ADC event 
-if isempty(arg.adc) 
-    numSamples = sys.adcSamplesDivisor*round((t4-t1)/dwell/sys.adcSamplesDivisor);
-    lv.adc = mr.makeAdc(numSamples, sys, ...
-        'Duration', dwell*numSamples, ...
-        'Delay', 0);
-else
-    lv.adc = arg.adc;
-end
+numSamples = sys.adcSamplesDivisor*round((t4-t1)/dwell/sys.adcSamplesDivisor);
+lv.adc = mr.makeAdc(numSamples, sys, ...
+    'Duration', dwell*numSamples, ...
+    'Delay', 0);
 
 % prephasers and spoilers
 lv.gxPre = mr.makeTrapezoid('x', sys, ...
@@ -347,8 +336,8 @@ fprintf('\n');
 % Noise scan (add gaps to make room for adc dead/ringdown time)
 if arg.doNoiseScan
     seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
-    seq.addBlock(mr.makeDelay(1));
-    for ii = 1:10
+    sq.addBlock(lv.gxSpoil, lv.gzSpoil, mr.makeDelay(2));
+    for ii = 1:5
         seq.addBlock(lv.adc);
         seq.addBlock(mr.makeDelay(0.2));
     end
@@ -366,8 +355,8 @@ end
 
 %% Write .seq file
 seq.setDefinition('FOV', fov);
-seq.setDefinition('Name', arg.seqName);
-ifn = [arg.seqName '.seq'];
+seq.setDefinition('Name', seqName);
+ifn = [seqName '.seq'];
 seq.write(ifn);       % Write to pulseq file
 
 seq.plot('timeRange', [0 0.1], 'stacked', true);
