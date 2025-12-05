@@ -1,22 +1,23 @@
-function [gro, adc] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
-% function [gro, adc] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+% function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
 %
 % SMS-EPI sequence in Pulseq
 %
 % Inputs:
-%   voxelSize    [3]      m
-%   N            [3]      image matrix size 
-%   TR           [1]      sec
-%   alpha        [1]      flip angle (degrees)
-%   mb           [1]      multiband/SMS factor
-%   IY           [etl]    ky phase encoding indices, range is 1...ny centered at ny/2+1
-%   IZ           [etl]    kz partition encoding indices, range is 1...mb centered at mb/2+1
-%   nFrames      [1]      number of time frames (image volumes)
-%   type         string   'SMS' or '3D'
-%   opts         struct with defaults 
-%
+%   seqName     string or []    output file name (with or without .seq extension)
+%   sys         struct          system info, see mr.opts()
+%   voxelSize   [3]             voxel dimensions [m]
+%   N           [3]             image matrix size 
+%   TR          [1]             volume TR [s]
+%   alpha       [1]             flip angle (degrees)
+%   mb          [1]             multiband/SMS factor
+%   IY          [etl]           ky phase encoding indices, range is 1...ny centered at ny/2+1
+%   IZ          [etl]           kz partition encoding indices, range is 1...mb centered at mb/2+1
+%   nFrames     [1]             number of time frames (image volumes)
+%   type        string          'SMS' or '3D'
+%   opts        struct with defaults 
 
-% use struct 'lv' as a local variable namespace
+% struct 'lv' is used as a local variable namespace
 
 % copy/modify inputs as needed
 [lv.nx lv.ny lv.nz] = deal(N(1), N(2), N(3));
@@ -27,21 +28,21 @@ lv.np = lv.nz/mb;   % number of excitations/partitions (sets of SMS slices)
 
 fprintf('mb=%d\n', mb); 
 
-% parse input options
+% defaults
 arg.fatSat = true;  
 arg.RFspoil = true;
-arg.simulateSliceProfile = false;    % simulate SMS profile and display
-arg.gzPreOn = true;                  % prephase along kz by -mb/2*deltak
-arg.plot = false;
-arg.segmentRingdownTime = 117e-6;    % segment ringdown time for Pulseq on GE 
-arg.doRefScan = false;               % do EPI ghost reference scan in frame 1
-arg.doNoiseScan = false;
 arg.gySign = +1;
 arg.freqSign = +1;
 arg.fatFreqSign = -1;
 arg.doConj = false;
+arg.doRefScan = false;               % turn off ky and ky encoding
 arg.trigOut = false;
+arg.doNoiseScan = false;
 arg.TEdelay = 0;
+arg.segmentRingdownTime = 117e-6;    % segment ringdown time for Pulseq on GE 
+arg.simulateSliceProfile = false;    % simulate SMS profile and display
+arg.gzPreOn = true;                  % prephase along kz by -mb/2*deltak
+arg.plot = false;
 
 % Overwrite defaults with user-specified fields
 if exist('opts', 'var')
@@ -51,18 +52,7 @@ if exist('opts', 'var')
     end
 end
 
-%arg = toppe.utils.vararg_pair(arg, varargin);
-
-arg.fatSat = pge2.utils.iff(arg.doNoiseScan, false, arg.fatSat);
-
-warning('OFF', 'mr:restoreShape');
-
-
 %% Define experimental parameters
-
-% reduced slew for spoilers
-sys2 = sys;
-sys2.maxSlew = sys.maxSlew/2;
 
 fov = voxelSize .* [lv.nx lv.ny lv.nz];       % FOV (m)
 
@@ -127,7 +117,6 @@ lv.rf.use = 'excitation';
 lv.freq = arg.freqSign * freq;
 
 lv.rf.signal = pge2.utils.iff(arg.doConj, conj(lv.rf.signal), lv.rf.signal);
-lv.rf.signal = pge2.utils.iff(arg.doNoiseScan, 1e-9 * lv.rf.signal, lv.rf.signal);  % practically zero
 
 
 %% ky/kz encoding blip amplitude along echo train (multiples of deltak)
@@ -143,8 +132,6 @@ lv.etl = length(IY);
 %% Define readout gradients and ADC event
 
 deltak = 1./fov;
-
-commonRasterTime = 20e-6;   
 
 % Start with the blips
 lv.gyBlip = mr.makeTrapezoid('y', sys, 'Area', lv.kyStepMax*deltak(2));
@@ -245,16 +232,18 @@ lv.adc = mr.makeAdc(numSamples, sys, ...
 % prephasers and spoilers
 lv.gxPre = mr.makeTrapezoid('x', sys, ...
     'Area', -lv.gro.area/2);
-Tpre = mr.calcDuration(lv.gxPre) + 4*commonRasterTime;
+Tpre = mr.calcDuration(lv.gxPre);
 lv.gyPre = mr.makeTrapezoid('y', sys, ...
     'Area', (IY(1)-lv.ny/2-1)*deltak(2), ... 
-    'Duration', Tpre-4*commonRasterTime);   % make a bit shorter than Tpre to ensure duration doesn't exceed Tpre after trap4ge
+    'Duration', Tpre);
 lv.gzPre = mr.makeTrapezoid('z', sys, ...
     'Area', pge2.utils.iff(lv.is3D, lv.nz/2*deltak(3), (IZ(1)-mb/2-1)*deltak(3)), ...
-    'Duration', Tpre-commonRasterTime);    % make < Tpre to ensure duration doesn't exceed Tpre
-lv.gxSpoil = mr.makeTrapezoid('x', sys2, ...
+    'Duration', Tpre); 
+systmp = sys;
+systmp.maxSlew = sys.maxSlew/2;  
+lv.gxSpoil = mr.makeTrapezoid('x', systmp, ...
     'Area', -lv.nx*deltak(1)*nCyclesSpoil);
-lv.gzSpoil = mr.makeTrapezoid('z', sys2, ...
+lv.gzSpoil = mr.makeTrapezoid('z', systmp, ...
     'Area', lv.nx*deltak(1)*nCyclesSpoil);
 
 
@@ -305,14 +294,10 @@ for ifr = 1:nFrames
 end
 fprintf('\n');
 
-% Noise scan (add gaps to make room for adc dead/ringdown time)
+% If noise scan, add dummy RF pulse at end so the sequence contains at least one RF pulse
 if arg.doNoiseScan
     seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
-    sq.addBlock(lv.gxSpoil, lv.gzSpoil, mr.makeDelay(2));
-    for ii = 1:5
-        seq.addBlock(lv.adc);
-        seq.addBlock(mr.makeDelay(0.2));
-    end
+    sq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
 end
 
 %% Check sequence timing
@@ -327,11 +312,16 @@ end
 
 %% Write .seq file
 seq.setDefinition('FOV', fov);
-seq.setDefinition('Name', seqName);
-ifn = [seqName '.seq'];
-seq.write(ifn);       % Write to pulseq file
+if ~isempty(seqName)
+    seqName = replace(seqName, {'.seq', '.pge'}, '');
+    seq.setDefinition('Name', seqName);
+    ifn = [seqName '.seq'];
+    seq.write(ifn);       % Write to pulseq file
+end
 
-seq.plot('timeRange', [0 0.1], 'stacked', true);
+if arg.plot
+    seq.plot('timeRange', [0 TR/lv.np], 'stacked', true);
+end
 
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));
@@ -341,17 +331,16 @@ seq.plot('timeRange', [0 0.1], 'stacked', true);
 % rep = seq.testReport;
 % fprintf([rep{:}]);
 
-gro = lv.gro;
-adc = lv.adc;
-
 return
 
 
 % Function adds one EPI shot to sequence
 function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_inc)
 
+    lv.rf = pge2.utils.iff(arg.doNoiseScan, [], lv.rf);
+
     % fat sat
-    if arg.fatSat
+    if arg.fatSat & ~arg.doNoiseScan
         lv.rfsat.phaseOffset = rf_phase/180*pi;
         sq.addBlock(lv.rfsat);
         sq.addBlock(lv.gxSpoil, lv.gzSpoil);
@@ -384,7 +373,7 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_in
                 mr.scaleGrad(lv.gro_t1_t6, (-1)^(e+1)), ...
                 mr.scaleGrad(lv.gyBlip, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyStepMax,1)), ...
                 mr.scaleGrad(lv.gzBlip, lv.zBlipsOn*lv.kzStep(e)/max(lv.kzStepMax,1)));
-        else             % readout followed by ky rewinder
+        else               % readout followed by ky rewinder
             sq.addBlock(mr.scaleGrad(lv.gro_t1_t5, (-1)^(e+1)), lv.adc);
             tmpDelay = lv.gzBlip.delay;
             lv.gzBlip.delay = 0;

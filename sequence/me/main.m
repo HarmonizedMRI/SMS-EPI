@@ -5,7 +5,7 @@
 % 4. mb=1, Ry=1 grappa calibration scan
 % 5. 3D GRE B0 mapping (can also be used for sens maps)
 
-TODO = [1 0 0 0 0];
+TODO = [0 1 0 0 0];
 
 % Acquisition parameters
 % e.g., SMS=4, Ry=2, pf_ky = 0.85, fov 24x24cm, 80x80, 3mm iso:
@@ -66,9 +66,10 @@ opts = struct('fatSat', fatSat, ...
     'doRefScan', false, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
+    'plot', true, ...
     'simulateSliceProfile', true);
 
-% ME SMS-EPI fMRI sequence
+% Multi-echo CAIPI/grappa sampling pattern
 mb = 4; Ry = 2; caipiShiftZ = 2;
 [IY, IZ] = getcaipi(ny, nz, Ry, mb, caipiShiftZ, '3DEPI/caipi');
 etl = 2*ceil(pf_ky*ny/Ry/2);  % echo train length. even
@@ -77,16 +78,17 @@ IZ = IZ(end-etl+1:end);
 nTE = 3;   
 IY = repmat(IY, nTE, 1);
 IZ = repmat(IZ, nTE, 1);
+
+% write fmri.seq (ME SMS-EPI fMRI sequence)
 nFrames = 1;
 if TODO(1)
     writeEPI('fmri', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
 end
 
-% For prescan (Rx gain) and EPI ghost calibration
-% (reuse mb, Ry, etc from above)
+% write cal.seq (for prescan (Rx gain) and EPI ghost calibration)
 if TODO(2)
     opts.doRefScan = true;
-    %writeEPI('cal', voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
+    writeEPI('cal', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, nFrames, 'SMS', opts);
     opts.doRefScan = false;
 end
 
