@@ -7,15 +7,14 @@
 
 TODO = [1 0 0 0 0];
 
-vendor = 'GE';   % 'GE' or 'Siemens'
-fatSat = true;
-RFspoil = true;
-
 % Acquisition parameters
 % e.g., SMS=4, Ry=2, pf_ky = 0.85, fov 24x24cm, 80x80, 3mm iso:
 % Cohen, Alexander D., et al. "Detecting task functional MRI activation 
 % using the multiband multiecho (MBME) echo‐planar imaging (EPI) sequence." 
 % Journal of Magnetic Resonance Imaging 53.5 (2021): 1366-1374.
+vendor = 'GE';   % 'GE' or 'Siemens'
+fatSat = true;
+RFspoil = true;
 nx = 80; ny = nx; nz = 44;
 voxelSize = [3 3 3] * 1e-3;   % m
 alpha = 60;
@@ -30,18 +29,35 @@ switch lower(vendor)
         freqSign = 1;
         fatFreqSign = -1;
         doConj = false;
+        gradRasterTime = 4e-6;
+        rfRasterTime = 4e-6;
+        blockDurationRaster = 4e-6;
+        B0 = 3;
     case 'siemens'
         % Settings for Siemens Vida bay MR7 @ U-Mich University Hospital
         gySign = 1;
         freqSign = -1;
         fatFreqSign = -1;  % Yes, confirmed on Prisma Fit at VA Tech 2024-Oct-24, and Urbana-Champaign
         doConj = false;
+        gradRasterTime = 10e-6;
+        rfRasterTime = 4e-6;
+        blockDurationRaster = 10e-6;
+        B0 = 2.89;
 end
 
+sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
+              'maxSlew', 150, 'slewUnit', 'T/m/s', ...
+              'rfDeadTime', 100e-6, ...
+              'rfRingdownTime', 60e-6, ...
+              'adcDeadTime', 0e-6, ...
+              'adcRasterTime', 4e-6, ...
+              'gradRasterTime', gradRasterTime, ...
+              'rfRasterTime', rfRasterTime, ...
+              'blockDurationRaster', blockDurationRaster, ...
+              'B0', B0);
+
 % input options to writeEPI.m
-opts = struct('vendor', vendor, ...
-    'seqName', sprintf('mb%d', mb), ...
-    'fatSat', fatSat, ...
+opts = struct('fatSat', fatSat, ...
     'RFspoil', RFspoil, ...
     'gySign', gySign, ...
     'freqSign', freqSign, ...
@@ -52,7 +68,7 @@ opts = struct('vendor', vendor, ...
     'doNoiseScan', false, ...
     'simulateSliceProfile', true);
 
-% SMS-EPI sequence
+% ME SMS-EPI fMRI sequence
 mb = 4; Ry = 2; caipiShiftZ = 2;
 [IY, IZ] = getcaipi(ny, nz, Ry, mb, caipiShiftZ, '3DEPI/caipi');
 etl = 2*ceil(pf_ky*ny/Ry/2);  % echo train length. even
@@ -63,18 +79,14 @@ IY = repmat(IY, nTE, 1);
 IZ = repmat(IZ, nTE, 1);
 nFrames = 1;
 if TODO(1)
-    writeEPI('fmri', voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
-
-    dur = 5*40 + 10;    % scan duration, sec
-    dur = 5*60 + 10;    % scan duration, sec
-    nRuns = dur/(nFrames*TR);     % CV8/opuser8 on UI
+    writeEPI('fmri', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
 end
 
 % For prescan (Rx gain) and EPI ghost calibration
 % (reuse mb, Ry, etc from above)
 if TODO(2)
     opts.doRefScan = true;
-    writeEPI('cal', voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
+    %writeEPI('cal', voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
     opts.doRefScan = false;
 end
 
@@ -86,13 +98,13 @@ mb = 1; Ry = 1; Rz = mb; caipiShiftZ = 0;
 nDummyFrames = 0;
 nFrames = 2; 
 if TODO(3)
-    writeEPI('2d', voxelSize, [nx ny nz], TE, 2*6*TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, 'SMS', opts);
+    %writeEPI('2d', voxelSize, [nx ny nz], TE, 2*6*TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, 'SMS', opts);
 end
 
 % noise scan
 if TODO(4)
     opts.doNoiseScane = true;
-    writeEPI('noise', voxelSize, [nx ny nz], TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, 'SMS', opts);
+    %writeEPI('noise', voxelSize, [nx ny nz], TE, TR, alpha, mb, pf_ky, Ry, Rz, caipiShiftZ, nFrames, nDummyFrames, 'SMS', opts);
     opts.doNoiseScane = false;
 end
 

@@ -1,5 +1,5 @@
-function [gro, adc] = writeEPI(seqName, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
-% function [gro, adc] = writeEPI(seqName, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+function [gro, adc] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+% function [gro, adc] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
 %
 % SMS-EPI sequence in Pulseq
 %
@@ -42,12 +42,13 @@ arg.fatFreqSign = -1;
 arg.doConj = false;
 arg.trigOut = false;
 arg.TEdelay = 0;
-arg.vendor = 'GE';    
 
 % Overwrite defaults with user-specified fields
-fn = fieldnames(opts);
-for k = 1:numel(fn)
-    arg.(fn{k}) = opts.(fn{k});
+if exist('opts', 'var')
+    fn = fieldnames(opts);
+    for k = 1:numel(fn)
+        arg.(fn{k}) = opts.(fn{k});
+    end
 end
 
 %arg = toppe.utils.vararg_pair(arg, varargin);
@@ -56,41 +57,12 @@ arg.fatSat = pge2.utils.iff(arg.doNoiseScan, false, arg.fatSat);
 
 warning('OFF', 'mr:restoreShape');
 
-switch lower(arg.vendor)
-    case 'ge'
-        gradRasterTime = 4e-6;
-        rfRasterTime = 4e-6;
-        blockDurationRaster = 4e-6;
-        B0 = 3;
-    case 'siemens'
-        gradRasterTime = 10e-6;
-        rfRasterTime = 4e-6;
-        blockDurationRaster = 10e-6;
-        B0 = 2.89;
-end
 
 %% Define experimental parameters
-sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
-              'maxSlew', 150, 'slewUnit', 'T/m/s', ...
-              'rfDeadTime', 100e-6, ...
-              'rfRingdownTime', 60e-6, ...
-              'adcDeadTime', 0e-6, ...
-              'adcRasterTime', 4e-6, ...
-              'gradRasterTime', gradRasterTime, ...
-              'rfRasterTime', rfRasterTime, ...
-              'blockDurationRaster', blockDurationRaster, ...
-              'B0', B0);
 
 % reduced slew for spoilers
-sys2 = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
-              'maxSlew', 60, 'slewUnit', 'T/m/s', ...
-              'rfDeadTime', sys.rfDeadTime, ...
-              'rfRingdownTime', sys.rfRingdownTime, ...
-              'adcDeadTime', sys.adcDeadTime, ...
-              'gradRasterTime', sys.gradRasterTime, ...
-              'rfRasterTime', sys.rfRasterTime, ...
-              'blockDurationRaster', sys.blockDurationRaster, ...
-              'B0', sys.B0);
+sys2 = sys;
+sys2.maxSlew = sys.maxSlew/2;
 
 fov = voxelSize .* [lv.nx lv.ny lv.nz];       % FOV (m)
 
