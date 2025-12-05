@@ -7,6 +7,7 @@
 % 6. 3D GRE B0 mapping (can also be used for sens maps and/or grappa calibration)
 
 TODO = [1 1 1 1 1 0];
+TODO = [0 0 0 0 0 1];
 
 
 %----------------------------------------------------------
@@ -76,7 +77,7 @@ sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'B0', B0);
 
 %----------------------------------------------------------
-% input options to writeEPI.m
+% input options for writeEPI.m
 %----------------------------------------------------------
 opts = struct('fatSat', fatSat, ...
     'RFspoil', RFspoil, ...
@@ -131,5 +132,5 @@ end
 
 % 3D GRE for B0 and sensitivity maps
 if TODO(6)
-    writeB0;
+    writeB0('b0', sys, voxelSize, [round([nx ny]*1.2/2)*2 2*nz], 4);
 end
