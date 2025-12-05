@@ -6,7 +6,7 @@ function [gro, adc] = writeEPI(voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, typ
 % Inputs:
 %   voxelSize    [3]      m
 %   N            [3]      image matrix size 
-%   TE           [1]      sec
+%   TR           [1]      sec
 %   alpha        [1]      flip angle (degrees)
 %   mb           [1]      multiband/SMS factor
 %   IY           [etl]    ky phase encoding indices, range is 1...ny centered at ny/2+1
@@ -50,6 +50,7 @@ arg.freqSign = +1;
 arg.fatFreqSign = -1;
 arg.doConj = false;
 arg.trigOut = false;
+arg.TEdelay = 0;
 
 arg = toppe.utils.vararg_pair(arg, varargin);
 
@@ -185,7 +186,7 @@ else
     lv.gro = arg.gro;
 end
 
-% Break up readout trapezoid into parts.
+% Split readout trapezoid into parts.
 % This way, we don't have to split the gy/gz blips,
 % which in turn allows them to be arbitrarily scaled in the scan loop
 % without having to store unique shapes for each scaling factor.
@@ -195,12 +196,11 @@ end
 % gro_t4_t5: ramp from start of gy/gz blip (t4) to 0 
 %
 %   ^
-%   |                         
-%   |            +-------------+  gro.amplitude
+%   |            +-------------+   gro.amplitude
 %   |           /               \
 %   |          /                 \
 %   |         /                   \   
-%   |  gamp  +                     +  gamp
+%   |        +<------- ADC ------->+   gamp
 %   |       /                       \
 %   |      /                         \
 %   +-----+---------------------------+--+-------> time
@@ -283,18 +283,6 @@ lv.gzSpoil = mr.makeTrapezoid('z', sys2, ...
     'Area', lv.nx*deltak(1)*nCyclesSpoil);
 
 
-%% Calculate delay to achieve desired TE
-if 0
-kyIndAtTE = find(IY-lv.ny/2-1 == min(abs(IY-lv.ny/2-1)));
-minTE = mr.calcDuration(lv.gzRF) - mr.calcDuration(lv.rf)/2 - lv.rf.delay + mr.calcDuration(lv.gxPre) + ...
-        (kyIndAtTE-0.5) * mr.calcDuration(lv.gro);
-assert(TE+eps > minTE, sprintf('Requested TE < minimum TE (%f)', minTE));
-TEdelay = floor((TE-minTE)/sys.blockDurationRaster) * sys.blockDurationRaster;
-else
-    TEdelay = 0;
-end
-
-
 %% Slice/partition order
 if lv.is3D
     IP = -lv.nz/2:Rz:lv.nz/2-1;
@@ -332,7 +320,7 @@ for ifr = 1:nFrames
 
         % add delay to achieve requested TR
         if p == IP(1)
-            minTR = seq.duration + arg.segmentRingdownTime
+            minTR = seq.duration + arg.segmentRingdownTime;
             assert(TR > lv.np*minTR, sprintf('Requested TR (%.3f ms) < minimum TR (%.3f ms)', TR, lv.np*minTR));
             TRdelay = round((TR/lv.np - minTR)/sys.blockDurationRaster) * sys.blockDurationRaster;
         end
@@ -383,7 +371,8 @@ adc = lv.adc;
 
 return
 
-% Add one EPI shot to sequence
+
+% Function adds one EPI shot to sequence
 function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_inc)
 
     % fat sat
@@ -405,6 +394,7 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_in
 
     % TE delay and trigger output pulse
     %sq.addBlock(mr.makeDelay(TEdelay), trigOut);
+    sq.addBlock(mr.makeDelay(arg.TEdelay));
 
     % Readout pre-phasers
     amp = pge2.utils.iff(lv.is3D, p/(lv.nz/2)*lv.zBlipsOn*arg.gzPreOn, lv.zBlipsOn);
