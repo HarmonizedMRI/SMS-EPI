@@ -311,8 +311,7 @@ seq.setDefinition('FOV', fov);
 if ~isempty(seqName)
     seqName = replace(seqName, {'.seq', '.pge'}, '');
     seq.setDefinition('Name', seqName);
-    ifn = [seqName '.seq'];
-    seq.write(ifn);       % Write to pulseq file
+    seq.write([seqName '.seq']);
 end
 
 if arg.plot
