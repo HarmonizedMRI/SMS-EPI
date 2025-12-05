@@ -19,7 +19,8 @@ function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFram
 
 % struct 'lv' is used as a local variable namespace
 
-% copy/modify inputs as needed
+%% Parse inputs
+
 [lv.nx lv.ny lv.nz] = deal(N(1), N(2), N(3));
 
 lv.is3D = strcmp(type, '3D');
@@ -69,7 +70,6 @@ rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
 
-
 %% Create fat sat pulse 
 
 fatsat.flip    = 90;      % degrees
@@ -98,7 +98,6 @@ lv.rfsat = mr.makeArbitraryRf(rfp, ...
 lv.rfsat.signal = lv.rfsat.signal/max(abs(lv.rfsat.signal))*max(abs(rfp)); % ensure correct amplitude (Hz)
 lv.rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
 
-
 %% Create SMS excitation pulse
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', 0.7*sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
@@ -118,16 +117,18 @@ lv.freq = arg.freqSign * freq;
 
 lv.rf.signal = pge2.utils.iff(arg.doConj, conj(lv.rf.signal), lv.rf.signal);
 
-
 %% ky/kz encoding blip amplitude along echo train (multiples of deltak)
 [lv.IYlabel, lv.kyStep] = ky2blipsandrewinders(IY);
 lv.kyStepMax = max(abs(lv.kyStep(lv.IYlabel)));
-lv.kyRewindMax = max(abs(lv.kyStep(~lv.IYlabel)));
+if length(lv.IYlabel) == length(IY) - 1   % no rewinders are present
+    lv.kyRewindMax = 1e-9;  % avoid exactly zero
+else
+    lv.kyRewindMax = max(abs(lv.kyStep(~lv.IYlabel)));
+end    
 lv.kzStep = diff(IZ);
-lv.kzStepMax = max(abs(lv.kzStep));
+lv.kzStepMax = max(abs(lv.kzStep)) + 1e-9;  % avoid exactly zero
 
 lv.etl = length(IY);
-
 
 %% Define readout gradients and ADC event
 
@@ -146,14 +147,11 @@ systmp.maxSlew = sys.maxSlew/2;
 lv.gyRewind = mr.makeTrapezoid('y', systmp, 'Area', lv.kyRewindMax*deltak(2));
 
 % Readout trapezoid
-%systmp = sys;
-%systmp.maxGrad = deltak(1)/dwell;  % to ensure >= Nyquist sampling
-%gro = mr.makeTrapezoid('x', systmp, 'Area', lv.nx*deltak(1) + maxBlipArea); % this can fail for some reason
 lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
     'maxGrad', deltak(1)/dwell);  
 
 % Split readout trapezoid into parts.
-% This way, we don't have to split the gy/gz blips,
+% This way, we don't have to split the gy/gz blips across block boundaries,
 % which in turn allows them to be arbitrarily scaled in the scan loop
 % without having to store unique shapes for each scaling factor.
 %
@@ -246,7 +244,6 @@ lv.gxSpoil = mr.makeTrapezoid('x', systmp, ...
 lv.gzSpoil = mr.makeTrapezoid('z', systmp, ...
     'Area', lv.nx*deltak(1)*nCyclesSpoil);
 
-
 %% Slice/partition order
 if lv.is3D
     IP = -lv.nz/2:Rz:lv.nz/2-1;
@@ -288,7 +285,6 @@ for ifr = 1:nFrames
             assert(TR > lv.np*minTR, sprintf('Requested TR (%.3f ms) < minimum TR (%.3f ms)', TR, lv.np*minTR));
             TRdelay = round((TR/lv.np - minTR)/sys.blockDurationRaster) * sys.blockDurationRaster;
         end
-
         seq.addBlock(mr.makeDelay(TRdelay));
     end
 end
@@ -297,7 +293,7 @@ fprintf('\n');
 % If noise scan, add dummy RF pulse at end so the sequence contains at least one RF pulse
 if arg.doNoiseScan
     seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
-    sq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
+    seq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
 end
 
 %% Check sequence timing
@@ -337,8 +333,6 @@ return
 % Function adds one EPI shot to sequence
 function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_inc)
 
-    lv.rf = pge2.utils.iff(arg.doNoiseScan, [], lv.rf);
-
     % fat sat
     if arg.fatSat & ~arg.doNoiseScan
         lv.rfsat.phaseOffset = rf_phase/180*pi;
@@ -352,7 +346,7 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_in
     lv.rf.freqOffset = pge2.utils.iff(lv.is3D, 0, round((p-1)*lv.freq));  
     lv.rf.phaseOffset = rf_phase/180*pi - 2*pi*lv.rf.freqOffset*mr.calcRfCenter(lv.rf);  % align the phase for off-center slices
     lv.adc.phaseOffset = rf_phase/180*pi;
-    sq.addBlock(lv.rf, lv.gzRF);
+    sq.addBlock(pge2.utils.iff(arg.doNoiseScan, [], lv.rf), lv.gzRF);
     rf_inc = mod(rf_inc+lv.rfSpoilingInc, 360.0);
     rf_phase = mod(rf_phase+rf_inc, 360.0);
 
