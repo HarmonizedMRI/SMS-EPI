@@ -1,7 +1,7 @@
-function writeB0(seqName, sys, voxelSize, N, alpha)
-% function writeB0(seqName, sys, voxelSize, N, alpha)
+function seq = writeB0(seqName, sys, voxelSize, N, alpha)
+% function seq = writeB0(seqName, sys, voxelSize, N, alpha)
 %
-% 3D GRE B0 mapping sequence 
+% Write 3D GRE B0 mapping sequence 
 %
 % Inputs
 %   seqName     string   .seq file name
@@ -9,10 +9,24 @@ function writeB0(seqName, sys, voxelSize, N, alpha)
 %   voxelSize   [3]      m
 %   N           [3]      matrix size
 %   alpha       [1]      flip angle [degrees]
+%
+% Outputs
+%   seq         struct   Pulseq sequence object
+
+% --- Input checks ---
+narginchk(5, 5);
+validateattributes(seqName,   {'char','string'}, {'nonempty'}, mfilename, 'seqName');
+validateattributes(sys,       {'struct'},        {'nonempty'}, mfilename, 'sys');
+validateattributes(voxelSize, {'numeric'},       {'vector','numel',3,'real','positive','finite'}, ...
+    mfilename, 'voxelSize');
+validateattributes(N,         {'numeric'},       {'vector','numel',3,'integer','positive','finite'}, ...
+    mfilename, 'N');
+validateattributes(alpha,     {'numeric'},       {'scalar','real','positive','finite'}, ...
+    mfilename, 'alpha');
+assert(N(3) > 1, 'Only 3D scan is supported');
 
 % --- Acquisition parameters ---
 [nx ny nz] = deal(N(1), N(2), N(3));
-assert(nz > 1, 'Only 3D scan is supported');
 fov = voxelSize.*[nx ny nz];
 dwell = 4*sys.adcRasterTime;    % ADC sample time (s)
 fatChemShift = 3.5e-6;          % 3.5 ppm
@@ -25,10 +39,10 @@ Tpre = 1.0e-3;                  % prephasing trapezoid duration
 
 % --- Build sequence events ---
 
-% non-selective pulse
-[rf] = mr.makeBlockPulse(alpha/180*pi, sys, 'Duration', 0.2e-3, 'use', 'excitation');
+% non-selective excitation
+rf = mr.makeBlockPulse(alpha/180*pi, sys, 'Duration', 0.2e-3, 'use', 'excitation');
 
-% Define other gradients and ADC events
+% gradients and ADC event
 deltak = 1./fov;
 Tread = nx*dwell;
 
@@ -52,7 +66,7 @@ pe2Steps = ((0:nz-1)-nz/2)/nz*2 + 1e-9;
 
 % --- Calculate timing ---
 TEmin = rf.shape_dur/2 + rf.ringdownTime + mr.calcDuration(gxPre) ...
-      + adc.delay + nx/2*dwell;
+      + adc.delay + Tread/2;
 TEdelay = ceil((TE-TEmin)/sys.gradRasterTime)*sys.gradRasterTime;
 if TEdelay < 0
     TE = 1/fatOffresFreq*[2 3]; 
