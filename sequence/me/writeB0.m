@@ -10,7 +10,7 @@ function writeB0(seqName, sys, voxelSize, N, alpha)
 %   N           [3]      matrix size
 %   alpha       [1]      flip angle [degrees]
 
-%% Acquisition parameters
+% --- Acquisition parameters ---
 [nx ny nz] = deal(N(1), N(2), N(3));
 assert(nz > 1, 'Only 3D scan is supported');
 fov = voxelSize.*[nx ny nz];
@@ -23,7 +23,7 @@ rfSpoilingInc = 117;            % RF spoiling increment
 nCyclesSpoil = 2;               % number of spoiler cycles
 Tpre = 1.0e-3;                  % prephasing trapezoid duration
 
-%% Sequence elements
+% --- Sequence elements ---
 
 % non-selective pulse
 [rf] = mr.makeBlockPulse(alpha/180*pi, sys, 'Duration', 0.2e-3, 'use', 'excitation');
@@ -52,11 +52,11 @@ gxSpoil = mr.makeTrapezoid('x', sys, ...
 gzSpoil = mr.makeTrapezoid('z', sys, ...
     'Area', nx*deltak(1)*nCyclesSpoil);
 
-%% y/z PE steps. Avoid exactly zero
+% --- y/z PE steps. Avoid exactly zero ---
 pe1Steps = ((0:ny-1)-ny/2)/ny*2 + 1e-9;
 pe2Steps = ((0:nz-1)-nz/2)/nz*2 + 1e-9;
 
-%% Calculate timing
+% --- Calculate timing ---
 TEmin = rf.shape_dur/2 + rf.ringdownTime + mr.calcDuration(gxPre) ...
       + adc.delay + nx/2*dwell;
 TEdelay = ceil((TE-TEmin)/sys.gradRasterTime)*sys.gradRasterTime;
@@ -65,8 +65,9 @@ if TEdelay < 0
     TEdelay = ceil((TE-TEmin)/sys.gradRasterTime)*sys.gradRasterTime;
 end
 
-%% Loop over phase encodes and define sequence blocks
-% iz < 0: Dummy shots to reach steady state
+% --- Loop over phase encodes and define sequence blocks ---
+
+% iz < 0: Dummy shots to reach steady state (ADC off)
 % iz = 0: ADC is turned on and used for receive gain calibration on GE scanners
 % iz > 0: Image acquisition
 
@@ -84,25 +85,27 @@ for iz = 1:4
     fprintf('\rz encode %d of %d ', iz, nz);
 
     for iY = 1:ny
-        % Turn on y and z prephasing lobes, except during dummy scans and
-        % receive gain calibration (auto prescan)
+        % Turn on/off y and z prephasing lobes
+        % Avoid scaling to exactly zero so the shapes are preserved in the .seq file
         yStep = (iz > 0) * pe1Steps(iY) + eps;
         zStep = (iz > 0) * pe2Steps(max(1,iz)) + eps;
 
         for c = 1:length(TE)
 
-            % Mark start of segment (block group) by adding label.
-            seq.addBlock(mr.makeLabel('SET', 'TRID', 1 + isDummyTR));
-
-            % Excitation
-            rf.phaseOffset = rf_phase/180*pi;
-            adc.phaseOffset = rf_phase/180*pi;
+            % update RF/adc phase (RF spoiling)
             rf_inc = mod(rf_inc+rfSpoilingInc, 360.0);
             rf_phase = mod(rf_phase+rf_inc, 360.0);
+            rf.phaseOffset = rf_phase/180*pi;
+            adc.phaseOffset = rf_phase/180*pi;
+
+            % mark start of segment (block group) by adding TRID label
+            seq.addBlock(mr.makeLabel('SET', 'TRID', 1 + isDummyTR));
+
+            % excitation
             seq.addBlock(rf);
             
-            % Encoding
-            seq.addBlock(mr.makeDelay(TEdelay(c)));
+            % encoding
+            seq.addBlock(mr.makeDelay(TEdelay(c)));   % variable delay block
             seq.addBlock(gxPre, ...
                 mr.scaleGrad(gyPre, yStep), ...
                 mr.scaleGrad(gzPre, zStep));
@@ -112,38 +115,26 @@ for iz = 1:4
                 seq.addBlock(gx, adc);
             end
 
-            % rephasing/spoiling
+            % rephasing and spoiling
             seq.addBlock(gxSpoil, ...
                 mr.scaleGrad(gyPre, -yStep), ...
                 mr.scaleGrad(gzPre, -zStep));
             seq.addBlock(gzSpoil);
 
             % keep TR constant
-            seq.addBlock(mr.makeDelay(TEdelay(end) - TEdelay(c)));
+            minVariableDelay = 8e-6;  % mimimum duration of variable delay block (WAIT pulse in EPIC)
+            seq.addBlock(mr.makeDelay(minVariableDelay + TEdelay(end) - TEdelay(c)));
 
-            TRmin = pge2.utils.iff(TRmin, TRmin, seq.duration);
+            TRmin = pge2.utils.iff(TRmin, TRmin, seq.duration); % for plotting below
         end
     end
 end
 fprintf('\n');
 
-%% Check sequence timing
-[ok, error_report]=seq.checkTiming;
-if (ok)
-    fprintf('Timing check passed successfully\n');
-else
-    fprintf('Timing check failed! Error listing follows:\n');
-    fprintf([error_report{:}]);
-    fprintf('\n');
-end
+% --- Output for execution ---
+pge2.utils.writeseq(seq, fov, seqName);
 
-%% Output for execution
-seq.setDefinition('FOV', fov);
-seqName = replace(seqName, {'.seq', '.pge'}, '');
-seq.setDefinition('Name', seqName);
-seq.write([seqName '.seq']);       % Write to pulseq file
-
-%% Plot sequence
+% --- Plot sequence ---
 Noffset = length(TE)*ny*(nDummyZLoops+1);
 seq.plot('timerange',[Noffset Noffset+2*length(TE)]*TRmin, 'timedisp', 'ms');
 
