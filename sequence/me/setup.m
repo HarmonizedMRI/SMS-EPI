@@ -4,8 +4,7 @@ addpath pulseq/matlab
 warning('OFF', 'mr:restoreShape');
 
 % Code needed to convert to GE sequence representation
-%system('git clone --branch tv7 git@github.com:HarmonizedMRI/PulCeq.git');
-%system('git clone --branch tv7_dev git@github.com:HarmonizedMRI/PulCeq.git');
+%system('git clone --branch main git@github.com:HarmonizedMRI/PulCeq.git');
 %addpath PulCeq/matlab
 %addpath PulCeq/matlab/DataHash
 addpath ~/github/HarmonizedMRI/PulCeq/matlab
