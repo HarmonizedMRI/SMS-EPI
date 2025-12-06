@@ -7,7 +7,8 @@
 % 6. 3D GRE B0 mapping (can also be used for sens maps and/or grappa calibration)
 
 TODO = [1 1 1 1 1 0];
-TODO = [1 0 0 0 0 1];
+TODO = [1 1 0 0 0 1];
+TODO = ones(1,6);
 
 
 %----------------------------------------------------------
@@ -103,17 +104,15 @@ end
 
 % noise.seq
 if TODO(2)
-    opts.doNoiseScan = true;
-    writeEPI('noise', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
-    opts.doNoiseScan = false;
+    writeEPI('noise', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', ...
+        pge2.utils.override(opts, 'doNoiseScan', true));
 end
 
 % epical.seq
 %  - EPI ghost calibration
 if TODO(3)
-    opts.doRefScan = true;
-    writeEPI('epical', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, nFrames, 'SMS', opts);
-    opts.doRefScan = false;
+    writeEPI('epical', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, nFrames, 'SMS', ...
+        pge2.utils.override(opts, 'doRefScan', true));
 end
 
 % slgcal.seq
