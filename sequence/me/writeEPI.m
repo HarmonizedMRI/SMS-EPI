@@ -1,60 +1,72 @@
 function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
-% function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+% Build an SMS/3D EPI Pulseq sequence.
+%   seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, ...
+%                  nFrames, type, opts)
 %
-% SMS-EPI sequence in Pulseq
-%
-% Inputs:
+% Inputs
 %   seqName     string or []    output file name (with or without .seq extension)
-%   sys         struct          system info, see mr.opts()
+%   sys         struct          scanner info, see mr.opts()
 %   voxelSize   [3]             voxel dimensions [m]
 %   N           [3]             image matrix size 
-%   TR          [1]             volume TR [s]
+%   TR          [1] or 'min'    specify volume TR [s] or use minimum
 %   alpha       [1]             flip angle (degrees)
 %   mb          [1]             multiband/SMS factor
 %   IY          [etl]           ky phase encoding indices, range is 1...ny centered at ny/2+1
 %   IZ          [etl]           kz partition encoding indices, range is 1...mb centered at mb/2+1
 %   nFrames     [1]             number of time frames (image volumes)
 %   type        string          'SMS' or '3D'
-%   opts        struct with defaults 
+%   opts        optional struct with fields that override defaults
 
-% struct 'lv' is used as a local variable namespace
+% Input checks
+narginchk(11,12);
+if nargin < 12 || isempty(opts), opts = struct(); end
 
-%% Parse inputs
+validateattributes(voxelSize, {'numeric'}, {'vector','numel',3});
+validateattributes(N, {'numeric'}, {'vector','integer','numel',3});
+validateattributes(alpha, {'numeric'}, {'scalar'});
+validateattributes(mb, {'numeric'}, {'scalar','positive','integer'});
+validateattributes(IY, {'numeric'}, {'vector','integer'});
+validateattributes(IZ, {'numeric'}, {'vector','integer'});
+validateattributes(nFrames, {'numeric'}, {'scalar','integer','positive'});
+assert(ismember(type, {'SMS','3D'}), 'type must be ''SMS'' or ''3D''.');
+
+assert(length(IY) == length(IZ), 'IY and IZ must be the same length');
+
+% local namespace struct
+lv = struct();
 
 [lv.nx lv.ny lv.nz] = deal(N(1), N(2), N(3));
 
 lv.is3D = strcmp(type, '3D');
 
-lv.np = lv.nz/mb;   % number of excitations/partitions (sets of SMS slices)
+assert(mod(lv.nz, mb) == 0, 'nz must be divisible by mb.');
+lv.np = lv.nz / mb;   % number of partitions (excitations per volume)
 
 fprintf('mb=%d\n', mb); 
 
-% defaults
+% --- Defaults ---
 arg.fatSat = true;  
 arg.RFspoil = true;
 arg.gySign = +1;
 arg.freqSign = +1;
 arg.fatFreqSign = -1;
 arg.doConj = false;
-arg.doRefScan = false;               % turn off ky and ky encoding
+arg.doRefScan = false;          % turn off ky and ky encoding
 arg.trigOut = false;
 arg.doNoiseScan = false;
 arg.TEdelay = 0;
-arg.segmentRingdownTime = 117e-6;    % segment ringdown time for Pulseq on GE 
-arg.simulateSliceProfile = false;    % simulate SMS profile and display
-arg.gzPreOn = true;                  % prephase along kz by -mb/2*deltak
+arg.segmentRingdownTime = 117e-6;  % segment ringdown time for Pulseq on GE 
+arg.simulateSliceProfile = false;  % simulate SMS profile and display
+arg.gzPreOn = true;                % prephase along kz by -mb/2*deltak
 arg.plot = false;
 
 % Overwrite defaults with user-specified fields
-if exist('opts', 'var')
-    fn = fieldnames(opts);
-    for k = 1:numel(fn)
-        arg.(fn{k}) = opts.(fn{k});
-    end
+fn = fieldnames(opts);
+for k = 1:numel(fn)
+    arg.(fn{k}) = opts.(fn{k});
 end
 
-%% Define experimental parameters
-
+% --- Some more parameters ---
 fov = voxelSize .* [lv.nx lv.ny lv.nz];       % FOV (m)
 
 slThick = pge2.utils.iff(lv.is3D, 0.85*fov(3), fov(3)/lv.nz);
@@ -70,7 +82,8 @@ rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
 
-%% Create fat sat pulse 
+
+% --- Create fat sat pulse ---
 
 fatsat.flip    = 90;      % degrees
 fatsat.slThick = 1e5;     % dummy value (determines slice-select gradient, but we won't use it; just needs to be large to reduce dead time before+after rf pulse)
@@ -98,7 +111,7 @@ lv.rfsat = mr.makeArbitraryRf(rfp, ...
 lv.rfsat.signal = lv.rfsat.signal/max(abs(lv.rfsat.signal))*max(abs(rfp)); % ensure correct amplitude (Hz)
 lv.rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
 
-%% Create SMS excitation pulse
+% --- SMS excitation pulse ---
 sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', 0.7*sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.15);
@@ -113,15 +126,13 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
     'min', 'ls'));                          % 'ls' = least squares, 'min' = minimum phase
 
 lv.rf.use = 'excitation';
-
 lv.freq = arg.freqSign * freq;
-
 lv.rf.signal = pge2.utils.iff(arg.doConj, conj(lv.rf.signal), lv.rf.signal);
 
-%% ky/kz encoding blip amplitude along echo train (multiples of deltak)
+% --- ky/kz encoding blip amplitude along echo train (multiples of deltak) ---
 [lv.IYlabel, lv.kyStep] = ky2blipsandrewinders(IY);
 lv.kyStepMax = max(abs(lv.kyStep(lv.IYlabel)));
-if length(lv.IYlabel) == length(IY) - 1   % no rewinders are present
+if sum(lv.IYlabel) == length(IY) - 1   % no rewinders are present
     lv.kyRewindMax = 1e-9;  % avoid exactly zero
 else
     lv.kyRewindMax = max(abs(lv.kyStep(~lv.IYlabel)));
@@ -131,7 +142,7 @@ lv.kzStepMax = max(abs(lv.kzStep)) + 1e-9;  % avoid exactly zero
 
 lv.etl = length(IY);
 
-%% Define readout gradients and ADC event
+% --- Readout gradients and ADC event ---
 
 deltak = 1./fov;
 
@@ -144,17 +155,14 @@ maxBlipArea = max(lv.gyBlip.area, lv.gzBlip.area);
 
 % y rewinder
 lv.gyRewind = mr.makeTrapezoid('y', ...
-    pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.8), ...
+    pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
     'Area', lv.kyRewindMax*deltak(2));
 
 % Readout trapezoid
 lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
     'maxGrad', deltak(1)/dwell);  
 
-% Split readout trapezoid into parts.
-% This way, we don't have to split the gy/gz blips across block boundaries,
-% which in turn allows them to be arbitrarily scaled in the scan loop
-% without having to store unique shapes for each scaling factor.
+% Split readout into shape parts to avoid unique shapes per block.
 %
 % gro_t0_t1: ramp from 0 to end of gy/gz blip (t1)
 % gro_t1_t4: from t1 to t4. Contains ADC window (symmetric).
@@ -230,27 +238,27 @@ lv.adc = mr.makeAdc(numSamples, sys, ...
 
 % prephasers. Reduce slew a bit.
 lv.gxPre = mr.makeTrapezoid('x', ...
-    pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.8), ...
+    pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
     'Area', -lv.gro.area/2);
 Tpre = mr.calcDuration(lv.gxPre);
 lv.gyPre = mr.makeTrapezoid('y', ...
-    pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.8), ...
+    pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
     'Area', (IY(1)-lv.ny/2-1)*deltak(2), ... 
     'Duration', Tpre);
 lv.gzPre = mr.makeTrapezoid('z', ...
-    pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.8), ...
+    pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
     'Area', pge2.utils.iff(lv.is3D, lv.nz/2*deltak(3), (IZ(1)-mb/2-1)*deltak(3)), ...
     'Duration', Tpre); 
 
 % spoilers. Reduce slew a lot.
 lv.gxSpoil = mr.makeTrapezoid('x', ...
-    pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.5), ...
+    pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.5), ...
     'Area', -lv.nx*deltak(1)*nCyclesSpoil);
 lv.gzSpoil = mr.makeTrapezoid('z', ...
-    pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.5), ...
+    pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.5), ...
     'Area', lv.nx*deltak(1)*nCyclesSpoil);
 
-%% Slice/partition order
+% --- Slice/partition order ---
 if lv.is3D
     IP = -lv.nz/2:Rz:lv.nz/2-1;
 else
@@ -262,10 +270,10 @@ else
     end
 end
 
-%% Output trigger (stimulus trigger) event
+% --- Output trigger (stimulus trigger) event ---
 trigOut = pge2.utils.iff(arg.trigOut, mr.makeDigitalOutputPulse('ext1', 'duration', 200e-6), []);
 
-%% Assemble sequence
+% --- Assemble sequence ---
 seq = mr.Sequence(sys);           
 
 rf_phase = 0;
@@ -286,9 +294,12 @@ for ifr = 1:nFrames
         [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, arg, p, rf_phase, rf_inc);
 
         % add delay to achieve requested TR
-        if p == IP(1)
+        if p == IP(1) 
             minTR = seq.duration + arg.segmentRingdownTime;
-            assert(TR > lv.np*minTR, sprintf('Requested TR (%.3f ms) < minimum TR (%.3f ms)', TR, lv.np*minTR));
+            if ischar(TR)
+                TR = lv.np * minTR;
+            end
+            assert(TR >= lv.np*minTR, sprintf('Requested TR (%.3f ms) < minimum TR (%.3f ms)', TR, lv.np*minTR));
             TRdelay = round((TR/lv.np - minTR)/sys.blockDurationRaster) * sys.blockDurationRaster;
         end
         seq.addBlock(mr.makeDelay(TRdelay));
@@ -302,7 +313,7 @@ if arg.doNoiseScan
     seq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
 end
 
-%% Check sequence timing
+% --- Check sequence timing ---
 [ok, error_report]=seq.checkTiming;
 if (ok)
     fprintf('Timing check passed\n');
@@ -312,7 +323,7 @@ else
     fprintf('\n');
 end
 
-%% Write .seq file
+% --- Write .seq file ---
 seq.setDefinition('FOV', fov);
 if ~isempty(seqName)
     seqName = replace(seqName, {'.seq', '.pge'}, '');
@@ -327,15 +338,14 @@ end
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));
 
-%% Optional slow step, but useful for testing during development,
-%% e.g., for the real TE, TR or for staying within slewrate limits
+% Optional slow step, but useful for testing during development,
+% e.g., for the real TE, TR or for staying within slewrate limits
 % rep = seq.testReport;
 % fprintf([rep{:}]);
 
-return
 
 
-% Function adds one EPI shot to sequence
+%% Subfunction: add one EPI shot
 function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_inc)
 
     % fat sat
@@ -352,6 +362,7 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_in
     lv.rf.phaseOffset = rf_phase/180*pi - 2*pi*lv.rf.freqOffset*mr.calcRfCenter(lv.rf);  % align the phase for off-center slices
     lv.adc.phaseOffset = rf_phase/180*pi;
     sq.addBlock(pge2.utils.iff(arg.doNoiseScan, [], lv.rf), lv.gzRF);
+
     rf_inc = mod(rf_inc+lv.rfSpoilingInc, 360.0);
     rf_phase = mod(rf_phase+rf_inc, 360.0);
 
