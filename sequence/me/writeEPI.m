@@ -1,5 +1,5 @@
 function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
-% Build an SMS/3D EPI Pulseq sequence.
+% Build an SMS EPI Pulseq sequence.
 %   seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, ...
 %                  nFrames, type, opts)
 %
@@ -16,35 +16,36 @@ function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFram
 %   nFrames     [1]             number of time frames (image volumes)
 %   type        string          'SMS' or '3D'
 %   opts        optional struct with fields that override defaults
+%
+% Outputs
+%   seq         struct          Pulseq sequence object
 
-% Input checks
+% --- Input checks ---
 narginchk(11,12);
 if nargin < 12 || isempty(opts), opts = struct(); end
 
-validateattributes(voxelSize, {'numeric'}, {'vector','numel',3});
-validateattributes(N, {'numeric'}, {'vector','integer','numel',3});
-validateattributes(alpha, {'numeric'}, {'scalar'});
-validateattributes(mb, {'numeric'}, {'scalar','positive','integer'});
-validateattributes(IY, {'numeric'}, {'vector','integer'});
-validateattributes(IZ, {'numeric'}, {'vector','integer'});
-validateattributes(nFrames, {'numeric'}, {'scalar','integer','positive'});
-assert(ismember(type, {'SMS','3D'}), 'type must be ''SMS'' or ''3D''.');
+% TR: numeric scalar (positive) OR the char/string 'min'
+if ischar(TR) || isstring(TR)
+    validatestring(TR, {'min'}, mfilename, 'TR');
+else
+    validateattributes(TR, {'numeric'}, {'scalar','real','positive','finite'}, ...
+        mfilename, 'TR');
+end
+
+% other inputs
+validateattributes(voxelSize, {'numeric'}, {'vector','numel',3}, mfilename, 'voxelSize');
+validateattributes(N, {'numeric'}, {'vector','integer','numel',3}, mfilename, 'N');
+validateattributes(alpha, {'numeric'}, {'scalar'}, mfilename, 'alpha');
+validateattributes(mb, {'numeric'}, {'scalar','positive','integer'}, mfilename, 'mb');
+validateattributes(IY, {'numeric'}, {'vector','integer'}, mfilename, 'IY');
+validateattributes(IZ, {'numeric'}, {'vector','integer'}, mfilename, 'IZ');
+validateattributes(nFrames, {'numeric'}, {'scalar','integer','positive'}, mfilename, 'nFrames');
+assert(ismember(lower(type), {'sms','3d'}), 'type must be ''SMS'' or ''3D''.', mfilename, 'type');
 
 assert(length(IY) == length(IZ), 'IY and IZ must be the same length');
+assert(mod(N(3), mb) == 0, 'nz must be divisible by mb.');
 
-% local namespace struct
-lv = struct();
-
-[lv.nx lv.ny lv.nz] = deal(N(1), N(2), N(3));
-
-lv.is3D = strcmp(type, '3D');
-
-assert(mod(lv.nz, mb) == 0, 'nz must be divisible by mb.');
-lv.np = lv.nz / mb;   % number of partitions (excitations per volume)
-
-fprintf('mb=%d\n', mb); 
-
-% --- Defaults ---
+% --- Default parameters and input overrides ---
 arg.fatSat = true;  
 arg.RFspoil = true;
 arg.gySign = +1;
@@ -60,13 +61,22 @@ arg.simulateSliceProfile = false;  % simulate SMS profile and display
 arg.gzPreOn = true;                % prephase along kz by -mb/2*deltak
 arg.plot = false;
 
-% Overwrite defaults with user-specified fields
 fn = fieldnames(opts);
 for k = 1:numel(fn)
     arg.(fn{k}) = opts.(fn{k});
 end
 
-% --- Some more parameters ---
+% --- Define various sequence parameters ---
+
+% local namespace struct for convenience
+lv = struct();
+
+[lv.nx lv.ny lv.nz] = deal(N(1), N(2), N(3));
+
+lv.is3D = strcmp(lower(type), '3d');
+
+lv.np = lv.nz / mb;   % number of partitions (excitations per volume)
+
 fov = voxelSize .* [lv.nx lv.ny lv.nz];       % FOV (m)
 
 slThick = pge2.utils.iff(lv.is3D, 0.85*fov(3), fov(3)/lv.nz);
@@ -81,7 +91,6 @@ rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 
 fatChemShift = 3.5*1e-6;                        % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
-
 
 % --- Create fat sat pulse ---
 
@@ -109,16 +118,17 @@ lv.rfsat = mr.makeArbitraryRf(rfp, ...
     'use', 'excitation', ...
     'system', sys);
 lv.rfsat.signal = lv.rfsat.signal/max(abs(lv.rfsat.signal))*max(abs(rfp)); % ensure correct amplitude (Hz)
-lv.rfsat.freqOffset = arg.fatFreqSign*425;  % Hz
+fatChemShift = 3.5e-6;          % 3.5 ppm
+lv.rfsat.freqOffset = arg.fatFreqSign * sys.gamma*sys.B0*fatChemShift;  % Hz
 
 % --- SMS excitation pulse ---
-sysGE = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
+sysGEtoppe = toppe.systemspecs('maxGrad', sys.maxGrad/sys.gamma*100, ...   % G/cm
     'maxSlew', 0.7*sys.maxSlew/sys.gamma/10, ...           % G/cm/ms
     'maxRF', 0.15);
 sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
-% freq = frequency offset (Hz) corresponding to a sliceSep
+
 [lv.rf, lv.gzRF, freq, t_rf_center] = hmriutils.rf.getsmspulse(alpha, slThick, rfTB, rfDur, ...
-    mb, sliceSep, sysGE, sys, ...
+    mb, sliceSep, sysGEtoppe, sys, ...
     'doSim', arg.simulateSliceProfile, ...     % Plot simulated SMS slice profile
     'type', 'st', ...                          % SLR choice. 'ex' = 90 excitation; 'st' = small-tip
     'noRfOffset', lv.is3D, ...                 % don't shift slice (slab) for 3D
@@ -137,7 +147,7 @@ lv.rf.delay = lv.rf.delay + dpad;
 
 % some final settings
 lv.rf.use = 'excitation';
-lv.freq = arg.freqSign * freq;
+lv.freq = arg.freqSign * freq;  % frequency offset (Hz) corresponding to sliceSep
 lv.rf.signal = pge2.utils.iff(arg.doConj, conj(lv.rf.signal), lv.rf.signal);
 
 % --- ky/kz encoding blip amplitude along echo train (multiples of deltak) ---
