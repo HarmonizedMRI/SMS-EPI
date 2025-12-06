@@ -6,8 +6,8 @@
 % 5. mb=1, Ry=1 grappa calibration scan
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
-TODO = ones(1,6);
 TODO = [1 0 0 0 0 0];
+TODO = ones(1,6);
 
 %----------------------------------------------------------
 % sequence parameters
@@ -97,7 +97,7 @@ opts = struct('fatSat', fatSat, ...
     'doRefScan', false, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
-    'plot', true, ...
+    'plot', false, ...
     'simulateSliceProfile', false);
 
 %----------------------------------------------------------
@@ -176,7 +176,3 @@ if TODO(6)
     end
 end
 
-% Optional slow step, but useful for testing during development,
-% e.g., for the real TE, TR or for staying within slewrate limits
-% rep = seq.testReport;
-% fprintf([rep{:}]);
