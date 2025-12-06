@@ -7,8 +7,8 @@
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
 TODO = [1 1 1 1 1 0];
-TODO = [1 0 0 0 0 0];
 TODO = ones(1,6);
+TODO = [1 0 0 0 0 0];
 
 %----------------------------------------------------------
 % Sequence parameters
@@ -42,6 +42,7 @@ IZ = repmat(IZ, nTE, 1);
 % scanner hardware settings
 %----------------------------------------------------------
 vendor = 'GE';   % 'GE' or 'Siemens'
+vendor = 'Siemens';   % 'GE' or 'Siemens'
 
 switch lower(vendor)
     case 'ge'

@@ -90,7 +90,7 @@ fatsat.slThick = 1e5;     % dummy value (determines slice-select gradient, but w
 fatsat.tbw     = 3.5;     % time-bandwidth product
 fatsat.dur     = 8.0;     % pulse duration (ms)
 
-% RF waveform in Gauss
+% RF waveform in Gauss. Designed on 4us raster.
 wav = toppe.utils.rf.makeslr(fatsat.flip, fatsat.slThick, fatsat.tbw, fatsat.dur, 1e-6, toppe.systemspecs(), ...
     'type', 'ex', ...    % fatsat pulse is a 90 so is of type 'ex', not 'st' (small-tip)
     'ftype', 'min', ...
@@ -125,6 +125,17 @@ sliceSep = fov(3)/mb;   % center-to-center separation between SMS slices (m)
     'ftype', pge2.utils.iff(lv.is3D, ...
     'min', 'ls'));                          % 'ls' = least squares, 'min' = minimum phase
 
+% rf design is on 4us raster time (both gradient and RF) so now we interpolate
+tt = sys.rfRasterTime/2:sys.rfRasterTime:lv.rf.shape_dur;
+lv.rf.signal = interp1(lv.rf.t, lv.rf.signal, tt, 'linear', 'extrap');
+lv.rf.tt = tt;
+
+% make sure the gradient delay is on raster boundary
+dpad = sys.gradRasterTime - rem(lv.gzRF.delay, sys.gradRasterTime);
+lv.gzRF.delay = lv.gzRF.delay + dpad;
+lv.rf.delay = lv.rf.delay + dpad;
+
+% some final settings
 lv.rf.use = 'excitation';
 lv.freq = arg.freqSign * freq;
 lv.rf.signal = pge2.utils.iff(arg.doConj, conj(lv.rf.signal), lv.rf.signal);
