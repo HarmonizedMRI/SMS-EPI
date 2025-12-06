@@ -6,12 +6,11 @@
 % 5. mb=1, Ry=1 grappa calibration scan
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
-TODO = [1 1 1 1 1 0];
 TODO = ones(1,6);
-TODO = [1 0 0 0 0 0];
+TODO = [0 0 0 0 0 1];
 
 %----------------------------------------------------------
-% Sequence parameters
+% sequence parameters
 %----------------------------------------------------------
 % SMS=4, Ry=2, pf_ky = 0.85, fov 24x24cm, 80x80, 3mm iso:
 % Cohen, Alexander D., et al. "Detecting task functional MRI activation 
@@ -42,7 +41,6 @@ IZ = repmat(IZ, nTE, 1);
 % scanner hardware settings
 %----------------------------------------------------------
 vendor = 'GE';   % 'GE' or 'Siemens'
-vendor = 'Siemens';   % 'GE' or 'Siemens'
 
 switch lower(vendor)
     case 'ge'
@@ -71,7 +69,7 @@ switch lower(vendor)
         fatFreqSign = -1;  % confirmed on Prisma Fit at VA Tech 2024-Oct-24, and Urbana-Champaign
         doConj = false;
         gradRasterTime = 10e-6;
-        rfRasterTime = 4e-6;
+        rfRasterTime = 1e-6;
         blockDurationRaster = 10e-6;
         B0 = 2.89;
 end
@@ -88,7 +86,7 @@ sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
               'B0', B0);
 
 %----------------------------------------------------------
-% Options passed to writeEPI.m
+% options passed to writeEPI.m
 %----------------------------------------------------------
 opts = struct('fatSat', fatSat, ...
     'RFspoil', RFspoil, ...
@@ -99,15 +97,16 @@ opts = struct('fatSat', fatSat, ...
     'doRefScan', false, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
-    'plot', true, ...
+    'plot', false, ...
     'simulateSliceProfile', false);
 
 %----------------------------------------------------------
 % write sequences
 %----------------------------------------------------------
 
-% fmri.seq 
 nFrames = 1;
+
+% fmri.seq 
 if TODO(1)
     fn = 'fmri';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...

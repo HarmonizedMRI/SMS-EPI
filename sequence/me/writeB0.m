@@ -23,7 +23,7 @@ rfSpoilingInc = 117;            % RF spoiling increment
 nCyclesSpoil = 2;               % number of spoiler cycles
 Tpre = 1.0e-3;                  % prephasing trapezoid duration
 
-% --- Sequence elements ---
+% --- Build sequence events ---
 
 % non-selective pulse
 [rf] = mr.makeBlockPulse(alpha/180*pi, sys, 'Duration', 0.2e-3, 'use', 'excitation');
@@ -37,20 +37,14 @@ gyPre = mr.makeTrapezoid('y', sys, ...
 gzPre = mr.makeTrapezoid('z', sys, ...
     'Area', nz*deltak(3)/2);   % PE2 gradient, max amplitude
 
-gx = mr.makeTrapezoid('x', sys, ...  % readout trapezoid, temporary object
-    'Amplitude', nx*deltak(1)/Tread, ...
+gx = mr.makeTrapezoid('x', sys, 'Amplitude', nx*deltak(1)/Tread, ... 
     'FlatTime', Tread);
-gxPre = mr.makeTrapezoid('x', sys, ...
-    'Area', -gx.area/2);
+gxPre = mr.makeTrapezoid('x', sys, 'Area', -gx.area/2);
 
-adc = mr.makeAdc(nx, sys, ...
-    'Duration', Tread,...
-    'Delay', gx.riseTime);
+adc = mr.makeAdc(nx, sys, 'Duration', Tread, 'Delay', gx.riseTime);
 
-gxSpoil = mr.makeTrapezoid('x', sys, ...
-    'Area', nx*deltak(1)*nCyclesSpoil);
-gzSpoil = mr.makeTrapezoid('z', sys, ...
-    'Area', nx*deltak(1)*nCyclesSpoil);
+gxSpoil = mr.makeTrapezoid('x', sys, 'Area', nx*deltak(1)*nCyclesSpoil);
+gzSpoil = mr.makeTrapezoid('z', sys, 'Area', nx*deltak(1)*nCyclesSpoil); 
 
 % --- y/z PE steps. Avoid exactly zero ---
 pe1Steps = ((0:ny-1)-ny/2)/ny*2 + 1e-9;
@@ -78,8 +72,7 @@ rf_phase = 0;
 rf_inc = 0;
 
 TRmin = 0;
-%for iz = -nDummyZLoops:nz
-for iz = 1:4
+for iz = -nDummyZLoops:nz
     isDummyTR = iz < 0;
 
     fprintf('\rz encode %d of %d ', iz, nz);
@@ -131,7 +124,7 @@ for iz = 1:4
 end
 fprintf('\n');
 
-% --- Output for execution ---
+% --- Write .seq file ---
 pge2.utils.writeseq(seq, fov, seqName);
 
 % --- Plot sequence ---
