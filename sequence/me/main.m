@@ -7,7 +7,7 @@
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
 TODO = ones(1,6);
-TODO = [0 0 0 0 0 1];
+TODO = [1 0 0 0 0 0];
 
 %----------------------------------------------------------
 % sequence parameters
@@ -97,7 +97,7 @@ opts = struct('fatSat', fatSat, ...
     'doRefScan', false, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
-    'plot', false, ...
+    'plot', true, ...
     'simulateSliceProfile', false);
 
 %----------------------------------------------------------
@@ -170,9 +170,13 @@ if TODO(6)
         pge2.utils.setfields(sys, ...
             'maxSlew', sys.maxSlew*0.5, ...
             'maxGrad', sys.maxGrad*0.5), ...
-        voxelSize, [nx ny nx], 4);
+        voxelSize, [nx nx nx], 4);
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, ny, PNSwt);
     end
 end
 
+% Optional slow step, but useful for testing during development,
+% e.g., for the real TE, TR or for staying within slewrate limits
+% rep = seq.testReport;
+% fprintf([rep{:}]);

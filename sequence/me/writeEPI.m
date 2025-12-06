@@ -344,7 +344,7 @@ else
     fprintf('\n');
 end
 
-% --- Write .seq file ---
+% --- Write .seq file and plot ---
 seq.setDefinition('FOV', fov);
 if ~isempty(seqName)
     seqName = replace(seqName, {'.seq', '.pge'}, '');
@@ -355,14 +355,6 @@ end
 if arg.plot
     seq.plot('timeRange', [0 TR/lv.np], 'stacked', true);
 end
-
-% add caipi.mat to the .tar file
-%system(sprintf('tar --append --file=%s caipi.mat', ofn));
-
-% Optional slow step, but useful for testing during development,
-% e.g., for the real TE, TR or for staying within slewrate limits
-% rep = seq.testReport;
-% fprintf([rep{:}]);
 
 
 
