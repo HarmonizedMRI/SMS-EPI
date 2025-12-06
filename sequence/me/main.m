@@ -27,9 +27,11 @@ pf_ky = 0.85; %(nx-3*6)/nx;
 
 TR = 0.9;  %0.1*11;   % volume TR (sec)
 
+PNSwt = [0.8 1 0.7];   % PNS direction/channel weights
+
 mb = 4; Ry = 2; caipiShiftZ = 2;
 [IY, IZ] = getcaipi(ny, nz, Ry, mb, caipiShiftZ, '3DEPI/caipi');
-etl = 2*ceil(pf_ky*ny/Ry/2);  % echo train length. even
+etl = 2*ceil(pf_ky*ny/Ry/2);  % echo train length for one TE 
 IY = IY(end-etl+1:end);
 IZ = IZ(end-etl+1:end);
 nTE = 3;   
@@ -52,6 +54,15 @@ switch lower(vendor)
         rfRasterTime = 4e-6;
         blockDurationRaster = 4e-6;
         B0 = 3;
+
+        psd_rf_wait = 100e-6;  % RF-gradient delay, scanner specific (s)
+        psd_grd_wait = 100e-6; % ADC-gradient delay, scanner specific (s)
+        b1_max = 0.25;         % Gauss
+        g_max = 5;             % Gauss/cm
+        slew_max = 20;         % Gauss/cm/ms
+        coil = 'xrm';          % 'hrmbuhp' (UHP); 'xrm' (MR750)
+        sysGE = pge2.opts(psd_rf_wait, psd_grd_wait, b1_max, g_max, slew_max, coil);
+
     case 'siemens'
         % Settings for Siemens Vida bay MR7 @ U-Mich University Hospital
         gySign = 1;
@@ -97,47 +108,71 @@ opts = struct('fatSat', fatSat, ...
 % fmri.seq 
 nFrames = 1;
 if TODO(1)
-    writeEPI('fmri', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
+    fn = 'fmri';
+    writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
         nFrames, 'SMS', opts);
+    if strcmp(lower(vendor), 'ge')
+        pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
+    end
 end
 
 % noise.seq
 if TODO(2)
-    writeEPI('noise', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
+    fn = 'noise';
+    writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, 'doNoiseScan', true));
+    if strcmp(lower(vendor), 'ge')
+        pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
+    end
 end
 
 % epical.seq
 %  - EPI ghost calibration
 if TODO(3)
-    writeEPI('epical', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, ...
+    fn = 'epical';
+    writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, ...
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, 'doRefScan', true));
+    if strcmp(lower(vendor), 'ge')
+        pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
+    end
 end
 
 % slgcal.seq
 %  - slice GRAPPA calibration
 if TODO(4)
-    writeEPI('slgcal', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), ...
+    fn = 'slgcal';
+    writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), ...
         nFrames, 'SMS', opts);
+    if strcmp(lower(vendor), 'ge')
+        pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
+    end
 end
 
 % grappacal.seq
 %  - GRAPPA calibration
 if TODO(5)
+    fn = 'grappacal';
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
-    writeEPI('grappacal', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, ...
+    writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, ...
         nFrames, 'SMS', opts);
+    if strcmp(lower(vendor), 'ge')
+        pge2.seq2ge(fn, sysGE, round(length(IYtmp)*nz/2), PNSwt);
+    end
 end
 
 % b0.seq
 %  - 3D B0 field / coil sensitivity maps
 if TODO(6)
-    writeB0('b0', ...
+    fn = 'b0';
+    writeB0(fn, ...
         pge2.utils.setfields(sys, ...
             'maxSlew', sys.maxSlew*0.5, ...
             'maxGrad', sys.maxGrad*0.5), ...
-        voxelSize, [nx nx nx], 4);
+        voxelSize, [nx ny nx], 4);
+    if strcmp(lower(vendor), 'ge')
+        pge2.seq2ge(fn, sysGE, ny, PNSwt);
+    end
 end
 
