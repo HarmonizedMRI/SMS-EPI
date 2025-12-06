@@ -2,16 +2,22 @@ function writeB0(seqName, sys, voxelSize, N, alpha)
 % function writeB0(seqName, sys, voxelSize, N, alpha)
 %
 % 3D GRE B0 mapping sequence 
+%
+% Inputs
+%   seqName     string   .seq file name
+%   sys         struct   see mr.opts()
+%   voxelSize   [3]      m
+%   N           [3]      matrix size
+%   alpha       [1]      flip angle [degrees]
 
 %% Acquisition parameters
 [nx ny nz] = deal(N(1), N(2), N(3));
 assert(nz > 1, 'Only 3D scan is supported');
 fov = voxelSize.*[nx ny nz];
-dwell = 2*sys.adcRasterTime;    % ADC sample time (s)
+dwell = 4*sys.adcRasterTime;    % ADC sample time (s)
 fatChemShift = 3.5e-6;          % 3.5 ppm
 fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
 TE = 1/fatOffresFreq*[1 2];     % fat and water in phase for both echoes
-TR = 6e-3*[1 1];                % constant TR
 
 rfSpoilingInc = 117;            % RF spoiling increment
 nCyclesSpoil = 2;               % number of spoiler cycles
@@ -29,7 +35,7 @@ Tread = nx*dwell;
 gyPre = mr.makeTrapezoid('y', sys, ...
     'Area', ny*deltak(2)/2);   % PE1 gradient, max positive amplitude
 gzPre = mr.makeTrapezoid('z', sys, ...
-    'Area', nz/2*deltak(3));   % PE2 gradient, max amplitude
+    'Area', nz*deltak(3)/2);   % PE2 gradient, max amplitude
 
 gx = mr.makeTrapezoid('x', sys, ...  % readout trapezoid, temporary object
     'Amplitude', nx*deltak(1)/Tread, ...
@@ -48,7 +54,7 @@ gzSpoil = mr.makeTrapezoid('z', sys, ...
 
 %% y/z PE steps. Avoid exactly zero
 pe1Steps = ((0:ny-1)-ny/2)/ny*2 + 1e-9;
-pe2Steps = ((0:nz-1)-nz/2)/nz*2 + 1-9;
+pe2Steps = ((0:nz-1)-nz/2)/nz*2 + 1e-9;
 
 %% Calculate timing
 TEmin = rf.shape_dur/2 + rf.ringdownTime + mr.calcDuration(gxPre) ...
@@ -58,7 +64,6 @@ if TEdelay < 0
     TE = 1/fatOffresFreq*[2 3]; 
     TEdelay = ceil((TE-TEmin)/sys.gradRasterTime)*sys.gradRasterTime;
 end
-TEdelay
 
 %% Loop over phase encodes and define sequence blocks
 % iz < 0: Dummy shots to reach steady state
@@ -71,8 +76,9 @@ nDummyZLoops = 1;
 rf_phase = 0;
 rf_inc = 0;
 
-for iz = -nDummyZLoops:nz
-%for iz = 1:4
+TRmin = 0;
+%for iz = -nDummyZLoops:nz
+for iz = 1:4
     isDummyTR = iz < 0;
 
     fprintf('\rz encode %d of %d ', iz, nz);
@@ -114,6 +120,8 @@ for iz = -nDummyZLoops:nz
 
             % keep TR constant
             seq.addBlock(mr.makeDelay(TEdelay(end) - TEdelay(c)));
+
+            TRmin = pge2.utils.iff(TRmin, TRmin, seq.duration);
         end
     end
 end
@@ -137,5 +145,5 @@ seq.write([seqName '.seq']);       % Write to pulseq file
 
 %% Plot sequence
 Noffset = length(TE)*ny*(nDummyZLoops+1);
-seq.plot('timerange',[Noffset Noffset+4]*TR(1), 'timedisp', 'ms');
+seq.plot('timerange',[Noffset Noffset+2*length(TE)]*TRmin, 'timedisp', 'ms');
 

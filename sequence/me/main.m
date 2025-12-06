@@ -7,7 +7,7 @@
 % 6. 3D GRE B0 mapping (can also be used for sens maps and/or grappa calibration)
 
 TODO = [1 1 1 1 1 0];
-TODO = [0 0 0 0 0 1];
+TODO = [1 0 0 0 0 1];
 
 
 %----------------------------------------------------------
@@ -95,21 +95,20 @@ opts = struct('fatSat', fatSat, ...
 % write sequences
 %----------------------------------------------------------
 
-% fmri.seq: ME SMS-EPI fMRI
+% fmri.seq 
 nFrames = 1;
 if TODO(1)
     writeEPI('fmri', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
 end
 
-% noise scan
+% noise.seq
 if TODO(2)
     opts.doNoiseScan = true;
     writeEPI('noise', sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, nFrames, 'SMS', opts);
     opts.doNoiseScan = false;
 end
 
-
-% epical.seq for:
+% epical.seq
 %  - EPI ghost calibration
 if TODO(3)
     opts.doRefScan = true;
@@ -117,20 +116,24 @@ if TODO(3)
     opts.doRefScan = false;
 end
 
-% 2D mb=1 sequence for:
+% slgcal.seq
 %  - slice GRAPPA calibration
 if TODO(4)
     writeEPI('slgcal', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), nFrames, 'SMS', opts);
 end
 
-% 2D mb=1, Ry=1 sequence for:
+% grappacal.seq
 %  - GRAPPA calibration
 if TODO(5)
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
     writeEPI('grappacal', sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, nFrames, 'SMS', opts);
 end
 
-% 3D GRE for B0 and sensitivity maps
+% b0.seq
+%  - 3D B0 field / coil sensitivity maps
 if TODO(6)
-    writeB0('b0', sys, voxelSize, [nx nx nx], 4);
+    writeB0('b0', ...
+        pge2.utils.override(sys, 'maxSlew', sys.maxSlew*0.5, 'maxGrad', sys.maxGrad*0.5), ...
+        voxelSize, [nx nx nx], 4);
 end
+
