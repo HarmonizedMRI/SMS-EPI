@@ -24,15 +24,6 @@ function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFram
 narginchk(11,12);
 if nargin < 12 || isempty(opts), opts = struct(); end
 
-% TR: numeric scalar (positive) OR the char/string 'min'
-if ischar(TR) || isstring(TR)
-    validatestring(TR, {'min'}, mfilename, 'TR');
-else
-    validateattributes(TR, {'numeric'}, {'scalar','real','positive','finite'}, ...
-        mfilename, 'TR');
-end
-
-% other inputs
 validateattributes(voxelSize, {'numeric'}, {'vector','numel',3}, mfilename, 'voxelSize');
 validateattributes(N, {'numeric'}, {'vector','integer','numel',3}, mfilename, 'N');
 validateattributes(alpha, {'numeric'}, {'scalar'}, mfilename, 'alpha');
@@ -44,6 +35,14 @@ assert(ismember(lower(type), {'sms','3d'}), 'type must be ''SMS'' or ''3D''.', m
 
 assert(length(IY) == length(IZ), 'IY and IZ must be the same length');
 assert(mod(N(3), mb) == 0, 'nz must be divisible by mb.');
+
+% TR: numeric scalar (positive) OR the char/string 'min'
+if ischar(TR) || isstring(TR)
+    validatestring(TR, {'min'}, mfilename, 'TR');
+else
+    validateattributes(TR, {'numeric'}, {'scalar','real','positive','finite'}, ...
+        mfilename, 'TR');
+end
 
 % --- Default parameters and input overrides ---
 arg.fatSat = true;  
@@ -334,7 +333,7 @@ if arg.doNoiseScan
     seq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
 end
 
-% --- Check sequence timing ---
+% --- Check timing, write .seq file, and plot ---
 [ok, error_report]=seq.checkTiming;
 if (ok)
     fprintf('Timing check passed\n');
@@ -344,7 +343,6 @@ else
     fprintf('\n');
 end
 
-% --- Write .seq file and plot ---
 seq.setDefinition('FOV', fov);
 if ~isempty(seqName)
     seqName = replace(seqName, {'.seq', '.pge'}, '');
