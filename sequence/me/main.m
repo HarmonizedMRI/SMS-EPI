@@ -132,5 +132,5 @@ end
 
 % 3D GRE for B0 and sensitivity maps
 if TODO(6)
-    writeB0('b0', sys, voxelSize, [round([nx ny]*1.2/2)*2 2*nz], 4);
+    writeB0('b0', sys, voxelSize, [nx nx nx], 4);
 end
