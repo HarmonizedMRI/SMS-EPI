@@ -1,6 +1,16 @@
 # Multi-echo SMS-EPI sequence
 
-In development.
+## Usage
+
+To create the sequence files, do:
+
+1. Install Python environment (see below)
+2. In MATLAB:
+   ```matlab
+   >> setup;
+   >> main;
+
+   ```
 
 
 ## Setup 
@@ -28,9 +38,5 @@ For example, on the Linux command line, do:
 ### MATLAB setup
 
 Run setup.m
-
-## Create the sequence files
-
-Edit 'main.m' and run it.
 
 
