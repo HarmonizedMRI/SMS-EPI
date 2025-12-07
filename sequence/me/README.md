@@ -1,5 +1,7 @@
 # Multi-echo SMS-EPI sequence
 
+These scans are currently underoing testing on GE and Siemens scanners.
+
 ## Usage
 
 To create the sequence files, do:
