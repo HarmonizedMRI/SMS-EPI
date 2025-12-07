@@ -4,12 +4,15 @@
 
 To create the sequence files, do:
 
-1. Install Python environment (see below)
+1. Activate Python environment (see below) and start MATLAB
+    ```shell
+    $ source myvenv/bin/activate
+    (myenv) $ matlab
+    ```
 2. In MATLAB:
    ```matlab
    >> setup;
    >> main;
-
    ```
 
 
