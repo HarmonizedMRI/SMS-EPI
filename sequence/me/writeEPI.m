@@ -88,9 +88,6 @@ lv.rfSpoilingInc = pge2.utils.iff(arg.RFspoil, 117, 0);    % RF spoiling increme
 rfTB = pge2.utils.iff(lv.is3D, 8, 6);   % RF pulse time-bandwidth product
 rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 
-fatChemShift = 3.5*1e-6;                        % 3.5 ppm
-fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
-
 % --- Create fat sat pulse ---
 
 fatsat.flip    = 90;      % degrees
@@ -189,7 +186,7 @@ lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipAre
 %   |           /               \
 %   |          /                 \
 %   |         /                   \
-%   |        +<------- ADC ------->+   gamp
+%   |        +<------- ADC ------->+  
 %   |       /                       \
 %   |      /                         \
 %   +-----+---------------------------+--+-------> time
