@@ -88,9 +88,6 @@ lv.rfSpoilingInc = pge2.utils.iff(arg.RFspoil, 117, 0);    % RF spoiling increme
 rfTB = pge2.utils.iff(lv.is3D, 8, 6);   % RF pulse time-bandwidth product
 rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 
-fatChemShift = 3.5*1e-6;                        % 3.5 ppm
-fatOffresFreq = sys.gamma*sys.B0*fatChemShift;  % Hz
-
 % --- Create fat sat pulse ---
 
 fatsat.flip    = 90;      % degrees
@@ -182,79 +179,32 @@ lv.gyRewind = mr.makeTrapezoid('y', ...
 lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
     'maxGrad', deltak(1)/dwell);  
 
-% Split readout into shape parts to avoid unique shapes per block.
-%
-% gro_t0_t1: ramp from 0 to end of gy/gz blip (t1)
-% gro_t1_t4: from t1 to t4. Contains ADC window (symmetric).
-% gro_t4_t5: ramp from start of gy/gz blip (t4) to 0 
+% Circularly shift gro waveform to contain blips within each block
 %
 %   ^
 %   |            +-------------+   gro.amplitude
 %   |           /               \
 %   |          /                 \
-%   |         /                   \   
-%   |        +<------- ADC ------->+   gamp
+%   |         /                   \
+%   |        +<------- ADC ------->+  
 %   |       /                       \
 %   |      /                         \
 %   +-----+---------------------------+--+-------> time
 %         t0 t1 t2             t3  t4 t5 t6
-
-gamp = lv.gro.amplitude/lv.gro.riseTime*blipDuration/2;
-
-t0 = 0;
-t1 = t0 + blipDuration/2;
-t2 = t0 + lv.gro.riseTime;
-t3 = t2 + lv.gro.flatTime;
-t5 = t3 + lv.gro.fallTime;
-t4 = t5 - blipDuration/2;
-t6 = t5 + blipDuration/2;
-
-area_t0_t1 = gamp * (t1-t0)/2;
-area_t1_t2 = (lv.gro.amplitude-gamp) * (t2-t1)/2;
-area_t2_t3 = (lv.gro.amplitude-gamp) * (t3-t2);
-area_t3_t4 = area_t1_t2;
-area_t4_t5 = area_t0_t1;
-area_t5_t6 = -area_t0_t1;
-
-lv.gro_t0_t1 = struct('type', 'grad', ...
-      'channel', 'x', ...
-      'waveform', [0 gamp], ...
-      'delay', 0, ...
-      'tt', [t0 t1] - t0, ...
-      'shape_dur', t1 - t0, ...
-      'area', area_t0_t1, ...
-      'first', 0, ...
-      'last', gamp);
-
-lv.gro_t1_t5 = struct('type', 'grad', ...
-      'channel', 'x', ...
-      'waveform', [gamp lv.gro.amplitude lv.gro.amplitude 0], ...
-      'delay', 0, ...
-      'tt', [t1 t2 t3 t5] - t1, ...
-      'shape_dur', t5 - t1, ...
-      'area', area_t1_t2 + area_t2_t3 + area_t3_t4 + area_t4_t5, ...
-      'first', gamp, ...
-      'last', 0);
-
-lv.gro_t1_t6 = struct('type', 'grad', ...
-      'channel', 'x', ...
-      'waveform', [gamp lv.gro.amplitude lv.gro.amplitude -gamp], ...
-      'delay', 0, ...
-      'tt', [t1 t2 t3 t6] - t1, ...
-      'shape_dur', t6 - t1, ...
-      'area', lv.gro_t1_t5.area + area_t5_t6, ...
-      'first', gamp, ...
-      'last', -gamp);
-
-% set blip delays (they happen at end of t1-t6 block)
-lv.gyBlip.delay = t5 - mr.calcDuration(lv.gyBlip)/2 - t1;
-lv.gzBlip.delay = t5 - mr.calcDuration(lv.gzBlip)/2 - t1;
+[lv.gro_t0_t1, lv.gro_t1_t5] = mr.splitGradientAt(lv.gro, blipDuration/2, sys);
+lv.gro_t1_t5.delay = 0;
+lv.gro_t0_t1.delay = lv.gro_t1_t5.shape_dur;
+lv.gro_t1_t6 = mr.addGradients({lv.gro_t1_t5, mr.scaleGrad(lv.gro_t0_t1, -1)}, sys);
+lv.gro_t1_t5.delay = 0; % This piece is necessary at the very beginning of the readout
 
 % ADC event 
-numSamples = sys.adcSamplesDivisor*round((t4-t1)/dwell/sys.adcSamplesDivisor);
-lv.adc = mr.makeAdc(numSamples, sys, ...
-    'Duration', dwell*numSamples, ...
-    'Delay', 0);
+numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(lv.gro) - blipDuration)/dwell/sys.adcSamplesDivisor);
+Tread = dwell*numSamples;
+lv.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', 0);
+
+% Delay blips so they play after adc stops
+gyBlip.delay = Tread;
+gzBlip.delay = Tread;
 
 % prephasers. Reduce slew a bit.
 lv.gxPre = mr.makeTrapezoid('x', ...
