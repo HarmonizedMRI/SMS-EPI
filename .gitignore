@@ -14,3 +14,17 @@
 *arch/
 *.vscode/
 
+# embedded repo
+example/mirt/
+example/toppe/
+example/utils/
+sequence/3DEPI/
+sequence/PulCeq/
+sequence/me/3DEPI/
+sequence/me/PulCeq/
+sequence/me/pulseq/
+sequence/me/pulseq2pge2.m
+sequence/me/toppe/
+sequence/pulseq/
+sequence/toppe/
+	

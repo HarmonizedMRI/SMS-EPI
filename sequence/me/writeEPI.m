@@ -48,6 +48,7 @@ arg.freqSign = +1;
 arg.fatFreqSign = -1;
 arg.doConj = false;
 arg.trigOut = false;
+arg.nDummyFrames = 0; %dummy shots
 
 arg = toppe.utils.vararg_pair(arg, varargin);
 
@@ -320,17 +321,27 @@ seq = mr.Sequence(sys);
 rf_phase = 0;
 rf_inc = 0;
 
-for ifr = 1:nFrames
+for ifr = (1-arg.nDummyFrames):nFrames
     fprintf('\rFrame %d of %d     ', ifr, nFrames);
+    
+    % dummy shots to reach steady-state
+    isDummyShot = ifr < 1;
 
-    yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
+    % First frame is EPI calibration/reference scan (blips off)
+    isRefShot = ((ifr ==1) & (arg.doRefScan));
+
+    yBlipsOn = ((~isRefShot)&(~isDummyShot)) - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
     zBlipsOn = yBlipsOn; 
 
     % slice (partition/SMS group) loop
     for p = IP
 
         % Label the start of segment instance
-        seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
+        if isDummyShot
+            seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
+        else
+            seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
+        end
 
         % fat sat
         if arg.fatSat
@@ -361,12 +372,22 @@ for ifr = 1:nFrames
         
         for e = 1:etl-1
             if IYlabel(e)   % readout followed by ky/kz blip
-                seq.addBlock(adc, ...
-                    mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
-                    mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
-                    mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+                if isDummyShot
+                    seq.addBlock(mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
+                        mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
+                        mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+                else
+                    seq.addBlock(adc, ...
+                        mr.scaleGrad(gro_t1_t6, (-1)^(e+1)), ...
+                        mr.scaleGrad(gyBlip, arg.gySign*yBlipsOn*kyStep(e)/max(kyStepMax,1)), ...
+                        mr.scaleGrad(gzBlip, zBlipsOn*kzStep(e)/max(kzStepMax,1)));
+                end
             else             % readout followed by ky rewinder
-                seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(e+1)), adc);
+                if isDummyShot
+                    seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(e+1)));
+                else
+                    seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(e+1)), adc);
+                end
                 tmpDelay = gzBlip.delay;
                 gzBlip.delay = 0;
                 seq.addBlock(mr.scaleGrad(gyRewind, arg.gySign*yBlipsOn*kyStep(e)/max(kyRewindMax,1)), ...
@@ -375,8 +396,12 @@ for ifr = 1:nFrames
                 seq.addBlock(mr.scaleGrad(gro_t0_t1, (-1)^(e+2)));
             end
         end
-
-        seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)), adc);
+        
+        if isDummyShot
+            seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)));
+        else
+            seq.addBlock(mr.scaleGrad(gro_t1_t5, (-1)^(etl+1)), adc);
+        end
 
         % finish out the TR
         if is3D
