@@ -1,4 +1,4 @@
-function [seq, lv] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+function [seq, echo] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
 % Build an SMS EPI Pulseq sequence.
 %   seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, ...
 %                  nFrames, type, opts)
@@ -18,13 +18,13 @@ function [seq, lv] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ,
 %   opts        optional struct with fields that override defaults
 %
 % Input options
-%   lv          struct      Same type as output. If provided, lv.gro* and lv.adc
+%   echo        struct      Same type as output. If provided, echo.gro* and echo.adc
 %                           are used to create the readout echo train, so that they
 %                           remain the same across several calls to this function.
 %
 % Outputs
 %   seq         struct      Pulseq sequence object
-%   lv          struct      various local variable created inside this function
+%   echo        struct      various local variable created inside this function
 
 % --- Input checks ---
 narginchk(11,12);
@@ -65,7 +65,7 @@ arg.segmentRingdownTime = 117e-6;  % segment ringdown time for Pulseq on GE
 arg.simulateSliceProfile = false;  % simulate SMS profile and display
 arg.gzPreOn = true;                % prephase along kz by -mb/2*deltak
 arg.plot = false;
-arg.lv = [];   
+arg.echo = [];   
 
 fn = fieldnames(opts);
 for k = 1:numel(fn)
@@ -183,9 +183,9 @@ lv.gyRewind = mr.makeTrapezoid('y', ...
     'Area', lv.kyRewindMax*deltak(2));
 
 % Readout trapezoid and ADC event 
-if isempty(arg.lv)
+if isempty(arg.echo)
     % Create a new readout trapezoid and associated ADC event
-    lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
+    echo.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
         'maxGrad', deltak(1)/dwell);  
 
     % Circularly shift gro waveform to contain blips within each block
@@ -200,32 +200,32 @@ if isempty(arg.lv)
     %   |      /                         \
     %   +-----+---------------------------+--+-------> time
     %         t0 t1 t2             t3  t4 t5 t6
-    [lv.gro_t0_t1, lv.gro_t1_t5] = mr.splitGradientAt(lv.gro, blipDuration/2, sys);
-    lv.gro_t1_t5.delay = 0;
-    lv.gro_t0_t1.delay = lv.gro_t1_t5.shape_dur;
-    lv.gro_t1_t6 = mr.addGradients({lv.gro_t1_t5, mr.scaleGrad(lv.gro_t0_t1, -1)}, sys);
-    lv.gro_t1_t5.delay = 0; % This piece is necessary at the very beginning of the readout
+    [echo.gro_t0_t1, echo.gro_t1_t5] = mr.splitGradientAt(echo.gro, blipDuration/2, sys);
+    echo.gro_t1_t5.delay = 0;
+    echo.gro_t0_t1.delay = echo.gro_t1_t5.shape_dur;
+    echo.gro_t1_t6 = mr.addGradients({echo.gro_t1_t5, mr.scaleGrad(echo.gro_t0_t1, -1)}, sys);
+    echo.gro_t1_t5.delay = 0; % This piece is necessary at the very beginning of the readout
 
-    numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(lv.gro) - blipDuration)/dwell/sys.adcSamplesDivisor);
+    numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(echo.gro) - blipDuration)/dwell/sys.adcSamplesDivisor);
     Tread = dwell*numSamples;
-    lv.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', 0);
+    echo.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', 0);
 else
     % Use provided gradient shapes and ADC event
-    lv.gro = arg.lv.gro;
-    lv.gro_t0_t1 = arg.lv.gro_t0_t1;
-    lv.gro_t1_t5 = arg.lv.gro_t1_t5;
-    lv.gro_t1_t6 = arg.lv.gro_t1_t6;
-    lv.adc = arg.lv.adc;
+    echo.gro = arg.echo.gro;
+    echo.gro_t0_t1 = arg.echo.gro_t0_t1;
+    echo.gro_t1_t5 = arg.echo.gro_t1_t5;
+    echo.gro_t1_t6 = arg.echo.gro_t1_t6;
+    echo.adc = arg.echo.adc;
 end
 
 % Delay blips so they play after adc stops
-lv.gyBlip.delay = mr.calcDuration(lv.gro) - blipDuration; 
-lv.gzBlip.delay = mr.calcDuration(lv.gro) - blipDuration; 
+lv.gyBlip.delay = mr.calcDuration(echo.gro) - blipDuration; 
+lv.gzBlip.delay = mr.calcDuration(echo.gro) - blipDuration; 
 
 % prephasers. Reduce slew a bit.
 lv.gxPre = mr.makeTrapezoid('x', ...
     pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
-    'Area', -lv.gro.area/2);
+    'Area', -echo.gro.area/2);
 Tpre = mr.calcDuration(lv.gxPre);
 lv.gyPre = mr.makeTrapezoid('y', ...
     pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
@@ -277,7 +277,7 @@ for ifr = 1:nFrames
         seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
 
         % add a TR: fat sat => SMS slice excitation => EPI readout)
-        [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, arg, p, rf_phase, rf_inc);
+        [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, echo, arg, p, rf_phase, rf_inc);
 
         % add delay to achieve requested TR
         if p == IP(1) 
@@ -323,7 +323,7 @@ end
 
 
 %% Subfunction: add one EPI shot
-function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_inc)
+function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, echo, arg, p, rf_phase, rf_inc)
 
     % fat sat
     if arg.fatSat & ~arg.doNoiseScan
@@ -337,7 +337,7 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_in
     % SMS excitation 
     lv.rf.freqOffset = pge2.utils.iff(lv.is3D, 0, round((p-1)*lv.freq));  
     lv.rf.phaseOffset = rf_phase/180*pi - 2*pi*lv.rf.freqOffset*mr.calcRfCenter(lv.rf);  % align the phase for off-center slices
-    lv.adc.phaseOffset = rf_phase/180*pi;
+    echo.adc.phaseOffset = rf_phase/180*pi;
     sq.addBlock(pge2.utils.iff(arg.doNoiseScan, [], lv.rf), lv.gzRF);
 
     rf_inc = mod(rf_inc+lv.rfSpoilingInc, 360.0);
@@ -352,26 +352,26 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, arg, p, rf_phase, rf_in
     sq.addBlock(lv.gxPre, mr.scaleGrad(lv.gyPre, arg.gySign*lv.yBlipsOn), mr.scaleGrad(lv.gzPre, amp));
 
     % echo train
-    sq.addBlock(lv.gro_t0_t1);
+    sq.addBlock(echo.gro_t0_t1);
 
     for e = 1:lv.etl-1
         if lv.IYlabel(e)   % readout followed by ky/kz blip
-            sq.addBlock(lv.adc, ...
-                mr.scaleGrad(lv.gro_t1_t6, (-1)^(e+1)), ...
+            sq.addBlock(echo.adc, ...
+                mr.scaleGrad(echo.gro_t1_t6, (-1)^(e+1)), ...
                 mr.scaleGrad(lv.gyBlip, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyStepMax,1)), ...
                 mr.scaleGrad(lv.gzBlip, lv.zBlipsOn*lv.kzStep(e)/max(lv.kzStepMax,1)));
         else               % readout followed by ky rewinder
-            sq.addBlock(mr.scaleGrad(lv.gro_t1_t5, (-1)^(e+1)), lv.adc);
+            sq.addBlock(mr.scaleGrad(echo.gro_t1_t5, (-1)^(e+1)), echo.adc);
             tmpDelay = lv.gzBlip.delay;
             lv.gzBlip.delay = 0;
             sq.addBlock(mr.scaleGrad(lv.gyRewind, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyRewindMax,1)), ...
                 mr.scaleGrad(lv.gzBlip, lv.zBlipsOn*lv.kzStep(e)/max(lv.kzStepMax,1)));
             lv.gzBlip.delay = tmpDelay;
-            sq.addBlock(mr.scaleGrad(lv.gro_t0_t1, (-1)^(e+2)));
+            sq.addBlock(mr.scaleGrad(echo.gro_t0_t1, (-1)^(e+2)));
         end
     end
 
-    sq.addBlock(mr.scaleGrad(lv.gro_t1_t5, (-1)^(lv.etl+1)), lv.adc);
+    sq.addBlock(mr.scaleGrad(echo.gro_t1_t5, (-1)^(lv.etl+1)), echo.adc);
 
     % finish out the TR
     if lv.is3D

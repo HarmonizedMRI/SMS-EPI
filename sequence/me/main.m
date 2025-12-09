@@ -99,7 +99,7 @@ opts = struct('fatSat', fatSat, ...
     'doNoiseScan', false, ...
     'plot', false, ...
     'simulateSliceProfile', false, ...
-    'lv', []);
+    'echo', []);
 
 %----------------------------------------------------------
 % write sequences
@@ -108,10 +108,10 @@ opts = struct('fatSat', fatSat, ...
 nFrames = 1;
 
 % fmri.seq 
-% Determines readout gradient and ADC event (defined in return struct lv)
+% Determines readout gradient and ADC event (defined in return struct echo)
 if TODO(1)
     fn = 'fmri';
-    [~, lv] = writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
+    [~, echo] = writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
         nFrames, 'SMS', opts);
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
@@ -125,7 +125,7 @@ if TODO(2)
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, ...
             'doNoiseScan', true,  ...
-            'lv', lv) );
+            'echo', echo) );
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
     end
@@ -137,7 +137,7 @@ if TODO(3)
     fn = 'epical';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'doRefScan', true, 'lv', lv));
+        pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
     end
@@ -149,7 +149,7 @@ if TODO(4)
     fn = 'slgcal';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'lv', lv));
+        pge2.utils.setfields(opts, 'echo', echo));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
     end
@@ -162,7 +162,7 @@ if TODO(5)
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'lv', lv));
+        pge2.utils.setfields(opts, 'echo', echo));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IYtmp)*nz/2), PNSwt);
     end
