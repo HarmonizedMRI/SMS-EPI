@@ -18,8 +18,14 @@
 example/mirt/
 example/toppe/
 example/utils/
+example/me/mirt/
+example/me/toppe/
 sequence/3DEPI/
 sequence/PulCeq/
 sequence/pulseq/
 sequence/toppe/
+sequence/me/3DEPI/
+sequence/me/PulCeq/
+sequence/me/pulseq/
+sequence/me/toppe/
 
