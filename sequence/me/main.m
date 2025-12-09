@@ -98,7 +98,8 @@ opts = struct('fatSat', fatSat, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
     'plot', false, ...
-    'simulateSliceProfile', false);
+    'simulateSliceProfile', false, ...
+    'lv', []);
 
 %----------------------------------------------------------
 % write sequences
@@ -107,9 +108,10 @@ opts = struct('fatSat', fatSat, ...
 nFrames = 1;
 
 % fmri.seq 
+% Determines readout gradient and ADC event (defined in return struct lv)
 if TODO(1)
     fn = 'fmri';
-    writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
+    [~, lv] = writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
         nFrames, 'SMS', opts);
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
@@ -121,7 +123,9 @@ if TODO(2)
     fn = 'noise';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'doNoiseScan', true));
+        pge2.utils.setfields(opts, ...
+            'doNoiseScan', true,  ...
+            'lv', lv) );
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
     end
@@ -133,7 +137,7 @@ if TODO(3)
     fn = 'epical';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'doRefScan', true));
+        pge2.utils.setfields(opts, 'doRefScan', true, 'lv', lv));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
     end
@@ -144,7 +148,8 @@ end
 if TODO(4)
     fn = 'slgcal';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), ...
-        nFrames, 'SMS', opts);
+        nFrames, 'SMS', ...
+        pge2.utils.setfields(opts, 'lv', lv));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
     end
@@ -156,7 +161,8 @@ if TODO(5)
     fn = 'grappacal';
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, ...
-        nFrames, 'SMS', opts);
+        nFrames, 'SMS', ...
+        pge2.utils.setfields(opts, 'lv', lv));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IYtmp)*nz/2), PNSwt);
     end

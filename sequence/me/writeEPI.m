@@ -1,4 +1,4 @@
-function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
+function [seq, lv] = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFrames, type, opts)
 % Build an SMS EPI Pulseq sequence.
 %   seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, ...
 %                  nFrames, type, opts)
@@ -17,8 +17,14 @@ function seq = writeEPI(seqName, sys, voxelSize, N, TR, alpha, mb, IY, IZ, nFram
 %   type        string          'SMS' or '3D'
 %   opts        optional struct with fields that override defaults
 %
+% Input options
+%   lv          struct      Same type as output. If provided, lv.gro* and lv.adc
+%                           are used to create the readout echo train, so that they
+%                           remain the same across several calls to this function.
+%
 % Outputs
-%   seq         struct          Pulseq sequence object
+%   seq         struct      Pulseq sequence object
+%   lv          struct      various local variable created inside this function
 
 % --- Input checks ---
 narginchk(11,12);
@@ -59,6 +65,7 @@ arg.segmentRingdownTime = 117e-6;  % segment ringdown time for Pulseq on GE
 arg.simulateSliceProfile = false;  % simulate SMS profile and display
 arg.gzPreOn = true;                % prephase along kz by -mb/2*deltak
 arg.plot = false;
+arg.lv = [];   
 
 fn = fieldnames(opts);
 for k = 1:numel(fn)
@@ -175,36 +182,45 @@ lv.gyRewind = mr.makeTrapezoid('y', ...
     pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
     'Area', lv.kyRewindMax*deltak(2));
 
-% Readout trapezoid
-lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
-    'maxGrad', deltak(1)/dwell);  
+% Readout trapezoid and ADC event 
+if isempty(arg.lv)
+    % Create a new readout trapezoid and associated ADC event
+    lv.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
+        'maxGrad', deltak(1)/dwell);  
 
-% Circularly shift gro waveform to contain blips within each block
-%
-%   ^
-%   |            +-------------+   gro.amplitude
-%   |           /               \
-%   |          /                 \
-%   |         /                   \
-%   |        +<------- ADC ------->+  
-%   |       /                       \
-%   |      /                         \
-%   +-----+---------------------------+--+-------> time
-%         t0 t1 t2             t3  t4 t5 t6
-[lv.gro_t0_t1, lv.gro_t1_t5] = mr.splitGradientAt(lv.gro, blipDuration/2, sys);
-lv.gro_t1_t5.delay = 0;
-lv.gro_t0_t1.delay = lv.gro_t1_t5.shape_dur;
-lv.gro_t1_t6 = mr.addGradients({lv.gro_t1_t5, mr.scaleGrad(lv.gro_t0_t1, -1)}, sys);
-lv.gro_t1_t5.delay = 0; % This piece is necessary at the very beginning of the readout
+    % Circularly shift gro waveform to contain blips within each block
+    %
+    %   ^
+    %   |            +-------------+   gro.amplitude
+    %   |           /               \
+    %   |          /                 \
+    %   |         /                   \
+    %   |        +<------- ADC ------->+  
+    %   |       /                       \
+    %   |      /                         \
+    %   +-----+---------------------------+--+-------> time
+    %         t0 t1 t2             t3  t4 t5 t6
+    [lv.gro_t0_t1, lv.gro_t1_t5] = mr.splitGradientAt(lv.gro, blipDuration/2, sys);
+    lv.gro_t1_t5.delay = 0;
+    lv.gro_t0_t1.delay = lv.gro_t1_t5.shape_dur;
+    lv.gro_t1_t6 = mr.addGradients({lv.gro_t1_t5, mr.scaleGrad(lv.gro_t0_t1, -1)}, sys);
+    lv.gro_t1_t5.delay = 0; % This piece is necessary at the very beginning of the readout
 
-% ADC event 
-numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(lv.gro) - blipDuration)/dwell/sys.adcSamplesDivisor);
-Tread = dwell*numSamples;
-lv.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', 0);
+    numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(lv.gro) - blipDuration)/dwell/sys.adcSamplesDivisor);
+    Tread = dwell*numSamples;
+    lv.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', 0);
+else
+    % Use provided gradient shapes and ADC event
+    lv.gro = arg.lv.gro;
+    lv.gro_t0_t1 = arg.lv.gro_t0_t1;
+    lv.gro_t1_t5 = arg.lv.gro_t1_t5;
+    lv.gro_t1_t6 = arg.lv.gro_t1_t6;
+    lv.adc = arg.lv.adc;
+end
 
 % Delay blips so they play after adc stops
-gyBlip.delay = Tread;
-gzBlip.delay = Tread;
+lv.gyBlip.delay = mr.calcDuration(lv.gro) - blipDuration; 
+lv.gzBlip.delay = mr.calcDuration(lv.gro) - blipDuration; 
 
 % prephasers. Reduce slew a bit.
 lv.gxPre = mr.makeTrapezoid('x', ...
