@@ -4,10 +4,10 @@
 %system('git clone git@github.com:pulseq/pulseq.git');
 %addpath pulseq/matlab
 
-addpath ./lib/
-addpath ./lib/
-addpath ~/github/jfnielsen/scanLog/SiemensRead/   % Read Siemens .dat files
-addpath ~/Programs/orchestra-sdk-2.1-1.matlab/   % toolbox for loading GE raw files
+addpath ~/github/SMS-EPI/example/lib/
+
+addpath /home/jfnielse/github/jfnielsen/scanLog/SiemensRead/   % Read Siemens .dat files
+addpath /home/jfnielse/Programs/orchestra-sdk-2.1-1.matlab/   % toolbox for loading GE raw files
 
 % hmriutils toolbox
 system('git clone --branch develop git@github.com:HarmonizedMRI/utils.git');

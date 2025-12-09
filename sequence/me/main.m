@@ -9,7 +9,7 @@
 % 8. 3D EPI mb=1
 % 9. 3D GRE B0 mapping
 
-TODO = [1 1 1 1 0 0 0 0];
+TODO = [0 1 0 0 0 0 0 0 0];
 
 %scanner = 'Siemens';
 scanner = 'GE';
@@ -75,7 +75,8 @@ if TODO(1)
         'doConj', doConj, ...
         'doRefScan', false, ...
         'trigOut', true, ...
-        'simulateSliceProfile', true);
+        'simulateSliceProfile', true, ...
+        'saveRO',true);
     dur = 5*40 + 10;    % scan duration, sec
     dur = 5*60 + 10;    % scan duration, sec
     nRuns = dur/(nFrames*TR);     % CV8/opuser8 on UI
@@ -96,7 +97,8 @@ if TODO(2)
         'fatFreqSign', fatFreqSign, ...
         'doConj', doConj, ...
         'doRefScan', true, ...  % if true, 1st frame is ghost calibration (blips off)
-        'gro', gro, 'adc', adc);  % use readout and adc events from the mb6 scan
+        'gro', gro, 'adc', adc, ...
+        'saveRO',true);  % use readout and adc events from the mb6 scan
 end
 
 % 2D mb=1 sequence for:
@@ -125,7 +127,8 @@ if TODO(3)
         'doConj', doConj, ...
         'doRefScan', true, ...  % if true, 1st frame is ghost calibration (blips off)
         'simulateSliceProfile', true, ...
-        'gro', gro, 'adc', adc);  % use readout and adc events from the mb6 scan
+        'gro', gro, 'adc', adc, ...
+        'saveRO',true);  % use readout and adc events from the mb6 scan
 end
 
 % 2D mb=1 fully-sampled sequence for:

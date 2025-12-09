@@ -49,6 +49,7 @@ arg.fatFreqSign = -1;
 arg.doConj = false;
 arg.trigOut = false;
 arg.nDummyFrames = 0; %dummy shots
+arg.saveRO = false;
 
 arg = toppe.utils.vararg_pair(arg, varargin);
 
@@ -440,6 +441,15 @@ ifn = [arg.seqName '.seq'];
 seq.write(ifn);       % Write to pulseq file
 
 seq.plot('timeRange', [0 0.1], 'stacked', true);
+
+%% save k-traj to mat-file for EPI ghost correction
+if arg.saveRO
+    [ktraj_adc,t_adc,ktraj,t_ktraj,t_excitation,t_refocusing] = seq.calculateKspacePP();
+    kxo = ktraj_adc(1, 1:adc.numSamples)/100; %cycle/cm
+    kxe = ktraj_adc(1, adc.numSamples+1:adc.numSamples*2)/100; %cycle/cm
+    
+    save(sprintf('./kxoe%d.mat',N(1)),'kxo','kxe','-v7.3');
+end
 
 % add caipi.mat to the .tar file
 %system(sprintf('tar --append --file=%s caipi.mat', ofn));
