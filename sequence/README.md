@@ -24,7 +24,7 @@ For example, on the Linux command line, do:
 
 ### MATLAB setup
 
-See main.m
+See setup.m
 
 ## Create the Pulseq sequence files
 
