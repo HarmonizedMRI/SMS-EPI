@@ -62,6 +62,10 @@ switch lower(vendor)
         coil = 'xrm';          % 'hrmbuhp' (UHP); 'xrm' (MR750)
         sysGE = pge2.opts(psd_rf_wait, psd_grd_wait, b1_max, g_max, slew_max, coil);
 
+        % settings for writing pge<>.entry files
+        pgeFilePath = '/srv/nfs/psd/usr/psd/pulseq/v7/sequences/hfmri';
+        entryFileNumber = 410;  % starting value
+
     case 'siemens'
         % Settings for Siemens Vida bay MR7 @ U-Mich University Hospital
         gySign = 1;
@@ -115,6 +119,7 @@ if TODO(1)
         nFrames, 'SMS', opts);
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
 end
 
@@ -128,6 +133,8 @@ if TODO(2)
             'echo', echo) );
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
+        entryFileNumber = entryFileNumber + 1;
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
 end
 
@@ -152,6 +159,8 @@ if TODO(4)
         pge2.utils.setfields(opts, 'echo', echo));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
+        entryFileNumber = entryFileNumber + 1;
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
 end
 
@@ -165,6 +174,8 @@ if TODO(5)
         pge2.utils.setfields(opts, 'echo', echo));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IYtmp)*nz/2), PNSwt);
+        entryFileNumber = entryFileNumber + 1;
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
 end
 
@@ -179,6 +190,14 @@ if TODO(6)
         voxelSize, [nx nx nx], 4);
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, ny, PNSwt);
+        entryFileNumber = entryFileNumber + 1;
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
 end
 
+if strcmp(lower(vendor), 'ge')
+    ofn = 'pgescans-' + string(date) + '.tar';
+    system(sprintf('rm %s', ofn));
+    system(sprintf('tar cf %s *.entry *.pge', ofn));
+end
+    
