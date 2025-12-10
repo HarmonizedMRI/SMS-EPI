@@ -54,6 +54,7 @@ switch lower(vendor)
         rfRasterTime = 4e-6;
         blockDurationRaster = 4e-6;
         B0 = 3;
+        segmentRingdownTime = 117e-6;
 
         psd_rf_wait = 100e-6;  % RF-gradient delay, scanner specific (s)
         psd_grd_wait = 100e-6; % ADC-gradient delay, scanner specific (s)
@@ -77,6 +78,7 @@ switch lower(vendor)
         rfRasterTime = 1e-6;
         blockDurationRaster = 10e-6;
         B0 = 2.89;
+        segmentRingdownTime = 0;
 end
 
 % slew is set to avoid forbidden EPI echo spacings for MR750 and UHP scanners
@@ -100,6 +102,7 @@ opts = struct('fatSat', fatSat, ...
     'freqSign', freqSign, ...
     'fatFreqSign', fatFreqSign, ...
     'doConj', doConj, ...
+    'segmentRingdownTime', segmentRingdownTime, ...
     'doRefScan', false, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
@@ -117,8 +120,9 @@ nFrames = 1;
 % Determines readout gradient and ADC event (defined in return struct echo)
 if TODO(1)
     fn = 'fmri';
+    nFramesTmp = 4;   % since opnex is limited
     [~, echo] = writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
-        nFrames, 'SMS', opts);
+        nFramesTmp, 'SMS', opts);
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);

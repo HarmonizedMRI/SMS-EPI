@@ -61,7 +61,7 @@ arg.doRefScan = false;          % turn off ky and ky encoding
 arg.trigOut = false;
 arg.doNoiseScan = false;
 arg.TEdelay = 0;
-arg.segmentRingdownTime = 117e-6;  % segment ringdown time for Pulseq on GE 
+arg.segmentRingdownTime = 0;  % segment ringdown time for Pulseq on GE 
 arg.simulateSliceProfile = false;  % simulate SMS profile and display
 arg.gzPreOn = true;                % prephase along kz by -mb/2*deltak
 arg.plot = false;
@@ -280,7 +280,7 @@ for ifr = 1:nFrames
         [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, echo, arg, p, rf_phase, rf_inc);
 
         % add delay to achieve requested TR
-        if p == IP(1) 
+        if ifr == 1 & p == IP(1) 
             minTR = seq.duration + arg.segmentRingdownTime;
             if ischar(TR)
                 TR = lv.np * minTR;
