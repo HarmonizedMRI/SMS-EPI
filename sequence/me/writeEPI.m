@@ -307,7 +307,7 @@ fprintf('\n');
 
 % If noise scan, add dummy RF pulse at end so the sequence contains at least one RF pulse
 if arg.doNoiseScan
-    seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
+    seq.addBlock(mr.makeLabel('SET', 'TRID', 3));
     seq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
 end
 
