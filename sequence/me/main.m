@@ -154,7 +154,7 @@ if TODO(3)
     fn = 'epical';
     writeEPI(fn, sys, voxelSize, [nx ny nz], 2*TR*mb, alpha, 1, IY, IZ, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo,'nDummyFrames',4));
+        pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo,'nDummyFrames',2));
     if strcmp(lower(vendor), 'ge')
         entryFileNumber = entryFileNumber + 1;
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
@@ -169,7 +169,7 @@ if TODO(4)
     fn = 'slgcal';
     writeEPI(fn, sys, voxelSize, [nx ny nz], 2*TR*mb, alpha, 1, IY, ones(size(IZ)), ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',4));
+        pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',2));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, 1, PNSwt);
         entryFileNumber = entryFileNumber + 1;
@@ -184,7 +184,7 @@ if TODO(5)
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
     writeEPI(fn, sys, voxelSize, [nx ny nz], 2*TR*mb, alpha, 1, IYtmp, IZtmp, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',4));
+        pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',2));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, 1, PNSwt);
         entryFileNumber = entryFileNumber + 1;
