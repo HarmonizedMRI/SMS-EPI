@@ -208,7 +208,6 @@ end
 
 if strcmp(lower(vendor), 'ge')
     ofn = 'pgescans-' + string(date) + '.tar';
-    system(sprintf('rm %s', ofn));
     system(sprintf('tar cf %s *.entry *.pge', ofn));
 end
     
