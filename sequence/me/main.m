@@ -6,9 +6,9 @@
 % 5. mb=1, Ry=1 grappa calibration scan
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
-TODO = [1 0 0 0 0 0];
-TODO = ones(1,6);
+system('rm -f *.tar *.seq *.pge *.entry');
 
+TODO = ones(1,6);
 
 %----------------------------------------------------------
 % sequence parameters
@@ -22,7 +22,7 @@ fatSat = true;
 RFspoil = true;
 nx = 80; ny = nx; nz = 44;
 voxelSize = [3 3 3] * 1e-3;   % m
-alpha = 60;
+alpha = 55;
 pf_ky = 0.85; %(nx-3*6)/nx;
 
 TR = 0.9;  %0.1*11;   % volume TR (sec)
@@ -55,6 +55,7 @@ switch lower(vendor)
         rfRasterTime = 4e-6;
         blockDurationRaster = 4e-6;
         B0 = 3;
+        segmentRingdownTime = 117e-6;
 
         psd_rf_wait = 100e-6;  % RF-gradient delay, scanner specific (s)
         psd_grd_wait = 100e-6; % ADC-gradient delay, scanner specific (s)
@@ -78,10 +79,12 @@ switch lower(vendor)
         rfRasterTime = 1e-6;
         blockDurationRaster = 10e-6;
         B0 = 2.89;
+        segmentRingdownTime = 0;
 end
 
+% slew is set to avoid forbidden EPI echo spacings for MR750 and UHP scanners
 sys = mr.opts('maxGrad', 40, 'gradUnit','mT/m', ...
-              'maxSlew', 150, 'slewUnit', 'T/m/s', ...
+              'maxSlew', 120, 'slewUnit', 'T/m/s', ...
               'rfDeadTime', 100e-6, ...
               'rfRingdownTime', 60e-6, ...
               'adcDeadTime', 0e-6, ...
@@ -100,6 +103,7 @@ opts = struct('fatSat', fatSat, ...
     'freqSign', freqSign, ...
     'fatFreqSign', fatFreqSign, ...
     'doConj', doConj, ...
+    'segmentRingdownTime', segmentRingdownTime, ...
     'doRefScan', false, ...
     'trigOut', false, ...
     'doNoiseScan', false, ...
@@ -119,8 +123,9 @@ nFrames = 1;
 % Determines readout gradient and ADC event (defined in return struct echo)
 if TODO(1)
     fn = 'fmri';
+    nFramesTmp = 4;   % since opnex is limited
     [~, echo] = writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
-        nFrames, 'SMS', pge2.utils.setfields(opts,'saveRO',true));
+        nFramesTmp, 'SMS', pge2.utils.setfields(opts,'saveRO',true));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
@@ -136,7 +141,7 @@ if TODO(2)
             'doNoiseScan', true,  ...
             'echo', echo) );
     if strcmp(lower(vendor), 'ge')
-        pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
+        pge2.seq2ge(fn, sysGE, 1, PNSwt);
         entryFileNumber = entryFileNumber + 1;
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
@@ -144,13 +149,17 @@ end
 
 % epical.seq
 %  - EPI ghost calibration
+%  - Receive gain calibration (GE)
 if TODO(3)
     fn = 'epical';
-    writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, ...
+    writeEPI(fn, sys, voxelSize, [nx ny nz], 2*TR*mb, alpha, 1, IY, IZ, ...
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo,'nDummyFrames',4));
     if strcmp(lower(vendor), 'ge')
-        pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
+        entryFileNumber = entryFileNumber + 1;
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
+        pislquant = round(length(IY)*nz/2);
+        pge2.seq2ge(fn, sysGE, pislquant, PNSwt);
     end
 end
 
@@ -158,11 +167,11 @@ end
 %  - slice GRAPPA calibration
 if TODO(4)
     fn = 'slgcal';
-    writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), ...
+    writeEPI(fn, sys, voxelSize, [nx ny nz], 2*TR*mb, alpha, 1, IY, ones(size(IZ)), ...
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',4));
     if strcmp(lower(vendor), 'ge')
-        pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
+        pge2.seq2ge(fn, sysGE, 1, PNSwt);
         entryFileNumber = entryFileNumber + 1;
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
@@ -173,11 +182,11 @@ end
 if TODO(5)
     fn = 'grappacal';
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
-    writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, ...
+    writeEPI(fn, sys, voxelSize, [nx ny nz], 2*TR*mb, alpha, 1, IYtmp, IZtmp, ...
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',4));
     if strcmp(lower(vendor), 'ge')
-        pge2.seq2ge(fn, sysGE, round(length(IYtmp)*nz/2), PNSwt);
+        pge2.seq2ge(fn, sysGE, 1, PNSwt);
         entryFileNumber = entryFileNumber + 1;
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
     end
@@ -189,6 +198,7 @@ if TODO(6)
     fn = 'b0';
     writeB0(fn, ...
         pge2.utils.setfields(sys, ...
+            'rfRingdownTime', 300e-6, ... % make room for psd_rf_wait (GE)    
             'maxSlew', sys.maxSlew*0.5, ...
             'maxGrad', sys.maxGrad*0.5), ...
         voxelSize, [nx nx nx], 4);
@@ -201,7 +211,6 @@ end
 
 if strcmp(lower(vendor), 'ge')
     ofn = 'pgescans-' + string(date) + '.tar';
-    %system(sprintf('rm %s', ofn));
     system(sprintf('tar cf %s *.entry *.pge', ofn));
 end
     
