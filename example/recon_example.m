@@ -57,7 +57,7 @@ datafile_mb1 = [F.datadir F.smscal.name];
 D = readraw(datafile_mb1, E.vendor);
 h5file_mb1 = [tmpdir 'mb1.h5'];
 hmriutils.epi.io.draw2hdf(D, etl, np*mb, h5file_mb1);
-if newCal & strcmp(E.vendor, 'Siemens')
+if newCal %& strcmp(E.vendor, 'Siemens')
 get_acs_data_2;
 else
 get_acs_data;

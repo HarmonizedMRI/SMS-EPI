@@ -57,6 +57,7 @@ arg.gySign = +1;
 arg.freqSign = +1;
 arg.fatFreqSign = -1;
 arg.doConj = false;
+
 arg.doRefScan = false;          % turn off ky and ky encoding
 arg.trigOut = false;
 arg.doNoiseScan = false;
@@ -65,7 +66,9 @@ arg.segmentRingdownTime = 0;  % segment ringdown time for Pulseq on GE
 arg.simulateSliceProfile = false;  % simulate SMS profile and display
 arg.gzPreOn = true;                % prephase along kz by -mb/2*deltak
 arg.plot = false;
-arg.echo = [];   
+arg.echo = []; 
+arg.nDummyFrames = 0; % dummy shots to reach steady-state
+arg.saveRO = false; % save odd/even readout kspace locations (kxo,kxe) in cycle/cm 
 
 fn = fieldnames(opts);
 for k = 1:numel(fn)
@@ -90,13 +93,13 @@ slThick = pge2.utils.iff(lv.is3D, 0.85*fov(3), fov(3)/lv.nz);
 dwell = 4e-6;                    % ADC sample time (s)
 
 nCyclesSpoil = 2;    % number of spoiler cycles, along x and z
+
 lv.rfSpoilingInc = pge2.utils.iff(arg.RFspoil, 117, 0);    % RF spoiling increment (degrees)
 
 rfTB = pge2.utils.iff(lv.is3D, 8, 6);   % RF pulse time-bandwidth product
 rfDur = pge2.utils.iff(lv.is3D, 4e-3, 8e-3);  % RF pulse duration (s)
 
 % --- Create fat sat pulse ---
-
 fatsat.flip    = 90;      % degrees
 fatsat.slThick = 1e5;     % dummy value (determines slice-select gradient, but we won't use it; just needs to be large to reduce dead time before+after rf pulse)
 fatsat.tbw     = 3.5;     % time-bandwidth product
@@ -216,6 +219,7 @@ else
     echo.gro_t1_t5 = arg.echo.gro_t1_t5;
     echo.gro_t1_t6 = arg.echo.gro_t1_t6;
     echo.adc = arg.echo.adc;
+    assert(blipDuration<=(echo.gro_t1_t6.shape_dur - (echo.adc.numSamples-1)*echo.adc.dwell),'Blip duration exceeds upper limit!') % make sure blips do not overlap with adc
 end
 
 % Delay blips so they play after adc stops
@@ -260,27 +264,34 @@ end
 trigOut = pge2.utils.iff(arg.trigOut, mr.makeDigitalOutputPulse('ext1', 'duration', 200e-6), []);
 
 % --- Assemble sequence ---
+
 seq = mr.Sequence(sys);           
 
 rf_phase = 0;
 rf_inc = 0;
 
-lv.yBlipsOn = ~arg.doRefScan - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
-lv.zBlipsOn = lv.yBlipsOn; 
-
-for ifr = 1:nFrames
+for ifr = (1-arg.nDummyFrames):nFrames
     fprintf('\rFrame %d of %d     ', ifr, nFrames);
+
+    % dummy shots to reach steady-state
+    lv.isDummyShot = ifr < 1;
+
+    % First frame is EPI calibration/reference scan (blips off)
+    isRefShot = ((ifr ==1) & (arg.doRefScan));
+
+    lv.yBlipsOn = ((~isRefShot)&(~lv.isDummyShot)) - eps; % trick: subtract eps to avoid scaling exactly to zero, while keeping scaling <1
+    lv.zBlipsOn = lv.yBlipsOn;
 
     % slice (partition/SMS group) loop
     for p = IP
         % Label the start of segment instance
-        seq.addBlock(mr.makeLabel('SET', 'TRID', 1));
+        seq.addBlock(mr.makeLabel('SET', 'TRID', pge2.utils.iff(lv.isDummyShot,1,2)));
 
         % add a TR: fat sat => SMS slice excitation => EPI readout)
         [seq, rf_phase, rf_inc] = sub_addEPIshot(seq, lv, echo, arg, p, rf_phase, rf_inc);
 
         % add delay to achieve requested TR
-        if ifr == 1 & p == IP(1) 
+        if (ifr==1-arg.nDummyFrames) && (p == IP(1)) 
             minTR = seq.duration + arg.segmentRingdownTime;
             if ischar(TR)
                 TR = lv.np * minTR;
@@ -293,9 +304,10 @@ for ifr = 1:nFrames
 end
 fprintf('\n');
 
+
 % If noise scan, add dummy RF pulse at end so the sequence contains at least one RF pulse
 if arg.doNoiseScan
-    seq.addBlock(mr.makeLabel('SET', 'TRID', 2));
+    seq.addBlock(mr.makeLabel('SET', 'TRID', 3));
     seq.addBlock(lv.rf, lv.gzRF, mr.makeDelay(0.1));
 end
 
@@ -319,6 +331,16 @@ end
 if arg.plot
     seq.plot('timeRange', [0 TR/lv.np], 'stacked', true);
 end
+
+% --- save odd/even readout k-space locations to mat-file for EPI ghost correction ---
+if arg.saveRO
+    [ktraj_adc,t_adc,ktraj,t_ktraj,t_excitation,t_refocusing] = seq.calculateKspacePP();
+    kxo = ktraj_adc(1, 1:echo.adc.numSamples)/100; %cycle/cm
+    kxe = ktraj_adc(1, echo.adc.numSamples+1:echo.adc.numSamples*2)/100; %cycle/cm
+    
+    save(sprintf('./kxoe%d.mat',N(1)),'kxo','kxe','-v7.3');
+end
+
 
 
 
@@ -356,12 +378,12 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, echo, arg, p, rf_phase,
 
     for e = 1:lv.etl-1
         if lv.IYlabel(e)   % readout followed by ky/kz blip
-            sq.addBlock(echo.adc, ...
+            sq.addBlock(pge2.utils.iff(lv.isDummyShot,[],echo.adc), ...
                 mr.scaleGrad(echo.gro_t1_t6, (-1)^(e+1)), ...
                 mr.scaleGrad(lv.gyBlip, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyStepMax,1)), ...
                 mr.scaleGrad(lv.gzBlip, lv.zBlipsOn*lv.kzStep(e)/max(lv.kzStepMax,1)));
         else               % readout followed by ky rewinder
-            sq.addBlock(mr.scaleGrad(echo.gro_t1_t5, (-1)^(e+1)), echo.adc);
+            sq.addBlock(mr.scaleGrad(echo.gro_t1_t5, (-1)^(e+1)), pge2.utils.iff(lv.isDummyShot,[],echo.adc));
             tmpDelay = lv.gzBlip.delay;
             lv.gzBlip.delay = 0;
             sq.addBlock(mr.scaleGrad(lv.gyRewind, arg.gySign*lv.yBlipsOn*lv.kyStep(e)/max(lv.kyRewindMax,1)), ...
@@ -371,7 +393,7 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, echo, arg, p, rf_phase,
         end
     end
 
-    sq.addBlock(mr.scaleGrad(echo.gro_t1_t5, (-1)^(lv.etl+1)), echo.adc);
+    sq.addBlock(mr.scaleGrad(echo.gro_t1_t5, (-1)^(lv.etl+1)), pge2.utils.iff(lv.isDummyShot,[],echo.adc));
 
     % finish out the TR
     if lv.is3D
@@ -381,3 +403,5 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, echo, arg, p, rf_phase,
     sq.addBlock(lv.gxSpoil, lv.gzSpoil);
 
     return
+
+

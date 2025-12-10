@@ -7,4 +7,5 @@ sub00004    umich     mr7         20241211   1         Siemens    -1.5          
 sub00004    umich     mr7         20250107   1         Siemens    -1.5            ./readout.mod
 sub00004    umich     mr1         20250131   1         Siemens    -1.5            ./readout.mod
 sub00004    umich     uhp         20250717   1         GE         -1.5            ./readout.mod
+sub00001    umich     mr750       20251201   1         GE         -1.5            ./readout.mod
 
