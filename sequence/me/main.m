@@ -6,7 +6,7 @@
 % 5. mb=1, Ry=1 grappa calibration scan
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
-system('rm *.tar *.seq *.pge *.entry');
+system('rm -f *.tar *.seq *.pge *.entry');
 
 TODO = ones(1,6);
 
