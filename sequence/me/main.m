@@ -6,6 +6,8 @@
 % 5. mb=1, Ry=1 grappa calibration scan
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
+system('rm *.tar *.seq *.pge *.entry');
+
 TODO = ones(1,6);
 
 %----------------------------------------------------------
@@ -147,6 +149,8 @@ if TODO(3)
         nFrames, 'SMS', ...
         pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo));
     if strcmp(lower(vendor), 'ge')
+        entryFileNumber = entryFileNumber + 1;
+        pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
         pislquant = round(length(IY)*nz/2);
         pge2.seq2ge(fn, sysGE, pislquant, PNSwt);
     end
