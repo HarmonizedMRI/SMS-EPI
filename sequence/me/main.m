@@ -9,6 +9,7 @@
 TODO = [1 0 0 0 0 0];
 TODO = ones(1,6);
 
+
 %----------------------------------------------------------
 % sequence parameters
 %----------------------------------------------------------
@@ -31,6 +32,7 @@ PNSwt = [0.8 1 0.7];   % PNS direction/channel weights
 mb = 4; Ry = 2; caipiShiftZ = 2;
 [IY, IZ] = getcaipi(ny, nz, Ry, mb, caipiShiftZ, '3DEPI/caipi');
 etl = 2*ceil(pf_ky*ny/Ry/2);  % echo train length for one TE 
+
 IY = IY(end-etl+1:end);
 IZ = IZ(end-etl+1:end);
 nTE = 3;   
@@ -103,6 +105,8 @@ opts = struct('fatSat', fatSat, ...
     'doNoiseScan', false, ...
     'plot', false, ...
     'simulateSliceProfile', false, ...
+    'nDummyFrames',0,...
+    'saveRO',false,...
     'echo', []);
 
 %----------------------------------------------------------
@@ -116,7 +120,7 @@ nFrames = 1;
 if TODO(1)
     fn = 'fmri';
     [~, echo] = writeEPI(fn, sys, voxelSize, [nx ny nz], TR, alpha, mb, IY, IZ, ...
-        nFrames, 'SMS', opts);
+        nFrames, 'SMS', pge2.utils.setfields(opts,'saveRO',true));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, length(IY)*nz/mb, PNSwt);
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
@@ -144,7 +148,7 @@ if TODO(3)
     fn = 'epical';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, IZ, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo));
+        pge2.utils.setfields(opts, 'doRefScan', true, 'echo', echo,'nDummyFrames',4));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
     end
@@ -156,7 +160,7 @@ if TODO(4)
     fn = 'slgcal';
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IY, ones(size(IZ)), ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'echo', echo));
+        pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',4));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IY)*nz/2), PNSwt);
         entryFileNumber = entryFileNumber + 1;
@@ -171,7 +175,7 @@ if TODO(5)
     [IYtmp, IZtmp] = getcaipi(ny, nz, 1, 1, 0, '3DEPI/caipi');
     writeEPI(fn, sys, voxelSize, [nx ny nz], TR*mb, alpha, 1, IYtmp, IZtmp, ...
         nFrames, 'SMS', ...
-        pge2.utils.setfields(opts, 'echo', echo));
+        pge2.utils.setfields(opts, 'echo', echo,'nDummyFrames',4));
     if strcmp(lower(vendor), 'ge')
         pge2.seq2ge(fn, sysGE, round(length(IYtmp)*nz/2), PNSwt);
         entryFileNumber = entryFileNumber + 1;
@@ -197,7 +201,8 @@ end
 
 if strcmp(lower(vendor), 'ge')
     ofn = 'pgescans-' + string(date) + '.tar';
-    system(sprintf('rm %s', ofn));
+    %system(sprintf('rm %s', ofn));
     system(sprintf('tar cf %s *.entry *.pge', ofn));
 end
     
+

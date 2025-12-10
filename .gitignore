@@ -14,7 +14,7 @@
 *arch/
 *.vscode/
 
-# embeded repo
+# embedded repo
 example/mirt/
 example/toppe/
 example/utils/
@@ -22,10 +22,14 @@ example/me/mirt/
 example/me/toppe/
 sequence/3DEPI/
 sequence/PulCeq/
+
 sequence/pulseq/
 sequence/toppe/
 sequence/me/3DEPI/
 sequence/me/PulCeq/
 sequence/me/pulseq/
 sequence/me/toppe/
+sequence/me/utils/
 
+# don't track local changes to session.txt
+example/sessions.txt
