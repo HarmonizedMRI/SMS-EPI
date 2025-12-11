@@ -177,8 +177,15 @@ deltak = 1./fov;
 lv.gyBlip = mr.makeTrapezoid('y', sys, 'Area', lv.kyStepMax*deltak(2));
 lv.gzBlip = mr.makeTrapezoid('z', sys, 'Area', lv.kzStepMax*deltak(3));
 
+% Get duration and area for calculating readout gradient (gro).
+% Make room for adcDeadTime (adc delay). See diagram below.
 blipDuration = max(mr.calcDuration(lv.gyBlip), mr.calcDuration(lv.gzBlip));
 maxBlipArea = max(lv.gyBlip.area, lv.gzBlip.area);
+gmax_blip = max(lv.gyBlip.amplitude, lv.gyBlip.amplitude);
+
+adcDeadTime = ceil(sys.adcDeadTime/sys.gradRasterTime) * sys.gradRasterTime;
+g_adc_start = gmax_blip + sys.maxSlew * adcDeadTime;
+area_ramp_to_start_of_adc = g_adc_start * (blipDuration/2 + adcDeadTime) / 2;
 
 % y rewinder
 lv.gyRewind = mr.makeTrapezoid('y', ...
@@ -188,30 +195,33 @@ lv.gyRewind = mr.makeTrapezoid('y', ...
 % Readout trapezoid and ADC event 
 if isempty(arg.echo)
     % Create a new readout trapezoid and associated ADC event
-    echo.gro = pge2.utils.makeTrapezoid('x', sys, 'Area', lv.nx*deltak(1) + maxBlipArea, ...
+    echo.gro = mr.makeTrapezoid('x', sys, ...
+        'Area', lv.nx*deltak(1) + 2*area_ramp_to_start_of_adc, ...
         'maxGrad', deltak(1)/dwell);  
 
-    % Circularly shift gro waveform to contain blips within each block
+    % Circularly shift gro waveform to contain blips within each block.
+    % Block boundaries at t1 and t6 (except 1st and last echo)
     %
     %   ^
-    %   |            +-------------+   gro.amplitude
+    %   |             +-----------+   gro.amplitude
+    %   |            /             \
     %   |           /               \
     %   |          /                 \
-    %   |         /                   \
-    %   |        +<------- ADC ------->+  
+    %   |         +<------ ADC ------>+  g_adc_start
+    %   |        +                     +   gmax_blip
     %   |       /                       \
     %   |      /                         \
-    %   +-----+---------------------------+--+-------> time
-    %         t0 t1 t2             t3  t4 t5 t6
+    %   +-----+--+----+-----------+----+--+--+-------> time
+    %         t0 t1   t2          t3   t4 t5 t6
+    
     [echo.gro_t0_t1, echo.gro_t1_t5] = mr.splitGradientAt(echo.gro, blipDuration/2, sys);
     echo.gro_t1_t5.delay = 0;
     echo.gro_t0_t1.delay = echo.gro_t1_t5.shape_dur;
     echo.gro_t1_t6 = mr.addGradients({echo.gro_t1_t5, mr.scaleGrad(echo.gro_t0_t1, -1)}, sys);
-    echo.gro_t1_t5.delay = 0; % This piece is necessary at the very beginning of the readout
 
-    numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(echo.gro) - blipDuration)/dwell/sys.adcSamplesDivisor);
+    numSamples = sys.adcSamplesDivisor*round((mr.calcDuration(echo.gro) - blipDuration - 2*adcDeadTime)/dwell/sys.adcSamplesDivisor);
     Tread = dwell*numSamples;
-    echo.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', 0);
+    echo.adc = mr.makeAdc(numSamples, sys, 'Duration', Tread, 'Delay', adcDeadTime);
 else
     % Use provided gradient shapes and ADC event
     echo.gro = arg.echo.gro;
@@ -335,6 +345,7 @@ end
 % --- save odd/even readout k-space locations to mat-file for EPI ghost correction ---
 if arg.saveRO
     [ktraj_adc,t_adc,ktraj,t_ktraj,t_excitation,t_refocusing] = seq.calculateKspacePP();
+
     kxo = ktraj_adc(1, 1:echo.adc.numSamples)/100; %cycle/cm
     kxe = ktraj_adc(1, echo.adc.numSamples+1:echo.adc.numSamples*2)/100; %cycle/cm
     
