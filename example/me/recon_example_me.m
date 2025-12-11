@@ -9,14 +9,14 @@
 %
 % Reconstructed images are saved in recon-complete/subject-site-scanner-date-session/
 
-rownum = 10;  % row number in sessions.txt (list of scan sessions)
+rownum = 12;  % row number in sessions.txt (list of scan sessions)
 
 auto = false;  % pause after each step before continuing
 
 doGhostCal = 1;
 getACS = 1; 
 
-newCal = 1;   % 0: before Nov 2024. 1: combines EPI cal and 2D GRAPPA ref/cal scan
+newCal = 0;   % 0: before Nov 2024. 1: combines EPI cal and 2D GRAPPA ref/cal scan
 
 reconTask = 0;
 reconRest = 1;
@@ -27,7 +27,7 @@ nRestToRecon = 1;
 get_code_and_set_paths; 
 
 % Set exam to reconstruct
-E = getexaminfo('sessions.txt', rownum)
+E = getexaminfo('../sessions.txt', rownum)
 
 % where to put intermediate files
 tmpdir = ['./tmp' num2str(rownum) '/'];
@@ -41,11 +41,14 @@ set_experimental_parameters;
 % EPI ghost calibration. Saves linear ghost correction parameters in a.mat
 % If you observe phase wraps in plots, change kspace_delay in getexaminfo.m
 if doGhostCal
+Ry=2;
+etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
+mb=4;
 datafile_ghostcal = [F.datadir F.epical.name];
 D = readraw(datafile_ghostcal, E.vendor);
 h5file_ghostcal = [tmpdir 'ghostcal.h5'];
-hmriutils.epi.io.draw2hdf(D, etl, np, h5file_ghostcal);
-get_ghost_calibration_data;  
+hmriutils.epi.io.draw2hdf(D, etl*nTE, np, h5file_ghostcal);
+get_ghost_calibration_data_me;  
 if ~auto
     input('Hit Enter to continue ');
 end
@@ -53,19 +56,39 @@ end
 
 % Get slice GRAPPA calibration data (dcal)
 if getACS
+% Ry=2;
+% etl = 2*ceil(pf_ky*ny/Ry/2)*nTE;   % echo train length. even
 datafile_mb1 = [F.datadir F.smscal.name];
 D = readraw(datafile_mb1, E.vendor);
 h5file_mb1 = [tmpdir 'mb1.h5'];
-hmriutils.epi.io.draw2hdf(D, etl, np*mb, h5file_mb1);
+hmriutils.epi.io.draw2hdf(D, etl*nTE, np*mb, h5file_mb1);
 if newCal %& strcmp(E.vendor, 'Siemens')
-get_acs_data_2;
+get_acs_data_2_me;
 else
-get_acs_data;
+get_acs_data_me;
 end
 if ~auto
     input('Hit Enter to continue ');
 end
 end
+
+% Get in-plane GRAPPA calibration data (dcalgrappa)
+getGrappaACS = 1;
+if getGrappaACS
+%Ry=2;
+% etl = 2*ceil(pf_ky*ny/Ry/2)*nTE;   % echo train length. even
+datafile_grappacal = [F.datadir F.grappacal.name];
+D = readraw(datafile_grappacal, E.vendor);
+h5file_grappacal = [tmpdir 'grappacal.h5'];
+hmriutils.epi.io.draw2hdf(D, ny, np*mb, h5file_grappacal);
+
+get_grappa_acs_data_me;
+
+if ~auto
+    input('Hit Enter to continue ');
+end
+end
+
 
 % Reconstruct fMRI task runs
 loadData = true;
@@ -90,8 +113,9 @@ if reconRest & isfield(F, 'rest')
             D = readraw([F.datadir F.rest(ii).name], E.vendor);
             hmriutils.epi.io.draw2hdf(D, etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
         end
-        nFrames = 392;
-        recon_timeseries;
+        % nFrames = 40;%392;
+        set_recon_parameters_me;
+        recon_timeseries_me;
     end
 end
 
