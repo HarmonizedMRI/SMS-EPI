@@ -20,6 +20,10 @@ if strcmp(vendor, 'GE')
         D = dir([P.datadir P.smscal.name]);
         F.smscal.name = [P.smscal.name '/' D(end).name];
     end
+    if isfield(P,'grappacal')
+        D = dir([P.datadir P.grappacal.name]);
+        F.grappacal.name = [P.grappacal.name '/' D(end).name];
+    end
     if isfield(P, 'noise')
         D = dir([P.datadir P.noise.name]);
         F.noise.name = [P.noise.name '/' D(end).name];
@@ -63,6 +67,8 @@ while ii <= length(L) & ~isempty(L{ii})
             P.noise.name = l{2};
         case '2d'
             P.smscal.name = l{2};   % 2D EPI reference scan for slice GRAPPA recon
+        case 'grappacal'
+            P.grappacal.name = l{2}; % in-plane grappa reference scan
         case 'task'
             cnt.task = cnt.task + 1;
             P.task(cnt.task).name = l{2};

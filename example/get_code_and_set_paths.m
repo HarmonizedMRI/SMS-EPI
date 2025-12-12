@@ -4,9 +4,11 @@
 %system('git clone git@github.com:pulseq/pulseq.git');
 %addpath pulseq/matlab
 
+
 addpath ./lib/
 addpath ./lib/
 %addpath ~/github/jfnielsen/scanLog/SiemensRead/   % Read Siemens .dat files
+
 addpath /home/jfnielse/Programs/orchestra-sdk-2.1-1.matlab/   % toolbox for loading GE raw files
 
 % hmriutils toolbox
