@@ -207,9 +207,18 @@ if TODO(6)
     end
 end
 
+ofn = 'meepi-' + replace(string(datetime), {':', ' '}, '-') + '.tar';
+
 if strcmp(lower(vendor), 'ge')
-    ofn = 'pgescans-' + replace(string(datetime), {':', ' '}, '-') + '.tar';
-    system(sprintf('tar cf %s *.entry *.pge', ofn));
+    if isunix
+        system(sprintf('tar --remove-files -cvf %s *.entry *.pge *.seq *.mat', ofn));
+    end
+    % TODO: windows and mac commands?
+else
+    if isunix
+        system(sprintf('tar --remove-files -cvf %s *.seq *.mat', ofn));
+    end
 end
+    
     
 
