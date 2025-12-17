@@ -6,8 +6,6 @@
 % 5. mb=1, Ry=1 grappa calibration scan
 % 6. 3D GRE B0 mapping (also usable for sensitivity maps or grappa calibration)
 
-system('rm -f *.tar *.seq *.pge *.entry');
-
 TODO = ones(1,6);
 
 %----------------------------------------------------------
@@ -210,7 +208,7 @@ if TODO(6)
 end
 
 if strcmp(lower(vendor), 'ge')
-    ofn = 'pgescans-' + string(date) + '.tar';
+    ofn = 'pgescans-' + replace(string(datetime), {':', ' '}, '-') + '.tar';
     system(sprintf('tar cf %s *.entry *.pge', ofn));
 end
     
