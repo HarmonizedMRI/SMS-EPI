@@ -158,7 +158,7 @@ if TODO(3)
     if strcmp(lower(vendor), 'ge')
         entryFileNumber = entryFileNumber + 1;
         pge2.writeentryfile(entryFileNumber, fn, 'path', pgeFilePath);
-        pislquant = round(length(IY)*nz/2);
+        pislquant = round(length(IY)*nz/8);
         pge2.seq2ge(fn, sysGE, pislquant, PNSwt);
     end
 end
