@@ -10,7 +10,7 @@
 
 % get data file names
 d = [E.subject '-' E.site '-' E.scanner '-' E.date '-' E.session '/'];
-F = getfilenames(['../sessions/' d 'pulseq/scans.txt'], E.vendor);
+F = getfilenames(['SMS-EPI/example/sessions/' d 'pulseq/scans.txt'], E.vendor);
 
 % set output (.nii file) directory
 outputdir = ['./recon-complete/' d 'pulseq/'];
@@ -25,13 +25,13 @@ readout_trajectory_file = E.readout_trajectory_file;
 % SMS-EPI acquisition parameters
 % The number of temporal frames is not set here; 
 % it is determined by the 'runs' parameter on the console
-voxelSize = [3,3,3]*1e-3;   % m
-nx = 80; ny = 80; nz = 44;        % matrix size
+voxelSize = [2,2,4]*1e-3;   % m
+nx = 104; ny = 104; nz = 44;        % matrix size
 TE = 30e-3;                       % sec
-alpha = 60;                       % flip angle (deg)
-mb = 4;                           % multiband/SMS factor
-pf_ky = 0.85;                    % partial Fourier factor
-TR = 0.9;                       % volume TR (sec)
+alpha = 90;                       % flip angle (deg)
+mb = 2;                           % multiband/SMS factor
+pf_ky = 0.75;                    % partial Fourier factor
+TR = 2.4;                       % volume TR (sec)
 nTE = 3; % number of echos
 
 %etl = round(ny*pf_ky);

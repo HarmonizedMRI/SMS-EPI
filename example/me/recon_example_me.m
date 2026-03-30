@@ -9,7 +9,7 @@
 %
 % Reconstructed images are saved in recon-complete/subject-site-scanner-date-session/
 
-rownum = 12;  % row number in sessions.txt (list of scan sessions)
+rownum = 32;  % row number in sessions.txt (list of scan sessions)
 
 auto = false;  % pause after each step before continuing
 
@@ -18,16 +18,18 @@ getACS = 1;
 
 newCal = 0;   % 0: before Nov 2024. 1: combines EPI cal and 2D GRAPPA ref/cal scan
 
-reconTask = 0;
-reconRest = 1;
+reconTask = 1;
+reconRest = 0;
 nRestToRecon = 1;
 
+Ry=2;
+mb=2;
 % set paths
 %if ~exist('pathsHaveBeenSet'
 get_code_and_set_paths; 
 
 % Set exam to reconstruct
-E = getexaminfo('../sessions.txt', rownum)
+E = getexaminfo('SMS-EPI/example/sessions.txt', rownum)
 
 % where to put intermediate files
 tmpdir = ['./tmp' num2str(rownum) '/'];
@@ -37,13 +39,13 @@ set_experimental_parameters;
 
 % B0 map
 %get_b0;
-
+%%
 % EPI ghost calibration. Saves linear ghost correction parameters in a.mat
 % If you observe phase wraps in plots, change kspace_delay in getexaminfo.m
 if doGhostCal
-Ry=2;
+%Ry=2;
 etl = 2*ceil(pf_ky*ny/Ry/2);   % echo train length. even
-mb=4;
+%mb=4;
 datafile_ghostcal = [F.datadir F.epical.name];
 D = readraw(datafile_ghostcal, E.vendor);
 h5file_ghostcal = [tmpdir 'ghostcal.h5'];
@@ -53,7 +55,7 @@ if ~auto
     input('Hit Enter to continue ');
 end
 end
-
+%%
 % Get slice GRAPPA calibration data (dcal)
 if getACS
 % Ry=2;
@@ -89,7 +91,7 @@ if ~auto
 end
 end
 
-
+%%
 % Reconstruct fMRI task runs
 loadData = true;
 if reconTask & isfield(F, 'task')
@@ -97,13 +99,14 @@ if reconTask & isfield(F, 'task')
         ifn = ['task_run' num2str(ii) '.h5'];   % do not include tmpdir path here
         if loadData
             D = readraw([F.datadir F.task(ii).name], E.vendor);
-            hmriutils.epi.io.draw2hdf(D, etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
+            hmriutils.epi.io.draw2hdf(D, nTE*etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
         end
-        nFrames = 264;
-        recon_timeseries;
+        %nFrames = 264;     % WHY IS THIS HERE????????
+        set_recon_parameters_me; % I added this maybe needed?
+        recon_timeseries_me;  % This was recon_timeseries shoulde be _me?
     end
 end
-
+%%
 % Reconstruct fMRI rest runs
 loadData = true;
 if reconRest & isfield(F, 'rest')
@@ -111,7 +114,7 @@ if reconRest & isfield(F, 'rest')
         ifn = ['rest_run' num2str(ii) '.h5'];   % do not include tmpdir path here
         if loadData
             D = readraw([F.datadir F.rest(ii).name], E.vendor);
-            hmriutils.epi.io.draw2hdf(D, etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
+            hmriutils.epi.io.draw2hdf(D, nTE*etl, np, [tmpdir ifn], 'maxFramesPerFile', 50);
         end
         % nFrames = 40;%392;
         set_recon_parameters_me;

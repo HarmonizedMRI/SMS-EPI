@@ -7,7 +7,7 @@
 %    e           struct with exam ids, see getexamids.m
 %    And a few others...
 
-% nFramesDiscard = 0;
+%nFramesDiscard = 8;
 
 % CAIPI sampling mask
 %smask = hmriutils.epi.getsamplingmask([1 3 5 1 3 5], nx, etl, mb);

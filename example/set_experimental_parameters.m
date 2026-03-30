@@ -10,7 +10,7 @@
 
 % get data file names
 d = [E.subject '-' E.site '-' E.scanner '-' E.date '-' E.session '/'];
-F = getfilenames(['./sessions/' d 'pulseq/scans.txt'], E.vendor);
+F = getfilenames(['SMS-EPI/example/sessions/' d 'pulseq/scans.txt'], E.vendor);
 
 % set output (.nii file) directory
 outputdir = ['./recon-complete/' d 'pulseq/'];

@@ -1,4 +1,4 @@
-% main SMS-EPI fMRI image reconstruction script
+% main SMS-EPI fMRI image reconstruction scriptscans
 %
 % 1. Add exam to sessions.txt
 % 2. Create the file sessions/subject-site-scanner-date-session/pulseq/scans.txt file listing Pulseq file names
@@ -9,9 +9,13 @@
 %
 % Reconstructed images are saved in recon-complete/subject-site-scanner-date-session/
 
+<<<<<<< Updated upstream
 rownum = 10;  % row number in sessions.txt (list of scan sessions)
+=======
+%rownum = 21;  % row number in sessions.txt (list of scan sessions)
+>>>>>>> Stashed changes
 
-auto = false;  % pause after each step before continuing
+auto = true;  % pause after each step before continuing
 
 doGhostCal = 1;
 getACS = 1; 

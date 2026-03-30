@@ -7,8 +7,30 @@ sub00004    umich     mr7         20241211   1         Siemens    -1.5          
 sub00004    umich     mr7         20250107   1         Siemens    -1.5            ./readout.mod
 sub00004    umich     mr1         20250131   1         Siemens    -1.5            ./readout.mod
 sub00004    umich     uhp         20250717   1         GE         -1.5            ./readout.mod
-sub00001    umich     mr750       20251201   1         GE         -1.5            ./readout.mod
-sub00001    umich     uhp         20251207   1         GE         -0.5            ./kxoe80.mat
-sub00001    umich     mr750       20251210   1         GE         -1.5            ./kxoe80.mat
-
-
+sub00005    umich     mr750       20251007   1         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   2         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   3         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   4         GE         -1.5            SMS-EPI/example/readout.mod
+sub00006    umich     mr750       20251020   1         GE         -1.5            SMS-EPI/example/readout.mod
+sub00006    umich     mr750       20251020   2         GE         -1.5            SMS-EPI/example/readout.mod
+sub00006    umich     mr750       20251020   3         GE         -1.5            SMS-EPI/example/readout.mod
+sub00006    umich     mr750       20251020   4         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   5         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   6         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   7         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   8         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   9         GE         -1.5            SMS-EPI/example/readout.mod
+sub00005    umich     mr750       20251007   10         GE         -1.5            SMS-EPI/example/readout.mod
+sub00001    umich     750MR       20251023   1         GE         -1.5            SMS-EPI/example/readout.mod
+sub00001    umich     MR7       20260210   1         Siemens         -1.5            meEPI_BS_2400/kxoe104.mat
+subPhant    umich     MR7       20260210   1         Siemens         -1.5            meEPI_BS_2400/kxoe104.mat
+subPhant    umich     MR7       20260210   1         Siemens         0            meEPI_BS_2400/kxoe104.mat
+subPhant    umich     750MR       20260302   1         GE         -1.5            meepi-02-Mar-2026-11-33-14/kxoe104.mat
+subPhant    umich     750MR       20260302   2         GE         -1.5            meepi-02-Mar-2026-11-20-02/kxoe104.mat
+subPhant    umich     750MR       20260302   2         GE         -1.5            meepi-02-Mar-2026-11-20-02/kxoe104.mat
+subPhant    umich     uhp       20260303   2         GE         -1.5            meepi-02-Mar-2026-11-20-02/kxoe104.mat
+sub0001    umich     uhp       20260305   1         GE         -.9            meepi-02-Mar-2026-11-20-02/kxoe104.mat
+subBall    umich     MR7       20260319   2         Siemens         0            ME_2.4/kxoe104.mat
+subBall    umich     MR7       20260319   1         Siemens         0            ME_1.7/kxoe104.mat
+subBall    umich     MR7       20260319   3         Siemens         0            ME_2.4/kxoe104.mat
+subBall    umich     MR7       20260319   2         Siemens         0            ME_2.4/kxoe104.mat

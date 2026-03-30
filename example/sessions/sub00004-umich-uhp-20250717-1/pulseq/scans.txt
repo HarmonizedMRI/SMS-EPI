@@ -1,4 +1,4 @@
 /home/jfnielse/data/sub00004-umich-uhp-20250717-1/Exam7498/
-cal Series15
-2d  Series14
-rest    Series16
+cal Series6
+2d  Series7
+rest    Series8

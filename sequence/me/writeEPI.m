@@ -248,7 +248,7 @@ lv.gyPre = mr.makeTrapezoid('y', ...
 lv.gzPre = mr.makeTrapezoid('z', ...
     pge2.utils.setfields(sys, 'maxSlew', sys.maxSlew*0.8), ...
     'Area', pge2.utils.iff(lv.is3D, lv.nz/2*deltak(3), (IZ(1)-mb/2-1)*deltak(3)), ...
-    'Duration', Tpre); 
+    'Duration', pge2.utils.iff(lv.is3D, Tpre, 100e-6)); 
 
 % spoilers. Reduce slew a lot.
 lv.gxSpoil = mr.makeTrapezoid('x', ...
@@ -382,7 +382,12 @@ function [sq, rf_phase, rf_inc] = sub_addEPIshot(sq, lv, echo, arg, p, rf_phase,
 
     % Readout pre-phasers
     amp = pge2.utils.iff(lv.is3D, p/(lv.nz/2)*lv.zBlipsOn*arg.gzPreOn, lv.zBlipsOn);
+    %if echo.adc.dwell==lv.gzPre.riseTime
+        %sq.addBlock(lv.gxPre, mr.scaleGrad(lv.gyPre, arg.gySign*lv.yBlipsOn));
+    %else
     sq.addBlock(lv.gxPre, mr.scaleGrad(lv.gyPre, arg.gySign*lv.yBlipsOn), mr.scaleGrad(lv.gzPre, amp));
+    %end
+    
 
     % echo train
     sq.addBlock(echo.gro_t0_t1);
