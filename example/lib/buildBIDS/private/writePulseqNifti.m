@@ -5,6 +5,7 @@ function writePulseqNifti(pulseqFilename, productFilename, outputFilename)
 %   - flipped along dimension 1;
 %   - globally scaled to maximum absolute magnitude 2^13;
 %   - converted to int16.
+%   - pixelDimensions are set to [2.4 2.4 2.4 0.8]
 %
 % The output header is based on the corresponding product NIfTI header.
 
