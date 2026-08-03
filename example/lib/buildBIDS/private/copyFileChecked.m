@@ -1,31 +1,24 @@
-function copyFileChecked(sourceFilename, destinationFilename)
-%COPYFILECHECKED Copy a file and report failures clearly.
+function copyFileChecked(sourceFilename, destinationFilename, overwrite)
 
-arguments
-    sourceFilename      (1,:) char
-    destinationFilename (1,:) char
+if nargin < 3
+    overwrite = false;
 end
 
-if ~isfile(sourceFilename)
-    error('copyFileChecked:MissingSource', ...
-        'Source file does not exist: %s', sourceFilename);
+if isfile(destinationFilename)
+    if overwrite
+        fprintf('Overwriting:\n  %s\n', destinationFilename);
+    else
+        fprintf('Skipping existing file:\n  %s\n', destinationFilename);
+        return
+    end
 end
 
 ensureDirectory(fileparts(destinationFilename));
 
-[success, message] = copyfile( ...
-    sourceFilename, ...
-    destinationFilename, ...
-    'f');
+[success,msg] = copyfile(sourceFilename,destinationFilename,'f');
 
 if ~success
-    error('copyFileChecked:CopyFailed', ...
-        'Could not copy:\n  %s\nTo:\n  %s\n%s', ...
-        sourceFilename, ...
-        destinationFilename, ...
-        message);
+    error('Could not copy:\n%s',msg);
 end
 
 fprintf('Copied:\n  %s\n', destinationFilename);
-
-end

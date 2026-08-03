@@ -1,4 +1,4 @@
-function writePulseqNifti(pulseqFilename, productFilename, outputFilename)
+function writePulseqNifti(pulseqFilename, productFilename, outputFilename, overwrite)
 %WRITEPULSEQNIFTI Apply product geometry to a Pulseq reconstruction.
 %
 % The Pulseq data are:
@@ -13,7 +13,22 @@ arguments
     pulseqFilename  (1,:) char
     productFilename (1,:) char
     outputFilename  (1,:) char
+    overwrite       (1,1) logical = false
 end
+
+if nargin < 3
+    overwrite = false;
+end
+
+if isfile(outputFilename)
+    if overwrite
+        fprintf('Overwriting:\n  %s\n', outputFilename);
+    else
+        fprintf('Skipping existing file:\n  %s\n', outputFilename);
+        return
+    end
+end
+
 
 if ~isfile(pulseqFilename)
     error('writePulseqNifti:MissingPulseqFile', ...
